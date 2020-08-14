@@ -17,6 +17,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-def get_answer():
-    """Get an answer."""
-    return True
+
+class Lammps:
+    """
+    General class for all LAMMPS related jobs like generating and running structures
+    for validation and potential refinement
+    """
+    def __init__(self):
+        """
+
+        """
+        pass

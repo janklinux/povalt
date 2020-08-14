@@ -1,2 +1,8 @@
 nose
 sphinx
+numpy
+scipy
+atomate
+fireworks
+pymatgen
+ase

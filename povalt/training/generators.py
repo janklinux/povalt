@@ -17,6 +17,46 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-def get_answer():
-    """Get an answer."""
-    return True
+
+class FccGenerator:
+    """
+    Basic class to generate FCC structures with random displacements
+    """
+    def __init__(self):
+        """
+        init
+        """
+        pass
+
+
+class BccGenerator:
+    """
+    Basic class to generate BCC structures with random displacements
+    """
+    def __init__(self):
+        """
+        init
+        """
+        pass
+
+
+class ScGenerator:
+    """
+    Basic class to generate SC structures with random displacements
+    """
+    def __init__(self):
+        """
+        init
+        """
+        pass
+
+
+class HcpGenerator:
+    """
+    Basic class to generate HCP structures with random displacements
+    """
+    def __init__(self):
+        """
+        init
+        """
+        pass
