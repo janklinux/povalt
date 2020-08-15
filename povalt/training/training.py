@@ -24,7 +24,7 @@ class TrainPotential:
     """
     Base class for training a potential from existing database entries
     """
-    def __init__(self, atoms_filename, order, compact_clusters, nb_cutoff, n_sparse, covariance_type, nb_delta,
+    def __init__(self, atoms_filename, order, compact_clusters, nb_cutoff, n_sparse, nb_covariance_type, nb_delta,
                  theta_uniform, nb_sparse_method, l_max, n_max, atom_sigma, zeta, soap_cutoff, central_weight,
                  config_type_n_sparse, soap_delta, f0, soap_covariance_type, soap_sparse_method, default_sigma,
                  config_type_sigma, energy_parameter_name, force_parameter_name, force_mask_parameter_name,
@@ -62,36 +62,35 @@ class TrainPotential:
             sparse_separate_file:
             gp_file:
         """
-        self.atoms_filename = atoms_filename
-        self.order = order
-        self.compact_clusters = compact_clusters
-        self.nb_cutoff = nb_cutoff
-        self.n_sparse = n_sparse
-        self.nb_covariance_type = covariance_type
-        self.nb_delta = nb_delta
-        self.theta_uniform = theta_uniform
-        self.nb_sparse_method = nb_sparse_method
-        self.l_max = l_max
-        self.n_max = n_max
-        self.atom_sigma = atom_sigma
-        self.zeta = zeta
-        self.soap_cutoff = soap_cutoff
-        self.central_weight = central_weight
-        self.config_type_n_sparse = config_type_n_sparse
-        self.soap_delta = soap_delta
-        self.f0 = f0
-        self.soap_covariance_type = soap_covariance_type
-        self.soap_sparse_method = soap_sparse_method
-        self.default_sigma = default_sigma
-        self.config_type_sigma = config_type_sigma
-        self.energy_parameter_name = energy_parameter_name
-        self.force_parameter_name = force_parameter_name
-        self.force_mask_parameter_name = force_mask_parameter_name
-        self.sparse_jitter = sparse_jitter
-        self.do_copy_at_file = do_copy_at_file
-        self.sparse_separate_file = sparse_separate_file
-        self.gp_file = gp_file
-
+        self.atoms_filename = str(atoms_filename)
+        self.order = str(order)
+        self.compact_clusters = str(compact_clusters)
+        self.nb_cutoff = str(nb_cutoff)
+        self.n_sparse = str(n_sparse)
+        self.nb_covariance_type = str(nb_covariance_type)
+        self.nb_delta = str(nb_delta)
+        self.theta_uniform = str(theta_uniform)
+        self.nb_sparse_method = str(nb_sparse_method)
+        self.l_max = str(l_max)
+        self.n_max = str(n_max)
+        self.atom_sigma = str(atom_sigma)
+        self.zeta = str(zeta)
+        self.soap_cutoff = str(soap_cutoff)
+        self.central_weight = str(central_weight)
+        self.config_type_n_sparse = str(config_type_n_sparse)
+        self.soap_delta = str(soap_delta)
+        self.f0 = str(f0)
+        self.soap_covariance_type = str(soap_covariance_type)
+        self.soap_sparse_method = str(soap_sparse_method)
+        self.default_sigma = str(default_sigma)
+        self.config_type_sigma = str(config_type_sigma)
+        self.energy_parameter_name = str(energy_parameter_name)
+        self.force_parameter_name = str(force_parameter_name)
+        self.force_mask_parameter_name = str(force_mask_parameter_name)
+        self.sparse_jitter = str(sparse_jitter)
+        self.do_copy_at_file = str(do_copy_at_file)
+        self.sparse_separate_file = str(sparse_separate_file)
+        self.gp_file = str(gp_file)
 
     @staticmethod
     def find_binary(binary):
@@ -111,14 +110,12 @@ class TrainPotential:
             result = None
         return result
 
-
     def train(self):
         """
         Returns: nothing, writes potential to a file
         """
 
         bin_path = self.find_binary('gap_fit')
-
         arg_string  = 'atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
             ' compact_clusters=' + self.compact_clusters + 'cutoff=' + self.nb_cutoff + ' n_sparse=' + self.n_sparse + \
             ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
@@ -134,3 +131,6 @@ class TrainPotential:
             ' force_mask_parameter_name=' + self.force_mask_parameter_name + \
             ' sparse_jitter=' + self.sparse_jitter + ' do_copy_at_file=' + self.do_copy_at_file + \
             ' sparse_separate_file=' + self.sparse_separate_file + ' gp_file=' + self.gp_file
+
+        cmd = bin_path + arg_string
+        print(cmd)
