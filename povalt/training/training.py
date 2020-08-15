@@ -153,8 +153,9 @@ class TrainPotential:
             time.sleep(30)
             if time.time() - last_check > self.err_chk_time:
                 last_check = time.time()
-                if self.found_error(serr):
+                if self.found_error(os.path.join(jobdir, 'fit_error')):
                     p.kill()
+                    raise FittingError('Error during gap_fit, check file fit_error')
 
         # close output files
         sout.close()
@@ -172,7 +173,7 @@ class TrainPotential:
             True if string in filename, False otherwise
         """
 
-        patterns = ['cannot allocate memory']
+        patterns = ['Cannot allocate memory']
 
         with open(filename, 'r') as f:
             for line in f:
@@ -187,7 +188,6 @@ class FittingError(Exception):
     """
     Error class for fitting and training errors
     """
-
     def __init__(self, msg):
         self.msg = msg
 
