@@ -93,6 +93,7 @@ class TrainPotential:
         self.do_copy_at_file = str(do_copy_at_file)
         self.sparse_separate_file = str(sparse_separate_file)
         self.gp_file = str(gp_file)
+        self.err_chk_time = 15  # check every N seconds during gap_fit
 
     @staticmethod
     def find_binary(binary):
@@ -121,7 +122,8 @@ class TrainPotential:
 
         bin_path = self.find_binary('gap_fit').strip()
         arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
-            ' compact_clusters=' + self.compact_clusters + 'cutoff=' + self.nb_cutoff + ' n_sparse=' + self.n_sparse + \
+            ' compact_clusters=' + self.compact_clusters + ' cutoff=' + self.nb_cutoff + \
+            ' n_sparse=' + self.n_sparse + \
             ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
             ' theta_uniform=' + self.theta_uniform + ' sparse_method=' + self.nb_sparse_method + ' : ' + \
             ' soap l_max=' + self.l_max + ' n_max=' + self.n_max + ' atom_sigma=' + self.atom_sigma + \
@@ -145,22 +147,49 @@ class TrainPotential:
 
         p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
 
-        err_chk_time = 15  # check every N seconds
-
         # wait for process to end, and periodically check for errors
         last_check = time.time()
         while p.poll() is None:
             time.sleep(30)
-            if time.time() - last_check > err_chk_time:
+            if time.time() - last_check > self.err_chk_time:
                 last_check = time.time()
-                # err = error_check(jobdir, os.path.join(jobdir, stdout))  # TODO: implement me
-                # if err is not None:
-                #     # FreezeErrors are fatal and usually not helped with abort_scf
-                #     if "FreezeError" in err.keys():
-                #         print("  FHI-aims seems frozen, killing job")
-                #         sys.stdout.flush()
-                #         p.kill()
+                if self.found_error(serr):
+                    p.kill()
 
         # close output files
         sout.close()
         serr.close()
+
+    @staticmethod
+    def found_error(filename):
+        """
+        Function to check for specific errors during fitting.
+
+        Args:
+            filename: filename to check for sting pattern
+
+        Returns:
+            True if string in filename, False otherwise
+        """
+
+        patterns = ['cannot allocate memory']
+
+        with open(filename, 'r') as f:
+            for line in f:
+                for pat in patterns:
+                    if pat in line:
+                        return True
+
+        return False
+
+
+class FittingError(Exception):
+    """
+    Error class for fitting and training errors
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return self.msg
