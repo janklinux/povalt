@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
+import time
 import subprocess
 
 
@@ -37,7 +39,7 @@ class TrainPotential:
             compact_clusters:
             nb_cutoff:
             n_sparse:
-            covariance_type:
+            nb_covariance_type:
             nb_delta:
             theta_uniform:
             nb_sparse_method:
@@ -108,6 +110,8 @@ class TrainPotential:
             result = subprocess.check_output(['which', str(binary)], encoding='utf8')
         except subprocess.CalledProcessError:
             result = None
+        if result is None:
+            raise FileNotFoundError('program >gap_fit< not found in path')
         return result
 
     def train(self):
@@ -115,8 +119,8 @@ class TrainPotential:
         Returns: nothing, writes potential to a file
         """
 
-        bin_path = self.find_binary('gap_fit')
-        arg_string  = 'atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
+        bin_path = self.find_binary('gap_fit').strip()
+        arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
             ' compact_clusters=' + self.compact_clusters + 'cutoff=' + self.nb_cutoff + ' n_sparse=' + self.n_sparse + \
             ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
             ' theta_uniform=' + self.theta_uniform + ' sparse_method=' + self.nb_sparse_method + ' : ' + \
@@ -133,4 +137,30 @@ class TrainPotential:
             ' sparse_separate_file=' + self.sparse_separate_file + ' gp_file=' + self.gp_file
 
         cmd = bin_path + arg_string
-        print(cmd)
+
+        jobdir = os.getcwd()
+
+        sout = open(os.path.join(jobdir, 'fit_output'), 'w')
+        serr = open(os.path.join(jobdir, 'fit_error'), 'w')
+
+        p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+
+        err_chk_time = 15  # check every N seconds
+
+        # wait for process to end, and periodically check for errors
+        last_check = time.time()
+        while p.poll() is None:
+            time.sleep(30)
+            if time.time() - last_check > err_chk_time:
+                last_check = time.time()
+                # err = error_check(jobdir, os.path.join(jobdir, stdout))  # TODO: implement me
+                # if err is not None:
+                #     # FreezeErrors are fatal and usually not helped with abort_scf
+                #     if "FreezeError" in err.keys():
+                #         print("  FHI-aims seems frozen, killing job")
+                #         sys.stdout.flush()
+                #         p.kill()
+
+        # close output files
+        sout.close()
+        serr.close()

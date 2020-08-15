@@ -12,3 +12,5 @@ tr_pot = TrainPotential(atoms_filename='complete.xyz', order=2, compact_clusters
                         force_parameter_name='forces',
                         force_mask_parameter_name='force_mask',
                         sparse_jitter=1E-8, do_copy_at_file='F', sparse_separate_file='T', gp_file='Pt_test.xml')
+
+tr_pot.train()
