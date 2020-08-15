@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from povalt.firetasks.vasp import VaspTasks
+
 
 class FccGenerator:
     """
@@ -28,6 +30,21 @@ class FccGenerator:
         """
         pass
 
+    def generate_fcc_cell(self, atom_type, ncore):
+        """
+        generates a FCC cell with the specified atom as only occupant
+        input:
+            atom_type: type of atom to put into the cell
+            ncore: VASP ncore setting
+        returns:
+            a relaxation workflow for vasp
+        """
+        metadata = {'name': 'cell generation',
+                    'task': 'relaxation',
+                    'cell': 'fcc'}
+        return VaspTasks.get_relax_wf(structure='fcc', structure_name='FCC input cell', atom_type=atom_type,
+                                      vasp_cmd='srun --nodes 1 vasp_std', ncore=ncore, metadata=metadata)
+
 
 class BccGenerator:
     """
@@ -36,6 +53,12 @@ class BccGenerator:
     def __init__(self):
         """
         init
+        """
+        pass
+
+    def generate_bcc_cell(self, atom_type):
+        """
+        generates a BCC cell with the specified atom as only occupant
         """
         pass
 
@@ -50,6 +73,12 @@ class ScGenerator:
         """
         pass
 
+    def generate_sc_cell(self, atom_type):
+        """
+        generates a SC cell with the specified atom as only occupant
+        """
+        pass
+
 
 class HcpGenerator:
     """
@@ -58,5 +87,11 @@ class HcpGenerator:
     def __init__(self):
         """
         init
+        """
+        pass
+
+    def generate_hcp_cell(self, atom_type):
+        """
+        generates a HCP cell with the specified atom as only occupant
         """
         pass

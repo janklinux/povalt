@@ -16,3 +16,121 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+
+import subprocess
+
+
+class TrainPotential:
+    """
+    Base class for training a potential from existing database entries
+    """
+    def __init__(self, atoms_filename, order, compact_clusters, nb_cutoff, n_sparse, covariance_type, nb_delta,
+                 theta_uniform, nb_sparse_method, l_max, n_max, atom_sigma, zeta, soap_cutoff, central_weight,
+                 config_type_n_sparse, soap_delta, f0, soap_covariance_type, soap_sparse_method, default_sigma,
+                 config_type_sigma, energy_parameter_name, force_parameter_name, force_mask_parameter_name,
+                 sparse_jitter, do_copy_at_file, sparse_separate_file, gp_file):
+        """
+        Set up instance with all parameters for fitting
+        Args:
+            atoms_filename:
+            order:
+            compact_clusters:
+            nb_cutoff:
+            n_sparse:
+            covariance_type:
+            nb_delta:
+            theta_uniform:
+            nb_sparse_method:
+            l_max:
+            n_max:
+            atom_sigma:
+            zeta:
+            soap_cutoff:
+            central_weight:
+            config_type_n_sparse:
+            soap_delta:
+            f0:
+            soap_covariance_type:
+            soap_sparse_method:
+            default_sigma:
+            config_type_sigma:
+            energy_parameter_name:
+            force_parameter_name:
+            force_mask_parameter_name:
+            sparse_jitter:
+            do_copy_at_file:
+            sparse_separate_file:
+            gp_file:
+        """
+        self.atoms_filename = atoms_filename
+        self.order = order
+        self.compact_clusters = compact_clusters
+        self.nb_cutoff = nb_cutoff
+        self.n_sparse = n_sparse
+        self.nb_covariance_type = covariance_type
+        self.nb_delta = nb_delta
+        self.theta_uniform = theta_uniform
+        self.nb_sparse_method = nb_sparse_method
+        self.l_max = l_max
+        self.n_max = n_max
+        self.atom_sigma = atom_sigma
+        self.zeta = zeta
+        self.soap_cutoff = soap_cutoff
+        self.central_weight = central_weight
+        self.config_type_n_sparse = config_type_n_sparse
+        self.soap_delta = soap_delta
+        self.f0 = f0
+        self.soap_covariance_type = soap_covariance_type
+        self.soap_sparse_method = soap_sparse_method
+        self.default_sigma = default_sigma
+        self.config_type_sigma = config_type_sigma
+        self.energy_parameter_name = energy_parameter_name
+        self.force_parameter_name = force_parameter_name
+        self.force_mask_parameter_name = force_mask_parameter_name
+        self.sparse_jitter = sparse_jitter
+        self.do_copy_at_file = do_copy_at_file
+        self.sparse_separate_file = sparse_separate_file
+        self.gp_file = gp_file
+
+
+    @staticmethod
+    def find_binary(binary):
+        """
+        Finds an executable in bash shells
+
+        Args:
+            binary: name of the binary
+
+        Returns:
+            full path of the binary if it exists, None otherwise
+        """
+
+        try:
+            result = subprocess.check_output(['which', str(binary)], encoding='utf8')
+        except subprocess.CalledProcessError:
+            result = None
+        return result
+
+
+    def train(self):
+        """
+        Returns: nothing, writes potential to a file
+        """
+
+        bin_path = self.find_binary('gap_fit')
+
+        arg_string  = 'atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
+            ' compact_clusters=' + self.compact_clusters + 'cutoff=' + self.nb_cutoff + ' n_sparse=' + self.n_sparse + \
+            ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
+            ' theta_uniform=' + self.theta_uniform + ' sparse_method=' + self.nb_sparse_method + ' : ' + \
+            ' soap l_max=' + self.l_max + ' n_max=' + self.n_max + ' atom_sigma=' + self.atom_sigma + \
+            ' zeta=' + self.zeta + ' cutoff=' + self.soap_cutoff + ' central_weight=' + self.central_weight + \
+            ' config_type_n_sparse=' + self.config_type_n_sparse + ' delta=' + self.soap_delta + \
+            ' f0=' + self.f0 + ' covariance_type=' + self.soap_covariance_type + \
+            ' sparse_method=' + self.soap_sparse_method + ' } ' + \
+            ' default_sigma=' + self.default_sigma + ' config_type_sigma=' + self.config_type_sigma + \
+            ' energy_parameter_name=' + self.energy_parameter_name + \
+            ' force_parameter_name=' + self.force_parameter_name + \
+            ' force_mask_parameter_name=' + self.force_mask_parameter_name + \
+            ' sparse_jitter=' + self.sparse_jitter + ' do_copy_at_file=' + self.do_copy_at_file + \
+            ' sparse_separate_file=' + self.sparse_separate_file + ' gp_file=' + self.gp_file
