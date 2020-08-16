@@ -123,8 +123,7 @@ class TrainPotential:
         bin_path = self.find_binary('gap_fit').strip()
         arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
             ' compact_clusters=' + self.compact_clusters + ' cutoff=' + self.nb_cutoff + \
-            ' n_sparse=' + self.n_sparse + \
-            ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
+            ' n_sparse=' + self.n_sparse + ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
             ' theta_uniform=' + self.theta_uniform + ' sparse_method=' + self.nb_sparse_method + ' : ' + \
             ' soap l_max=' + self.l_max + ' n_max=' + self.n_max + ' atom_sigma=' + self.atom_sigma + \
             ' zeta=' + self.zeta + ' cutoff=' + self.soap_cutoff + ' central_weight=' + self.central_weight + \
