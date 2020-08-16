@@ -1,4 +1,14 @@
+from ase import atoms
+from ase.io import read
+from pymatgen import Structure
 from povalt.training.training import TrainPotential
+from povalt.lammps.lammps import Lammps
+
+t = read('/home/jank/work/test/vasp/bcc.vasp')
+s = Structure.from_file('/home/jank/work/test/vasp/bcc.vasp')
+lmp = Lammps(s)
+
+quit()
 
 tr_pot = TrainPotential(atoms_filename='complete.xyz', order=2, compact_clusters='T', nb_cutoff=5.0, n_sparse=20,
                         nb_covariance_type='ard_se', nb_delta=0.5, theta_uniform=1.0, nb_sparse_method='uniform',
