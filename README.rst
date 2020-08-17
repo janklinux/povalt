@@ -1,10 +1,11 @@
-Sample Module Repository
+PoValT Repository
 ========================
 
-This simple project is an example repo for Python projects.
+This project aims to provide a complete suite for
+generating training data and training and validating
+GAP potentials for use in LAMMPS.
 
-`Learn more <http://www.kennethreitz.org/essays/repository-structure-and-python>`_.
+------------------------
 
----------------
-
-If you want to learn more about ``setup.py`` files, check out `this repository <https://github.com/kennethreitz/setup.py>`_.
+It is currently in a development stage for testing
+purposes only and is not meant for any production.

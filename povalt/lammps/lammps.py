@@ -68,26 +68,30 @@ class Lammps:
             for line in lammps_settings:
                 f.write(line)
 
-    def run(self, mpi_cmd, mpi_procs, binary, omp_threads, cmd_params, input_filename, output_filename):
+    def run(self, binary, omp_threads, cmd_params, input_filename, output_filename, mpi_cmd=None, mpi_procs=None):
         """
         Run LAMMPS to read input and write output
         Args:
-            mpi_cmd: mpirun / srun command
-            mpi_procs: number of processors to run on
             binary: specific LAMMPS binary to use
             omp_threads: number of openmpi threads to use
             cmd_params: command line arguments for LAMMPS
             input_filename: file that contains the input settings
             output_filename: file name to write std to
+            mpi_cmd: mpirun / srun command, optional
+            mpi_procs: number of processors to run on, only required if mpi_cmd is set
 
         Returns:
             nothing, writes stdout and stderr to files
         """
 
-        bin_path = find_binary(binary).strip()
-        cmd = 'export OMP_NUM_THREADS=' + str(omp_threads) + '; ' + \
-              str(mpi_cmd) + ' -n ' + str(mpi_procs) + ' ' \
-              + bin_path + str(' -i ') + str(input_filename) + ' ' + str(cmd_params)
+        cmd = 'export OMP_NUM_THREADS=' + str(omp_threads) + '; '
+
+        if mpi_cmd is not None:
+            if mpi_procs is None:
+                raise ValueError('Running in MPI you have to define mpi_procs')
+            cmd = str(find_binary(mpi_cmd)) + ' -n ' + str(mpi_procs) + ' '
+
+        cmd += find_binary(binary).strip() + str(' -i ') + str(input_filename) + ' ' + str(cmd_params)
 
         jobdir = os.getcwd()
 
@@ -106,7 +110,6 @@ class Lammps:
                     p.kill()
                     raise LammpsError('Error during LAMMPS, check file fit_error')
 
-        # close output files
         sout.close()
         serr.close()
 
