@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import time
 import subprocess
+from povalt.helpers import find_binary
 
 
 class TrainPotential:
@@ -95,32 +96,12 @@ class TrainPotential:
         self.gp_file = str(gp_file)
         self.err_chk_time = 15  # check every N seconds during gap_fit
 
-    @staticmethod
-    def find_binary(binary):
-        """
-        Finds an executable in bash shells
-
-        Args:
-            binary: name of the binary
-
-        Returns:
-            full path of the binary if it exists, None otherwise
-        """
-
-        try:
-            result = subprocess.check_output(['which', str(binary)], encoding='utf8')
-        except subprocess.CalledProcessError:
-            result = None
-        if result is None:
-            raise FileNotFoundError('program >gap_fit< not found in path')
-        return result
-
     def train(self):
         """
         Returns: nothing, writes potential to a file
         """
 
-        bin_path = self.find_binary('gap_fit').strip()
+        bin_path = find_binary('gap_fit').strip()
         arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
             ' compact_clusters=' + self.compact_clusters + ' cutoff=' + self.nb_cutoff + \
             ' n_sparse=' + self.n_sparse + ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
@@ -146,7 +127,7 @@ class TrainPotential:
 
         p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
 
-        # wait for process to end, and periodically check for errors
+        # wait for process to end and periodically check for errors
         last_check = time.time()
         while p.poll() is None:
             time.sleep(30)
@@ -166,7 +147,7 @@ class TrainPotential:
         Function to check for specific errors during fitting.
 
         Args:
-            filename: filename to check for sting pattern
+            filename: filename to check for string pattern
 
         Returns:
             True if string in filename, False otherwise
