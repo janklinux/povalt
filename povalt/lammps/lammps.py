@@ -40,7 +40,7 @@ class Lammps:
             structure: the structure object we deal with
         """
 
-        self.err_chk_time = 60  # interval to check for errors
+        self.err_chk_time = 60  # interval to check for errors (seconds)
 
         if isinstance(structure, Structure):
             file = tempfile.mkstemp()[1]
@@ -66,16 +66,15 @@ class Lammps:
         write_lammps_data(fileobj=atoms_file, atoms=self.structure, units=units)
         with open('lammps.in', 'w') as f:
             for line in lammps_settings:
-                f.write(line)
+                f.write(line.strip() + '\n')
 
-    def run(self, binary, omp_threads, cmd_params, input_filename, output_filename, mpi_cmd=None, mpi_procs=None):
+    def run(self, binary, omp_threads, cmd_params, output_filename, mpi_cmd=None, mpi_procs=None):
         """
         Run LAMMPS to read input and write output
         Args:
             binary: specific LAMMPS binary to use
             omp_threads: number of openmpi threads to use
             cmd_params: command line arguments for LAMMPS
-            input_filename: file that contains the input settings
             output_filename: file name to write std to
             mpi_cmd: mpirun / srun command, optional
             mpi_procs: number of processors to run on, only required if mpi_cmd is set
@@ -91,7 +90,7 @@ class Lammps:
                 raise ValueError('Running in MPI you have to define mpi_procs')
             cmd = str(find_binary(mpi_cmd)) + ' -n ' + str(mpi_procs) + ' '
 
-        cmd += find_binary(binary).strip() + str(' -i ') + str(input_filename) + ' ' + str(cmd_params)
+        cmd += find_binary(binary).strip() + str(' -in lammps.in ') + str(cmd_params)
 
         jobdir = os.getcwd()
 
@@ -103,12 +102,15 @@ class Lammps:
         # wait for process to end and periodically check for errors
         last_check = time.time()
         while p.poll() is None:
-            time.sleep(30)
+            print('sleeping')
+            time.sleep(15)
             if time.time() - last_check > self.err_chk_time:
                 last_check = time.time()
-                if self.found_error(os.path.join(jobdir, 'lammps_error')):   # TODO: implement me
+                print('check')
+                if self.found_error(os.path.join(jobdir, output_filename)):
+                    print('kill')
                     p.kill()
-                    raise LammpsError('Error during LAMMPS, check file fit_error')
+                    raise LammpsError('Error during LAMMPS, check file lammps_error and {}'.format(output_filename))
 
         sout.close()
         serr.close()
@@ -125,7 +127,7 @@ class Lammps:
             True if string in filename, False otherwise
         """
 
-        patterns = ['Cannot allocate memory']
+        patterns = ['Cannot open input script']
 
         with open(filename, 'r') as f:
             for line in f:

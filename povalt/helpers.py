@@ -36,5 +36,5 @@ def find_binary(binary):
     except subprocess.CalledProcessError:
         result = None
     if result is None:
-        raise FileNotFoundError('program >gap_fit< not found in path')
+        raise FileNotFoundError('program >{}< not found in path'.format(binary))
     return result

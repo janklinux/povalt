@@ -12,12 +12,14 @@ lammps_settings = ['variable x index 1', 'variable y index 1', 'variable z index
                    'run $t',
                    'dump step all xyz 100 dump']
 
-pt_bulk = read('/home/jank/work/test/vasp/bcc.vasp')
+pt_bulk = read('../POSCAR')
 
 lmp = Lammps(pt_bulk)
 
 lmp.write_md(atoms_file='atom.pos', lammps_settings=lammps_settings, units='metal')
 
+lmp.run(binary='lmp', omp_threads=1, cmd_params='-k on t 1 -sf kk', output_filename='LOG',
+        mpi_cmd='mpirun', mpi_procs=2)
 
 quit()
 
