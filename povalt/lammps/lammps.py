@@ -102,13 +102,10 @@ class Lammps:
         # wait for process to end and periodically check for errors
         last_check = time.time()
         while p.poll() is None:
-            print('sleeping')
-            time.sleep(15)
+            time.sleep(3)
             if time.time() - last_check > self.err_chk_time:
                 last_check = time.time()
-                print('check')
                 if self.found_error(os.path.join(jobdir, output_filename)):
-                    print('kill')
                     p.kill()
                     raise LammpsError('Error during LAMMPS, check file lammps_error and {}'.format(output_filename))
 
