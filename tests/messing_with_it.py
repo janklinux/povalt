@@ -1,12 +1,23 @@
-from ase import atoms
 from ase.io import read
-from pymatgen import Structure
 from povalt.training.training import TrainPotential
 from povalt.lammps.lammps import Lammps
 
-t = read('/home/jank/work/test/vasp/bcc.vasp')
-s = Structure.from_file('/home/jank/work/test/vasp/bcc.vasp')
-lmp = Lammps(s)
+lammps_settings = ['variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 10000',
+                   'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
+                   'pair_style quip',
+                   'pair_coeff * *  Pt_test.xml "Potential xml_label=GAP_2020_7_15_180_16_46_11_95" 78',
+                   '# kspace_style    pppm/gpu 1e-5',
+                   'neighbor 2.0 bin', 'termo 100', 'timestep 0.001',
+                   'fix 1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0',
+                   'run $t',
+                   'dump step all xyz 100 dump']
+
+pt_bulk = read('/home/jank/work/test/vasp/bcc.vasp')
+
+lmp = Lammps(pt_bulk)
+
+lmp.write_md(atoms_file='atom.pos', lammps_settings=lammps_settings, units='metal')
+
 
 quit()
 

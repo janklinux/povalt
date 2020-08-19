@@ -51,11 +51,11 @@ class Lammps:
         else:
             raise ValueError('Structure object has to be pymatgen structure or ase atoms object')
 
-    def write_md(self, output_file, lammps_settings, units):
+    def write_md(self, atoms_file, lammps_settings, units):
         """
         Writes LAMMPS input files to run MD
         Args:
-            output_file: file to write to
+            atoms_file: file to write to
             lammps_settings: settings string to write as lammps input
             units: lammps units to use
 
@@ -63,7 +63,7 @@ class Lammps:
             nothing, writes content to files
         """
 
-        write_lammps_data(fileobj=output_file, atoms=self.structure, units=units)
+        write_lammps_data(fileobj=atoms_file, atoms=self.structure, units=units)
         with open('lammps.in', 'w') as f:
             for line in lammps_settings:
                 f.write(line)
