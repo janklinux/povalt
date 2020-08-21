@@ -17,7 +17,26 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
 import subprocess
+
+
+def remove_residual_files(work_dir):
+    """
+    Removes all files that are named like the ones we will generate during the procedure
+    for training, LAMMPS MD and validation
+    Args:
+        work_dir:
+
+    Returns:
+        nothing
+    """
+
+    file_list = ['final_positions.atom', 'fit_output', 'fit_error', 'geo.in',
+                 'lammps_error', 'lammps.in', 'LOG', 'log.lammps']
+    for file in os.listdir(work_dir):
+        if file in file_list:
+            os.unlink(file)
 
 
 def find_binary(binary):

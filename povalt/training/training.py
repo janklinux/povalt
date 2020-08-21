@@ -94,12 +94,30 @@ class TrainPotential:
         self.do_copy_at_file = str(do_copy_at_file)
         self.sparse_separate_file = str(sparse_separate_file)
         self.gp_file = str(gp_file)
-        self.err_chk_time = 15  # check every N seconds during gap_fit
+        self.err_chk_time = 5  # check every N seconds during gap_fit
 
-    def train(self):
+    def train(self, mpi_cmd=None, mpi_procs=None, omp_threads=None):
         """
-        Returns: nothing, writes potential to a file
+        Returns: file name head to be passed on to LAMMPS
         """
+
+        jobdir = os.getcwd()
+
+        for file in os.listdir(jobdir):
+            if file.startswith(self.gp_file):
+                os.unlink(file)
+
+        if omp_threads is not None:
+            os.environ['OMP_NUM_THREADS'] = str(omp_threads)
+        else:
+            os.environ['OMP_NUM_THREADS'] = str(1)
+
+        if mpi_cmd is not None:
+            if mpi_procs is None:
+                raise ValueError('Running in MPI you have to define mpi_procs to run on')
+            cmd = find_binary(mpi_cmd).strip() + ' -n {} '.format(mpi_procs)
+        else:
+            cmd = ''
 
         bin_path = find_binary('gap_fit').strip()
         arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
@@ -118,9 +136,7 @@ class TrainPotential:
             ' sparse_jitter=' + self.sparse_jitter + ' do_copy_at_file=' + self.do_copy_at_file + \
             ' sparse_separate_file=' + self.sparse_separate_file + ' gp_file=' + self.gp_file
 
-        cmd = bin_path + arg_string
-
-        jobdir = os.getcwd()
+        cmd += bin_path + arg_string
 
         sout = open(os.path.join(jobdir, 'fit_output'), 'w')
         serr = open(os.path.join(jobdir, 'fit_error'), 'w')
@@ -130,7 +146,7 @@ class TrainPotential:
         # wait for process to end and periodically check for errors
         last_check = time.time()
         while p.poll() is None:
-            time.sleep(30)
+            time.sleep(5)
             if time.time() - last_check > self.err_chk_time:
                 last_check = time.time()
                 if self.found_error(os.path.join(jobdir, 'fit_error')):
@@ -140,6 +156,11 @@ class TrainPotential:
         # close output files
         sout.close()
         serr.close()
+
+        for file in os.listdir(jobdir):
+            if file.startswith(self.gp_file):
+                if len(file.split('.')) > 1:
+                    return file.split('.')[3][:-1]
 
     @staticmethod
     def found_error(filename):
@@ -153,7 +174,7 @@ class TrainPotential:
             True if string in filename, False otherwise
         """
 
-        patterns = ['Cannot allocate memory']
+        patterns = ['Cannot allocate memory', 'SYSTEM ABORT:']
 
         with open(filename, 'r') as f:
             for line in f:

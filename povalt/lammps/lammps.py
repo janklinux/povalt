@@ -68,7 +68,7 @@ class Lammps:
             for line in lammps_settings:
                 f.write(line.strip() + '\n')
 
-    def run(self, binary, omp_threads, cmd_params, output_filename, mpi_cmd=None, mpi_procs=None):
+    def run(self, binary, cmd_params, output_filename, mpi_cmd=None, mpi_procs=None):
         """
         Run LAMMPS to read input and write output
         Args:
@@ -83,12 +83,14 @@ class Lammps:
             nothing, writes stdout and stderr to files
         """
 
-        cmd = 'export OMP_NUM_THREADS=' + str(omp_threads) + '; '
+        os.environ['OMP_NUM_THREADS'] = str(1)
 
         if mpi_cmd is not None:
             if mpi_procs is None:
                 raise ValueError('Running in MPI you have to define mpi_procs')
-            cmd = str(find_binary(mpi_cmd)) + ' -n ' + str(mpi_procs) + ' '
+            cmd = str(find_binary(mpi_cmd).strip()) + ' -n ' + str(mpi_procs) + ' '
+        else:
+            cmd = ''
 
         cmd += find_binary(binary).strip() + str(' -in lammps.in ') + str(cmd_params)
 
