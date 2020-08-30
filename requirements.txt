@@ -3,6 +3,7 @@ sphinx
 numpy
 scipy
 atomate
+custodian
 fireworks
 pymatgen
 ase

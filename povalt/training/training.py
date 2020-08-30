@@ -17,180 +17,43 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import os
-import time
 import subprocess
-from povalt.helpers import find_binary
+from custodian.custodian import Job
 
 
-class TrainPotential:
+class TrainJob(Job):
     """
-    Base class for training a potential from existing database entries
+    Training Job for the potential
     """
-    def __init__(self, atoms_filename, order, compact_clusters, nb_cutoff, n_sparse, nb_covariance_type, nb_delta,
-                 theta_uniform, nb_sparse_method, l_max, n_max, atom_sigma, zeta, soap_cutoff, central_weight,
-                 config_type_n_sparse, soap_delta, f0, soap_covariance_type, soap_sparse_method, default_sigma,
-                 config_type_sigma, energy_parameter_name, force_parameter_name, force_mask_parameter_name,
-                 sparse_jitter, do_copy_at_file, sparse_separate_file, gp_file):
+    def __init__(self, all_params):
         """
-        Set up instance with all parameters for fitting
-        Args:
-            atoms_filename:
-            order:
-            compact_clusters:
-            nb_cutoff:
-            n_sparse:
-            nb_covariance_type:
-            nb_delta:
-            theta_uniform:
-            nb_sparse_method:
-            l_max:
-            n_max:
-            atom_sigma:
-            zeta:
-            soap_cutoff:
-            central_weight:
-            config_type_n_sparse:
-            soap_delta:
-            f0:
-            soap_covariance_type:
-            soap_sparse_method:
-            default_sigma:
-            config_type_sigma:
-            energy_parameter_name:
-            force_parameter_name:
-            force_mask_parameter_name:
-            sparse_jitter:
-            do_copy_at_file:
-            sparse_separate_file:
-            gp_file:
-        """
-        self.atoms_filename = str(atoms_filename)
-        self.order = str(order)
-        self.compact_clusters = str(compact_clusters)
-        self.nb_cutoff = str(nb_cutoff)
-        self.n_sparse = str(n_sparse)
-        self.nb_covariance_type = str(nb_covariance_type)
-        self.nb_delta = str(nb_delta)
-        self.theta_uniform = str(theta_uniform)
-        self.nb_sparse_method = str(nb_sparse_method)
-        self.l_max = str(l_max)
-        self.n_max = str(n_max)
-        self.atom_sigma = str(atom_sigma)
-        self.zeta = str(zeta)
-        self.soap_cutoff = str(soap_cutoff)
-        self.central_weight = str(central_weight)
-        self.config_type_n_sparse = str(config_type_n_sparse)
-        self.soap_delta = str(soap_delta)
-        self.f0 = str(f0)
-        self.soap_covariance_type = str(soap_covariance_type)
-        self.soap_sparse_method = str(soap_sparse_method)
-        self.default_sigma = str(default_sigma)
-        self.config_type_sigma = str(config_type_sigma)
-        self.energy_parameter_name = str(energy_parameter_name)
-        self.force_parameter_name = str(force_parameter_name)
-        self.force_mask_parameter_name = str(force_mask_parameter_name)
-        self.sparse_jitter = str(sparse_jitter)
-        self.do_copy_at_file = str(do_copy_at_file)
-        self.sparse_separate_file = str(sparse_separate_file)
-        self.gp_file = str(gp_file)
-        self.err_chk_time = 5  # check every N seconds during gap_fit
-
-    def train(self, mpi_cmd=None, mpi_procs=None, omp_threads=None):
-        """
-        Returns: file name head to be passed on to LAMMPS
-        """
-
-        jobdir = os.getcwd()
-
-        for file in os.listdir(jobdir):
-            if file.startswith(self.gp_file):
-                os.unlink(file)
-
-        if omp_threads is not None:
-            os.environ['OMP_NUM_THREADS'] = str(omp_threads)
-        else:
-            os.environ['OMP_NUM_THREADS'] = str(1)
-
-        if mpi_cmd is not None:
-            if mpi_procs is None:
-                raise ValueError('Running in MPI you have to define mpi_procs to run on')
-            cmd = find_binary(mpi_cmd).strip() + ' -n {} '.format(mpi_procs)
-        else:
-            cmd = ''
-
-        bin_path = find_binary('gap_fit').strip()
-        arg_string = ' atoms_filename=' + self.atoms_filename + ' gap = { distance_Nb order=' + self.order + \
-            ' compact_clusters=' + self.compact_clusters + ' cutoff=' + self.nb_cutoff + \
-            ' n_sparse=' + self.n_sparse + ' covariance_type=' + self.nb_covariance_type + ' delta=' + self.nb_delta + \
-            ' theta_uniform=' + self.theta_uniform + ' sparse_method=' + self.nb_sparse_method + ' : ' + \
-            ' soap l_max=' + self.l_max + ' n_max=' + self.n_max + ' atom_sigma=' + self.atom_sigma + \
-            ' zeta=' + self.zeta + ' cutoff=' + self.soap_cutoff + ' central_weight=' + self.central_weight + \
-            ' config_type_n_sparse=' + self.config_type_n_sparse + ' delta=' + self.soap_delta + \
-            ' f0=' + self.f0 + ' covariance_type=' + self.soap_covariance_type + \
-            ' sparse_method=' + self.soap_sparse_method + ' } ' + \
-            ' default_sigma=' + self.default_sigma + ' config_type_sigma=' + self.config_type_sigma + \
-            ' energy_parameter_name=' + self.energy_parameter_name + \
-            ' force_parameter_name=' + self.force_parameter_name + \
-            ' force_mask_parameter_name=' + self.force_mask_parameter_name + \
-            ' sparse_jitter=' + self.sparse_jitter + ' do_copy_at_file=' + self.do_copy_at_file + \
-            ' sparse_separate_file=' + self.sparse_separate_file + ' gp_file=' + self.gp_file
-
-        cmd += bin_path + arg_string
-
-        sout = open(os.path.join(jobdir, 'fit_output'), 'w')
-        serr = open(os.path.join(jobdir, 'fit_error'), 'w')
-
-        p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
-
-        # wait for process to end and periodically check for errors
-        last_check = time.time()
-        while p.poll() is None:
-            time.sleep(5)
-            if time.time() - last_check > self.err_chk_time:
-                last_check = time.time()
-                if self.found_error(os.path.join(jobdir, 'fit_error')):
-                    p.kill()
-                    raise FittingError('Error during gap_fit, check file fit_error')
-
-        # close output files
-        sout.close()
-        serr.close()
-
-        for file in os.listdir(jobdir):
-            if file.startswith(self.gp_file):
-                if len(file.split('.')) > 1:
-                    return file.split('.')[3][:-1]
-
-    @staticmethod
-    def found_error(filename):
-        """
-        Function to check for specific errors during fitting.
+        Class init
 
         Args:
-            filename: filename to check for string pattern
+            all_params: all parameters
+        """
+
+        self.all_params = all_params
+
+    def setup(self):
+        pass
+
+    def run(self):
+        """
+        Runs the training routine
 
         Returns:
-            True if string in filename, False otherwise
+
         """
+        print(self.all_params)
+        cmd = 'ls -al'
+        try:
+            with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
+                subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+        except FileNotFoundError:
+            raise FileNotFoundError('fille not funde')
+        finally:
+            print('I ran it all the way')
 
-        patterns = ['Cannot allocate memory', 'SYSTEM ABORT:']
-
-        with open(filename, 'r') as f:
-            for line in f:
-                for pat in patterns:
-                    if pat in line:
-                        return True
-
-        return False
-
-
-class FittingError(Exception):
-    """
-    Error class for fitting and training errors
-    """
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return self.msg
+    def postprocess(self):
+        pass

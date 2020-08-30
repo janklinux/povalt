@@ -27,7 +27,7 @@ if train_pot:
                             force_mask_parameter_name='force_mask',
                             sparse_jitter=1E-8, do_copy_at_file='F', sparse_separate_file='T', gp_file='Pt_test.xml')
 
-    pot_base_name = tr_pot.train(mpi_cmd=None, mpi_procs=None, omp_threads=6)
+    tr_pot.run_task()
 else:
     pot_base_name = 'GAP_2020_8_20_180_12_8_35_224'
 
