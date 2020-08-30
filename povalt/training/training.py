@@ -62,7 +62,35 @@ class TrainJob(Job):
         else:
             cmd = ''
 
-        arg_list =
+        arg_list = 'atoms_filename=' + self.train_params['atoms_filename'] + \
+                   ' order=' + self.train_params['nb_order'] + \
+                   ' compact_clusters=' + self.train_params['compact_clusters'] + \
+                   ' nb_cutoff=' + self.train_params['nb_cutoff'] + \
+                   ' n_sparse=' + self.train_params['n_sparse'] + \
+                   ' nb_covariance_type=' + self.train_params['nb_covariance_type'] + \
+                   ' nb_delta=' + self.train_params['nb_delta'] + \
+                   ' theta_uniform=' + self.train_params['theta_uniform'] + \
+                   ' nb_sparse_method=' + self.train_params['nb_sparse_method'] + \
+                   ' l_max=' + self.train_params['l_max'] + \
+                   ' n_max=' + self.train_params['n_max'] + \
+                   ' atom_sigma=' + self.train_params['atom_sigma'] + \
+                   ' zeta=' + self.train_params['zeta'] + \
+                   ' soap_cutoff=' + self.train_params['soap_cutoff'] + \
+                   ' central_weight=' + self.train_params['central_weight'] + \
+                   ' config_type_n_sparse=' + self.train_params['config_type_n_sparse'] + \
+                   ' soap_delta=' + self.train_params['soap_delta'] + \
+                   ' f0=' + self.train_params['f0'] + \
+                   ' soap_covariance_type=' + self.train_params['soap_covariance_type'] + \
+                   ' soap_sparse_method=' + self.train_params['soap_sparse_method'] + \
+                   ' default_sigma=' + self.train_params['default_sigma'] + \
+                   ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
+                   ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
+                   ' force_parameter_name=' + self.train_params['force_parameter_name'] + \
+                   ' force_mask_parameter_name=' + self.train_params['force_mask_parameter_name'] + \
+                   ' sparse_jitter=' + self.train_params['sparse_jitter'] + \
+                   ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
+                   ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
+                   ' gp_file=' + self.train_params['gp_file']
 
         cmd += find_binary(self.train_params['gap_cmd']).strip()
 
