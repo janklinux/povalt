@@ -80,11 +80,11 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
-    required_params = ['my_params']
-    optional_params = ['others']
+    required_params = ['train_params']
+    optional_params = []
 
     def get_job(self):
-        return TrainJob(all_params=['this be', 'alist'])
+        return TrainJob(train_params=self['train_params'])
 
     def get_validators(self):
         pass

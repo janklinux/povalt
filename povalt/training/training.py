@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
 import subprocess
+from povalt.helpers import find_binary
 from custodian.custodian import Job
 
 
@@ -25,15 +27,15 @@ class TrainJob(Job):
     """
     Training Job for the potential
     """
-    def __init__(self, all_params):
+    def __init__(self, train_params):
         """
         Class init
 
         Args:
-            all_params: all parameters
+            train_params: all parameters
         """
 
-        self.all_params = all_params
+        self.train_params = train_params
 
     def setup(self):
         pass
@@ -45,8 +47,26 @@ class TrainJob(Job):
         Returns:
 
         """
-        print(self.all_params)
-        cmd = 'ls -al'
+        print(self.train_params)
+
+        if int(self.train_params['omp_threads']) > 1:
+            os.environ['OMP_NUM_THREADS'] = int(self.train_params['omp_threads'])
+        else:
+            os.environ['OMP_NUM_THREADS'] = int(1)
+
+        if self.train_params['mpi_cmd'] is not None:
+            if self.train_params['mpi_procs'] is None:
+               raise ValueError('Running MPI you have to set mpi_procs')
+            cmd = find_binary(str(self.train_params['mpi_cmd'].strip())).strip() + \
+                  ' -n {} '.format(self.train_params['mpi_procs'])
+        else:
+            cmd = ''
+
+        arg_list =
+
+        cmd += find_binary(self.train_params['gap_cmd']).strip()
+
+
         try:
             with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
                 subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)

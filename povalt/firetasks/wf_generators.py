@@ -21,12 +21,9 @@ from fireworks import Firework, Workflow
 from povalt.firetasks.training import PotentialTraining
 
 
-def potential_trainer(some_args=None):
-    if some_args is None:
-        all_args = ['asdf', 'asdf', 'ret']
-    else:
-        all_args = some_args
+def potential_trainer(train_params):
+    if not train_params or len(train_params) != 33:
+        raise ValueError('Training parameters have to be defined, abort.')
 
-    fw_train = Firework([PotentialTraining(my_params=all_args)], parents=None, name='TrainTask')
-
+    fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
     return Workflow([fw_train], name='TrainFlow')
