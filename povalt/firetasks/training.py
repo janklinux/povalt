@@ -22,6 +22,7 @@ from fireworks import FiretaskBase
 from fireworks.utilities.fw_utilities import explicit_serialize
 from custodian import Custodian
 from povalt.training.training import TrainJob
+from povalt.lammps.lammps import LammpsJob
 
 
 class TrainBase(FiretaskBase):
@@ -91,6 +92,27 @@ class PotentialTraining(TrainBase):
 
     def get_handlers(self):
         return []
+
+    def run_task(self, fw_spec):
+        return super().run_task(fw_spec=fw_spec)
+
+
+@explicit_serialize
+class Lammps_MD(TrainBase):
+    """
+    Class to run MD
+    """
+    required_params = ['lammps_params']
+    optional_params = []
+
+    def get_job(self):
+        return LammpsJob(lammps_params=self['lammps_params'])
+
+    def get_validators(self):
+        pass
+
+    def get_handlers(self):
+        pass
 
     def run_task(self, fw_spec):
         return super().run_task(fw_spec=fw_spec)

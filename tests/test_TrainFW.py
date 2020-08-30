@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
+from ase.io import read
 from fireworks import LaunchPad
 from povalt.firetasks.wf_generators import potential_trainer
 
@@ -27,7 +28,7 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
-train_params = {'atoms_filename': 'complete.xyz',
+train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/potential_fit/testing/complete.xyz',
                 'order': 2,
                 'compact_clusters': 'T',
                 'nb_cutoff': 5.0,
@@ -54,7 +55,7 @@ train_params = {'atoms_filename': 'complete.xyz',
                                      'hcp:0.002:0.2:0.2:0.2:'
                                      'sc:0.002:0.2:0.2:0.2:'
                                      'slab:0.002:0.2:0.2:0.2:'
-                                     'cluster:0.002:0.2:0.2:0.2:}',
+                                     'cluster:0.002:0.2:0.2:0.2}',
                 'energy_parameter_name': 'free_energy',
                 'force_parameter_name': 'forces',
                 'force_mask_parameter_name': 'force_mask',
@@ -70,5 +71,24 @@ train_params = {'atoms_filename': 'complete.xyz',
 
 wf = potential_trainer(train_params=train_params)
 
-print(wf)
-lpad.add_wf(wf)
+# print(wf)
+# lpad.add_wf(wf)
+
+lammps_params = {
+    'lammps_settings': [
+        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 2000',
+        'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
+        'pair_style quip', 'pair_coeff * * Pt_test.xml "Potential xml_label=' + str(pot_base_name) + '" 78',
+        'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
+        'fix 1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0',
+        'run $t',
+        'write_dump all atom final_positions.atom'],
+    'atoms_filename': 'atom.pos',  # filename must match the name in settings above
+    'structure': read('/home/jank/work/Aalto/vasp/training_data/liq/100.vasp'),  # ase atoms abject
+    'units': 'metal',  # must match settings
+    'lmp_cmd': 'lmp',
+    'lmp_params': '-k on t 1 g 1 -sf kk',
+    'mpi_cmd': 'mpirun',
+    'mpi_procs': 2,
+    'omp_threads' : 2,
+}

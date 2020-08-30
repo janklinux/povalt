@@ -49,10 +49,16 @@ class TrainJob(Job):
         """
         print(self.train_params)
 
+        for item in self.train_params:
+            if self.train_params[item] is not None:
+                self.train_params[item] = str(self.train_params[item])
+
+        print(self.train_params)
+
         if int(self.train_params['omp_threads']) > 1:
-            os.environ['OMP_NUM_THREADS'] = int(self.train_params['omp_threads'])
+            os.environ['OMP_NUM_THREADS'] = str(self.train_params['omp_threads'])
         else:
-            os.environ['OMP_NUM_THREADS'] = int(1)
+            os.environ['OMP_NUM_THREADS'] = str(1)
 
         if self.train_params['mpi_cmd'] is not None:
             if self.train_params['mpi_procs'] is None:
@@ -62,26 +68,30 @@ class TrainJob(Job):
         else:
             cmd = ''
 
-        arg_list = 'atoms_filename=' + self.train_params['atoms_filename'] + \
-                   ' order=' + self.train_params['nb_order'] + \
+        arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
+                   ' gap = {' + \
+                   ' distance_Nb' + \
+                   ' order=' + self.train_params['order'] + \
                    ' compact_clusters=' + self.train_params['compact_clusters'] + \
-                   ' nb_cutoff=' + self.train_params['nb_cutoff'] + \
+                   ' cutoff=' + self.train_params['nb_cutoff'] + \
                    ' n_sparse=' + self.train_params['n_sparse'] + \
-                   ' nb_covariance_type=' + self.train_params['nb_covariance_type'] + \
-                   ' nb_delta=' + self.train_params['nb_delta'] + \
+                   ' covariance_type=' + self.train_params['nb_covariance_type'] + \
+                   ' delta=' + self.train_params['nb_delta'] + \
                    ' theta_uniform=' + self.train_params['theta_uniform'] + \
                    ' nb_sparse_method=' + self.train_params['nb_sparse_method'] + \
+                   ' : soap' + \
                    ' l_max=' + self.train_params['l_max'] + \
                    ' n_max=' + self.train_params['n_max'] + \
                    ' atom_sigma=' + self.train_params['atom_sigma'] + \
                    ' zeta=' + self.train_params['zeta'] + \
-                   ' soap_cutoff=' + self.train_params['soap_cutoff'] + \
+                   ' cutoff=' + self.train_params['soap_cutoff'] + \
                    ' central_weight=' + self.train_params['central_weight'] + \
                    ' config_type_n_sparse=' + self.train_params['config_type_n_sparse'] + \
-                   ' soap_delta=' + self.train_params['soap_delta'] + \
+                   ' delta=' + self.train_params['soap_delta'] + \
                    ' f0=' + self.train_params['f0'] + \
-                   ' soap_covariance_type=' + self.train_params['soap_covariance_type'] + \
-                   ' soap_sparse_method=' + self.train_params['soap_sparse_method'] + \
+                   ' covariance_type=' + self.train_params['soap_covariance_type'] + \
+                   ' sparse_method=' + self.train_params['soap_sparse_method'] + \
+                   ' }' + \
                    ' default_sigma=' + self.train_params['default_sigma'] + \
                    ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
                    ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
@@ -92,14 +102,13 @@ class TrainJob(Job):
                    ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
                    ' gp_file=' + self.train_params['gp_file']
 
-        cmd += find_binary(self.train_params['gap_cmd']).strip()
-
+        cmd += find_binary(self.train_params['gap_cmd']).strip() + arg_list
 
         try:
             with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
                 subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
         except FileNotFoundError:
-            raise FileNotFoundError('fille not funde')
+            raise FileNotFoundError('Command execution failed, check std_err')
         finally:
             print('I ran it all the way')
 

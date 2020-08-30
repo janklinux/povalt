@@ -26,6 +26,58 @@ from ase.io import read as ase_read
 from ase.io.lammpsdata import write_lammps_data
 from povalt.helpers import find_binary
 from pymatgen.core.structure import Structure
+from custodian.custodian import Job
+
+
+class LammpsJob(Job):
+    """
+    Class to run LAMMPS MD as firework
+    """
+    def __init__(self, lammps_params):
+        """
+        Sets parameters
+        Args:
+            lammps_params: all LAMMPS parameters
+        """
+        self.lammps_params = lammps_params
+
+    def setup(self):
+        write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
+                          atoms=self.lammps_params['structure'],
+                          units=self.lammps_params['units'])
+        with open('lammps.in', 'w') as f:
+            for line in self.lammps_params['lammps_settings']:
+                f.write(line.strip() + '\n')
+
+    def run(self):
+        for item in self.lammps_params:
+            if self.lammps_params[item] is not None:
+                self.lammps_params[item] = str(self.lammps_params[item])
+
+        os.environ['OMP_NUM_THREADS'] = self.lammps_params['omp_threads']
+
+        if self.lammps_params['mpi_cmd'] is not None:
+            if self.lammps_params['mpi_procs'] is None:
+                raise ValueError('Running in MPI you have to define mpi_procs')
+            cmd = str(find_binary(self.lammps_params['mpi_cmd']).strip()) + \
+                  ' -n ' + str(self.lammps_params['mpi_procs']) + ' '
+        else:
+            cmd = ''
+
+        cmd += find_binary(self.lammps_params['lmp_bin']).strip() + str(' -in lammps.in ') + \
+               str(self.lammps_params['lmp_params'])
+
+        try:
+            with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
+                subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+        except FileNotFoundError:
+            raise FileNotFoundError('Command execution failed, check std_err.')
+        finally:
+            print('I got LMP to the end')
+
+
+    def postprocess(self):
+        pass
 
 
 class Lammps:
@@ -73,7 +125,6 @@ class Lammps:
         Run LAMMPS to read input and write output
         Args:
             binary: specific LAMMPS binary to use
-            omp_threads: number of openmpi threads to use
             cmd_params: command line arguments for LAMMPS
             output_filename: file name to write std to
             mpi_cmd: mpirun / srun command, optional

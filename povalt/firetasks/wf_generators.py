@@ -18,12 +18,45 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from fireworks import Firework, Workflow
+from povalt.firetasks.training import Lammps_MD
 from povalt.firetasks.training import PotentialTraining
 
 
 def potential_trainer(train_params):
+    """
+    Trains a potential with given parameters
+
+    Args:
+        train_params: parameters for gap_fit
+
+    Returns:
+        the workflow to add into Launchpad
+    """
+
     if not train_params or len(train_params) != 33:
         raise ValueError('Training parameters have to be defined, abort.')
 
     fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
     return Workflow([fw_train], name='TrainFlow')
+
+
+def train_and_run_lammps(train_params, lammps_params):
+    """
+    Trains a potential and the nruns LAMMPS MD with it
+
+    Args:
+        train_params: parameters for the potential training
+        lammps_params:  parameters for the MD in LAMMPS
+
+    Returns:
+        the workflow for Launchpad
+    """
+
+    if not train_params or len(train_params) != 33:
+        raise ValueError('Training parameters have to be defined, abort.')
+    if not lammps_params or len(lammps_params) != 10:
+        raise ValueError('LAMMPS parameters have to be defined, abort.')
+
+    fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
+    md_run = Firework([Lammps_MD(lammps_params=lammps_params)], parents=fw_train, name='Lammps_MD')
+    return Workflow([fw_train, md_run])
