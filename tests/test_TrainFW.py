@@ -21,6 +21,7 @@ import os
 from ase.io import read
 from fireworks import LaunchPad
 from povalt.firetasks.wf_generators import potential_trainer, train_and_run_lammps
+from pymatgen.io.ase import AseAtomsAdaptor
 
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -74,19 +75,21 @@ pot_wf = potential_trainer(train_params=train_params)
 # print(wf)
 # lpad.add_wf(wf)
 
+pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/liq/100.vasp'))
+
 lammps_params = {
     'lammps_settings': [
         'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 2000',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
-        'pair_style quip', 'pair_coeff * * Pt_test.xml "Potential xml_label=POT_FW_NAME 78',
+        'pair_style quip', 'pair_coeff * * Pt_test.xml "Potential xml_label=POT_FW_NAME" 78',
         'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
         'fix 1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0',
         'run $t',
         'write_dump all atom final_positions.atom'],
     'atoms_filename': 'atom.pos',  # filename must match the name in settings above
-    'structure': read('/home/jank/work/Aalto/vasp/training_data/liq/100.vasp'),  # ase atoms abject
+    'structure': pmg_struct.as_dict(),  # pymatgen structure object
     'units': 'metal',  # must match settings
-    'lmp_cmd': 'lmp',
+    'lmp_bin': 'lmp',
     'lmp_params': '-k on t 1 g 1 -sf kk',
     'mpi_cmd': 'mpirun',
     'mpi_procs': 2,

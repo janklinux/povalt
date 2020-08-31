@@ -28,6 +28,7 @@ from ase.io.lammpsdata import write_lammps_data
 from povalt.helpers import find_binary
 from pymatgen.core.structure import Structure
 from custodian.custodian import Job
+from pymatgen.io.ase import AseAtomsAdaptor
 
 
 class LammpsJob(Job):
@@ -43,10 +44,11 @@ class LammpsJob(Job):
         """
         self.lammps_params = lammps_params
         self.potential_name = potential_name
+        self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
 
     def setup(self):
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
-                          atoms=self.lammps_params['structure'],
+                          atoms=self.structure,
                           units=self.lammps_params['units'])
         with open('lammps.in', 'w') as f:
             for line in self.lammps_params['lammps_settings']:
