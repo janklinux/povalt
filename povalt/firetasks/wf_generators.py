@@ -40,7 +40,7 @@ def potential_trainer(train_params):
     return Workflow([fw_train], name='TrainFlow')
 
 
-def train_and_run_lammps(train_params, lammps_params):
+def train_and_run_single_lammps(train_params, lammps_params):
     """
     Trains a potential and then runs LAMMPS MD with it
 
@@ -57,9 +57,40 @@ def train_and_run_lammps(train_params, lammps_params):
     if not lammps_params or len(lammps_params) != 9:
         raise ValueError('LAMMPS parameters have to be defined, abort.')
 
-    fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
-    md_runs = []
-    for i in range(10):
-        md_runs.append(Firework([Lammps_MD(lammps_params=lammps_params)], parents=fw_train, name='Lammps_MD'))
-    print(md_runs)
-    return Workflow([fw_train, md_runs], {fw_train: [md_runs]}, name='train_and_MD')
+    train_fw = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
+    md_run = Firework([Lammps_MD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD')
+
+    return Workflow([train_fw, md_run], {train_fw: [md_run]}, name='train_and_MD')
+
+
+def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
+    """
+    Trains a potential and then runs LAMMPS MD with it
+
+    Args:
+        train_params: parameters for the potential training
+        lammps_params:  parameters for the MD in LAMMPS
+        num_lammps: number of LAMMPS MDs to run
+
+    Returns:
+        the workflow for Launchpad
+    """
+
+    if not train_params or len(train_params) != 33:
+        raise ValueError('Training parameters have to be defined, abort.')
+    if not lammps_params or len(lammps_params) != 9:
+        raise ValueError('LAMMPS parameters have to be defined, abort.')
+
+    all_fws = []
+    dep_fws = []
+
+    train_fw = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
+
+    all_fws.append(train_fw)
+
+    for i in range(num_lammps):
+        dep_fws.append(Firework([Lammps_MD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD'))
+
+    all_fws.extend(dep_fws)
+
+    return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_MD')

@@ -108,7 +108,7 @@ class TrainJob(Job):
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err')
         finally:
-            print('I ran it all the way')
+            pass  # print('I ran it all the way')
 
         return p
 
@@ -119,6 +119,5 @@ class TrainJob(Job):
         pot_file = []
         for file in os.listdir(self.run_dir):
             if file.startswith(self.train_params['gp_file']):
-                print(file)
                 pot_file.append(file)
         return {'files': pot_file, 'path': self.run_dir, 'label': self.train_params['gp_file']}

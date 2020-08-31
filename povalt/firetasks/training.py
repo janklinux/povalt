@@ -152,8 +152,8 @@ class Lammps_MD(LammpsBase):
     required_params = ['lammps_params']
     optional_params = []
 
-    def get_job(self, spec):
-        return LammpsJob(lammps_params=self['lammps_params'], potential_info=spec['potential_info'])
+    def get_job(self, fw_spec):
+        return LammpsJob(lammps_params=self['lammps_params'], fw_spec=fw_spec)
 
     def get_validators(self):
         pass

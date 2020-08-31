@@ -20,7 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 from ase.io import read
 from fireworks import LaunchPad
-from povalt.firetasks.wf_generators import potential_trainer, train_and_run_lammps
+from povalt.firetasks.wf_generators import potential_trainer, \
+    train_and_run_single_lammps, train_and_run_multiple_lammps
 from pymatgen.io.ase import AseAtomsAdaptor
 
 
@@ -79,7 +80,7 @@ pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/tr
 
 lammps_params = {
     'lammps_settings': [
-        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 2000',
+        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 100',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
         'pair_style quip', 'pair_coeff * * POT_FW_LABEL "Potential xml_label=POT_FW_NAME" 78',
         'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
@@ -92,12 +93,15 @@ lammps_params = {
     'lmp_bin': 'lmp',
     'lmp_params': '-k on t 1 g 1 -sf kk',
     'mpi_cmd': 'mpirun',
-    'mpi_procs': 2,
-    'omp_threads' : 2,
+    'mpi_procs': 1,
+    'omp_threads' : 4,
 }
 
-md_wf = train_and_run_lammps(train_params=train_params, lammps_params=lammps_params)
-print(md_wf)
+# md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
+# print(md_wf)
 
 lpad.reset('2020-08-31')
+
+md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1)
+print(md_wf)
 lpad.add_wf(md_wf)

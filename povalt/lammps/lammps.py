@@ -25,10 +25,16 @@ import subprocess
 from ase.atoms import Atoms
 from ase.io import read as ase_read
 from ase.io.lammpsdata import write_lammps_data
+from ase.io.lammpsrun import read_lammps_dump_text
 from povalt.helpers import find_binary
-from pymatgen.core.structure import Structure
+from pymatgen.core.structure import Structure, Element
 from custodian.custodian import Job
 from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.io.vasp import Kpoints, Outcar
+from pymatgen.io.vasp.sets import MPStaticSet
+from atomate.vasp.fireworks import StaticFW
+from atomate.vasp.powerups import add_modify_incar
+from fireworks import Workflow
 
 
 class LammpsJob(Job):
@@ -36,7 +42,7 @@ class LammpsJob(Job):
     Class to run LAMMPS MD as firework
     """
 
-    def __init__(self, lammps_params, potential_info):
+    def __init__(self, lammps_params, fw_spec):
         """
         Sets parameters
         Args:
@@ -44,10 +50,30 @@ class LammpsJob(Job):
             potential_info: file names of the potential
         """
         self.lammps_params = lammps_params
-        self.potential_info = potential_info
+        self.fw_spec = fw_spec
+        self.potential_info = fw_spec['potential_info']
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
+        self.run_dir = os.getcwd()
+        if not '_job_type' in self.fw_spec:
+            self.fw_spec['_job_type'] = 'md'
 
     def setup(self):
+        if self.fw_spec['_job_type'] == 'md':
+            self.setup_lammps_md()
+
+    def run(self):
+        if self.fw_spec['_job_type'] == 'md':
+            return self.run_lammps_md()
+        elif self.fw_spec['_job_type'] == 'dft':
+            return self.get_vasp_static_dft()
+        elif self.fw_spec['_job_type'] == 'analyze':
+            print('adfklvbaildfbvioluabdfvbadf')
+
+    def postprocess(self):
+        pass
+
+    def setup_lammps_md(self):
+        os.chdir(self.run_dir)
         pot_name = self.link_potential()
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
@@ -57,7 +83,8 @@ class LammpsJob(Job):
                 f.write(re.sub('POT_FW_LABEL', self.potential_info['label'],
                                re.sub('POT_FW_NAME', pot_name, line.strip())) + '\n')
 
-    def run(self):
+    def run_lammps_md(self):
+        os.chdir(self.run_dir)
         for item in self.lammps_params:
             if self.lammps_params[item] is not None:
                 self.lammps_params[item] = str(self.lammps_params[item])
@@ -81,24 +108,74 @@ class LammpsJob(Job):
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err.')
         finally:
-            print('I got LMP to the end')
-
+            self.fw_spec['_job_type'] = 'dft'
+            # pass  # print('I got LMP to the end')
         return p
-
-    def postprocess(self):
-        pass
 
     def link_potential(self):
         pot_name = ' *** FILE NOT FOUND *** '
         for file in self.potential_info['files']:
-            print(file)
-            print(os.path.join(self.potential_info['path'], file))
-            print(os.path.join(os.getcwd(), file))
             os.symlink(os.path.join(self.potential_info['path'], file),
-                       os.path.join(os.getcwd(), file))
+                       os.path.join(self.run_dir, file))
             if len(file) > len(self.potential_info['label']):
                 pot_name = file.split('.')[3][:-1]
         return pot_name
+
+    def get_vasp_static_dft(self):
+        """
+        Generates a static DFT run for VASP with atomate workflow
+        Returns:
+
+        """
+        with open(os.path.join(self.run_dir, 'final_positions.atom'), 'r') as f:
+            final_atoms = read_lammps_dump_text(fileobj=f, index=-1)
+        lammps_result = AseAtomsAdaptor.get_structure(final_atoms)
+        lattice = lammps_result.lattice
+        species = [Element('Pt') for _ in range(len(lammps_result.species))]
+        coords = lammps_result.frac_coords
+        rerun_structure = Structure(lattice=lattice, species=species, coords=coords, coords_are_cartesian=False)
+
+        kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
+        incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+                     'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 300, 'LAECHG': 'False',
+                     'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
+
+        print(kpt_set)
+        print('   *** CHECK IF SLAB OR BULK ***')
+
+        vis = MPStaticSet(rerun_structure)
+        v = vis.as_dict()
+        v.update({"user_kpoints_settings": kpt_set})
+        vis_static = vis.__class__.from_dict(v)
+
+        static_wf = Workflow([StaticFW(structure=rerun_structure, name='VASP autogen from PoValT -- Static',
+                              vasp_input_set=vis_static, vasp_cmd='srun --nodes 1 vasp_std')])
+        run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
+        self.fw_spec['_job_type'] = 'analyze'
+        return run_wf
+
+    def get_run_dir(self):
+        return self.run_dir
+
+    def analyze_vasp_static_dft(self):
+        """
+        Gets info from the DFT run and decides whether to add the data to the training set
+        Returns:
+
+        """
+        print('aldifuhiasdfv: ', self.run_dir)
+
+        forces = Outcar(os.path.join(self.run_dir, 'OUTCAR')).read_table_pattern(
+            header_pattern=r"\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+",
+            row_pattern=r"\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)",
+            footer_pattern=r"\s--+",
+            postprocess=lambda x: float(x),
+            last_one_only=False
+        )
+
+        print(forces)
+
+
 
 class Lammps:
     """
