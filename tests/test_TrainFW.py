@@ -76,11 +76,11 @@ pot_wf = potential_trainer(train_params=train_params)
 # print(wf)
 # lpad.add_wf(wf)
 
-pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/liq/100.vasp'))
+pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
 
 lammps_params = {
     'lammps_settings': [
-        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 100',
+        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 500',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
         'pair_style quip', 'pair_coeff * * POT_FW_LABEL "Potential xml_label=POT_FW_NAME" 78',
         'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',

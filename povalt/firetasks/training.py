@@ -31,43 +31,17 @@ class TrainBase(FiretaskBase):
     """
     @abc.abstractmethod
     def get_job(self):
-        """
-        Creates custodian job for the task
-
-        Returns:
-            a custodian job
-        """
         pass
 
     @abc.abstractmethod
     def get_handlers(self):
-        """
-        Returns handlers of job for the task
-
-        Returns:
-            job error handlers
-        """
         pass
 
     @abc.abstractmethod
     def get_validators(self):
-        """
-        Returns the validators for the job
-
-        Returns:
-            job validators
-        """
         pass
 
     def run_task(self, fw_spec):
-        """
-        Runs the task
-        Args:
-            fw_spec: firework specifications
-
-        Returns:
-
-        """
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
@@ -102,50 +76,27 @@ class LammpsBase(FiretaskBase):
     """
     @abc.abstractmethod
     def get_job(self, fw_spec):
-        """
-        Creates custodian job for the task
-
-        Returns:
-            a custodian job
-        """
         pass
 
     @abc.abstractmethod
     def get_handlers(self):
-        """
-        Returns handlers of job for the task
-
-        Returns:
-            job error handlers
-        """
         pass
 
     @abc.abstractmethod
     def get_validators(self):
-        """
-        Returns the validators for the job
-
-        Returns:
-            job validators
-        """
         pass
 
     def run_task(self, fw_spec):
-        """
-        Runs the task
-        Args:
-            fw_spec: firework specifications
-
-        Returns:
-
-        """
         job = self.get_job(fw_spec)
+
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
 
+        return FWAction(additions=(job.get_vasp_static_dft()))
+
 
 @explicit_serialize
-class Lammps_MD(LammpsBase):
+class LammpsMD(LammpsBase):
     """
     Class to run MD
     """

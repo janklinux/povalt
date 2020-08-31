@@ -108,7 +108,8 @@ class TrainJob(Job):
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err')
         finally:
-            pass  # print('I ran it all the way')
+            os.environ['OMP_NUM_THREADS'] = str(1)
+            # pass  # print('I ran it all the way')
 
         return p
 

@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from fireworks import Firework, Workflow
-from povalt.firetasks.training import Lammps_MD
+from povalt.firetasks.training import LammpsMD
 from povalt.firetasks.training import PotentialTraining
 
 
@@ -58,7 +58,7 @@ def train_and_run_single_lammps(train_params, lammps_params):
         raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     train_fw = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
-    md_run = Firework([Lammps_MD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD')
+    md_run = Firework([LammpsMD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD')
 
     return Workflow([train_fw, md_run], {train_fw: [md_run]}, name='train_and_MD')
 
@@ -89,7 +89,7 @@ def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
     all_fws.append(train_fw)
 
     for i in range(num_lammps):
-        dep_fws.append(Firework([Lammps_MD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD'))
+        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD'))
 
     all_fws.extend(dep_fws)
 
