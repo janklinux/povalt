@@ -37,7 +37,7 @@ from custodian.vasp.handlers import VaspErrorHandler, MeshSymmetryErrorHandler, 
 
 @explicit_serialize
 class StaticFW(Firework):
-    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None):
+    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None):
         """
         Standard static calculation Firework from a structure.
 
@@ -51,7 +51,7 @@ class StaticFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        super(StaticFW, self).__init__(t)
+        super(StaticFW, self).__init__(t, name=name)
 
 
 @explicit_serialize
@@ -177,7 +177,7 @@ class VaspTasks:
                           db_file='', name="{} -- static".format(datetime.datetime.now().strftime('%Y/%m/%d-%T')))]
 
         incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': int(ncore), 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 250, 'LAECHG': 'False', 'ISIF': 1}
+                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False', 'ISIF': 1}
 
         wfname = "{}: static run".format(structure_name)
 
