@@ -42,7 +42,7 @@ def potential_trainer(train_params):
 
 def train_and_run_lammps(train_params, lammps_params):
     """
-    Trains a potential and the nruns LAMMPS MD with it
+    Trains a potential and then runs LAMMPS MD with it
 
     Args:
         train_params: parameters for the potential training
@@ -58,5 +58,8 @@ def train_and_run_lammps(train_params, lammps_params):
         raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
-    md_run = Firework([Lammps_MD(lammps_params=lammps_params)], parents=fw_train, name='Lammps_MD')
-    return Workflow([fw_train, md_run], {fw_train: [md_run]}, name='train_and_MD')
+    md_runs = []
+    for i in range(10):
+        md_runs.append(Firework([Lammps_MD(lammps_params=lammps_params)], parents=fw_train, name='Lammps_MD'))
+    print(md_runs)
+    return Workflow([fw_train, md_runs], {fw_train: [md_runs]}, name='train_and_MD')

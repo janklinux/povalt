@@ -72,7 +72,7 @@ class TrainBase(FiretaskBase):
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
 
-        return FWAction(update_spec={'potential_filename': job.get_potential_filename()})
+        return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
 @explicit_serialize
@@ -153,7 +153,7 @@ class Lammps_MD(LammpsBase):
     optional_params = []
 
     def get_job(self, spec):
-        return LammpsJob(lammps_params=self['lammps_params'], potential_name=spec['potential_filename'])
+        return LammpsJob(lammps_params=self['lammps_params'], potential_info=spec['potential_info'])
 
     def get_validators(self):
         pass

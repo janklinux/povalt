@@ -36,23 +36,26 @@ class LammpsJob(Job):
     Class to run LAMMPS MD as firework
     """
 
-    def __init__(self, lammps_params, potential_name):
+    def __init__(self, lammps_params, potential_info):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
+            potential_info: file names of the potential
         """
         self.lammps_params = lammps_params
-        self.potential_name = potential_name
+        self.potential_info = potential_info
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
 
     def setup(self):
+        pot_name = self.link_potential()
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
                           units=self.lammps_params['units'])
         with open('lammps.in', 'w') as f:
             for line in self.lammps_params['lammps_settings']:
-                f.write(re.sub('POT_FW_NAME', self.potential_name, line.strip() + '\n'))
+                f.write(re.sub('POT_FW_LABEL', self.potential_info['label'],
+                               re.sub('POT_FW_NAME', pot_name, line.strip())) + '\n')
 
     def run(self):
         for item in self.lammps_params:
@@ -85,6 +88,17 @@ class LammpsJob(Job):
     def postprocess(self):
         pass
 
+    def link_potential(self):
+        pot_name = ' *** FILE NOT FOUND *** '
+        for file in self.potential_info['files']:
+            print(file)
+            print(os.path.join(self.potential_info['path'], file))
+            print(os.path.join(os.getcwd(), file))
+            os.symlink(os.path.join(self.potential_info['path'], file),
+                       os.path.join(os.getcwd(), file))
+            if len(file) > len(self.potential_info['label']):
+                pot_name = file.split('.')[3][:-1]
+        return pot_name
 
 class Lammps:
     """
