@@ -60,7 +60,7 @@ class TrainJob(Job):
 
         if self.train_params['mpi_cmd'] is not None:
             if self.train_params['mpi_procs'] is None:
-               raise ValueError('Running MPI you have to set mpi_procs')
+                raise ValueError('Running MPI you have to set mpi_procs')
             cmd = find_binary(str(self.train_params['mpi_cmd'].strip())).strip() + \
                   ' -n {} '.format(self.train_params['mpi_procs'])
         else:
