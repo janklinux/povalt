@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import re
 import os
 import time
 import tempfile
@@ -33,13 +34,15 @@ class LammpsJob(Job):
     """
     Class to run LAMMPS MD as firework
     """
-    def __init__(self, lammps_params):
+
+    def __init__(self, lammps_params, potential_name):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
         """
         self.lammps_params = lammps_params
+        self.potential_name = potential_name
 
     def setup(self):
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
@@ -47,7 +50,7 @@ class LammpsJob(Job):
                           units=self.lammps_params['units'])
         with open('lammps.in', 'w') as f:
             for line in self.lammps_params['lammps_settings']:
-                f.write(line.strip() + '\n')
+                f.write(re.sub('POT_FW_NAME', self.potential_name, line.strip() + '\n'))
 
     def run(self):
         for item in self.lammps_params:
@@ -59,8 +62,8 @@ class LammpsJob(Job):
         if self.lammps_params['mpi_cmd'] is not None:
             if self.lammps_params['mpi_procs'] is None:
                 raise ValueError('Running in MPI you have to define mpi_procs')
-            cmd = str(find_binary(self.lammps_params['mpi_cmd']).strip()) + \
-                  ' -n ' + str(self.lammps_params['mpi_procs']) + ' '
+            cmd = str(find_binary(self.lammps_params['mpi_cmd']).strip()) + ' -n ' + \
+                  str(self.lammps_params['mpi_procs']) + ' '
         else:
             cmd = ''
 
@@ -69,12 +72,13 @@ class LammpsJob(Job):
 
         try:
             with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
-                subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+                p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err.')
         finally:
             print('I got LMP to the end')
 
+        return p
 
     def postprocess(self):
         pass
@@ -85,6 +89,7 @@ class Lammps:
     General class for all LAMMPS related jobs like generating and running structures
     for validation and potential refinement
     """
+
     def __init__(self, structure):
         """
         init parameters and find out what object we have
@@ -190,6 +195,7 @@ class LammpsError(Exception):
     """
     Error class for LAMMPS errors
     """
+
     def __init__(self, msg):
         self.msg = msg
 

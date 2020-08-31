@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import abc
-from fireworks import FiretaskBase
+from fireworks import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
 from custodian import Custodian
 from povalt.training.training import TrainJob
@@ -68,12 +68,11 @@ class TrainBase(FiretaskBase):
         Returns:
 
         """
-
         job = self.get_job()
-
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
-
         c.run()
+
+        return FWAction(update_spec={'potential_filename': job.get_potential_filename()})
 
 
 @explicit_serialize
@@ -97,22 +96,70 @@ class PotentialTraining(TrainBase):
         return super().run_task(fw_spec=fw_spec)
 
 
+class LammpsBase(FiretaskBase):
+    """
+    Base class to train potentials
+    """
+    @abc.abstractmethod
+    def get_job(self, fw_spec):
+        """
+        Creates custodian job for the task
+
+        Returns:
+            a custodian job
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_handlers(self):
+        """
+        Returns handlers of job for the task
+
+        Returns:
+            job error handlers
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_validators(self):
+        """
+        Returns the validators for the job
+
+        Returns:
+            job validators
+        """
+        pass
+
+    def run_task(self, fw_spec):
+        """
+        Runs the task
+        Args:
+            fw_spec: firework specifications
+
+        Returns:
+
+        """
+        job = self.get_job(fw_spec)
+        c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
+        c.run()
+
+
 @explicit_serialize
-class Lammps_MD(TrainBase):
+class Lammps_MD(LammpsBase):
     """
     Class to run MD
     """
     required_params = ['lammps_params']
     optional_params = []
 
-    def get_job(self):
-        return LammpsJob(lammps_params=self['lammps_params'])
+    def get_job(self, spec):
+        return LammpsJob(lammps_params=self['lammps_params'], potential_name=spec['potential_filename'])
 
     def get_validators(self):
         pass
 
     def get_handlers(self):
-        pass
+        return []
 
     def run_task(self, fw_spec):
         return super().run_task(fw_spec=fw_spec)

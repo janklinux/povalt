@@ -21,6 +21,7 @@ import os
 import subprocess
 from povalt.helpers import find_binary
 from custodian.custodian import Job
+from fireworks import FWAction
 
 
 class TrainJob(Job):
@@ -34,7 +35,7 @@ class TrainJob(Job):
         Args:
             train_params: all parameters
         """
-
+        self.run_dir = os.getcwd()
         self.train_params = train_params
 
     def setup(self):
@@ -47,13 +48,9 @@ class TrainJob(Job):
         Returns:
 
         """
-        print(self.train_params)
-
         for item in self.train_params:
             if self.train_params[item] is not None:
                 self.train_params[item] = str(self.train_params[item])
-
-        print(self.train_params)
 
         if int(self.train_params['omp_threads']) > 1:
             os.environ['OMP_NUM_THREADS'] = str(self.train_params['omp_threads'])
@@ -106,11 +103,22 @@ class TrainJob(Job):
 
         try:
             with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
-                subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+                p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err')
         finally:
             print('I ran it all the way')
 
+        return p
+
     def postprocess(self):
         pass
+
+    def get_potential_filename(self):
+        potential_name = ' *** FILE NOT FOUND *** '
+        for file in os.listdir(self.run_dir):
+            if file.startswith(self.train_params['gp_file']):
+                if len(file.split('.')) == 4:
+                    potential_name = file.split('.')[3][:-1]
+                    break
+        return os.path.join(self.run_dir, potential_name)

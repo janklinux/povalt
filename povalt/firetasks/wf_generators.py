@@ -54,9 +54,9 @@ def train_and_run_lammps(train_params, lammps_params):
 
     if not train_params or len(train_params) != 33:
         raise ValueError('Training parameters have to be defined, abort.')
-    if not lammps_params or len(lammps_params) != 10:
+    if not lammps_params or len(lammps_params) != 9:
         raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     fw_train = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
     md_run = Firework([Lammps_MD(lammps_params=lammps_params)], parents=fw_train, name='Lammps_MD')
-    return Workflow([fw_train, md_run])
+    return Workflow([fw_train, md_run], {fw_train: [md_run]}, name='train_and_MD')
