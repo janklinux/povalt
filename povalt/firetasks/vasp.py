@@ -138,6 +138,8 @@ class AddToDbTask(FiretaskBase):
     optional_params = []
 
     def run_task(self, fw_spec):
+        if self['db_file'] is None:
+            return
         with open(self['db_file'], 'r') as f:
             db_info = json.load(f)
 

@@ -17,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
 import abc
-from fireworks import FiretaskBase, FWAction
+from fireworks import FiretaskBase, FWAction, ScriptTask, Firework
 from fireworks.utilities.fw_utilities import explicit_serialize
 from custodian import Custodian
 from povalt.training.training import TrainJob
@@ -45,6 +46,11 @@ class TrainBase(FiretaskBase):
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
+        if fw_spec['al_task'] is not None:
+            os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
+            os.system('qlaunch -q {} rapidfire --nlaunches {}'
+                                  .format(os.path.join(fw_spec['al_task']['base_dir'], 'my_queue.yaml'),
+                                  str(fw_spec['al_task']['num_launches'])))
         return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
@@ -53,7 +59,7 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
-    required_params = ['train_params']
+    required_params = ['train_params', 'al_file']
     optional_params = []
 
     def get_job(self):
@@ -66,6 +72,10 @@ class PotentialTraining(TrainBase):
         return []
 
     def run_task(self, fw_spec):
+        if 'al_file' in fw_spec:
+            fw_spec['al_task'] = self['al_file']
+        else:
+            fw_spec['al_task'] = None
         return super().run_task(fw_spec=fw_spec)
 
 
