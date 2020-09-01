@@ -47,7 +47,7 @@ class LammpsJob(Job):
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
-            potential_info: file names of the potential
+            fw_spec: fireworks specs
         """
         self.lammps_params = lammps_params
         self.fw_spec = fw_spec
@@ -127,10 +127,11 @@ class LammpsJob(Job):
         rerun_structure = Structure(lattice=lattice, species=species, coords=coords, coords_are_cartesian=False)
 
         kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
-        incar_mod = {'EDIFF': 1E-4, 'ENCUT': 320, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 300, 'LAECHG': 'False'}
+        incar_mod = {'EDIFF': 1E-4, 'ENCUT': 220, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': 'False'}
                      # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
+        print('\n')
         print(kpt_set)
         print('   *** CHECK IF SLAB OR BULK ***\n\n')
 
@@ -143,10 +144,6 @@ class LammpsJob(Job):
                                        vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis')])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf
-
-
-
-
 
 
 class Lammps:

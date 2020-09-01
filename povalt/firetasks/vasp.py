@@ -72,7 +72,7 @@ class RunVaspCustodian(FiretaskBase):
                     PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
         validators = []
 
-        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=3)
+        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=8)
         c.run()
 
 
