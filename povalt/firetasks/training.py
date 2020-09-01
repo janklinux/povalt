@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import abc
-from fireworks import FiretaskBase, FWAction, ScriptTask, Firework
+from fireworks import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
 from custodian import Custodian
 from povalt.training.training import TrainJob
@@ -48,9 +48,9 @@ class TrainBase(FiretaskBase):
         c.run()
         if fw_spec['al_task'] is not None:
             os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
-            os.system('qlaunch -q {} rapidfire --nlaunches {}'
-                                  .format(os.path.join(fw_spec['al_task']['base_dir'], 'my_queue.yaml'),
-                                  str(fw_spec['al_task']['num_launches'])))
+            os.system('qlaunch -q {} rapidfire --nlaunches {}'.format(os.path.join(fw_spec['al_task']['base_dir'],
+                                                                                   'my_queue.yaml'),
+                                                                      str(fw_spec['al_task']['num_launches'])))
         return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
