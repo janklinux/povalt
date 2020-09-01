@@ -17,10 +17,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import os
 from ase.io import read
 from fireworks import LaunchPad
-from povalt.firetasks.wf_generators import potential_trainer, train_and_run_lammps
+from pymatgen.io.vasp import Xdatcar
+from povalt.firetasks.wf_generators import potential_trainer, \
+    train_and_run_single_lammps, train_and_run_multiple_lammps
 from pymatgen.io.ase import AseAtomsAdaptor
 
 
@@ -58,15 +63,15 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                                      'slab:0.002:0.2:0.2:0.2:'
                                      'cluster:0.002:0.2:0.2:0.2}',
                 'energy_parameter_name': 'free_energy',
-                'force_parameter_name': 'forces',
-                'force_mask_parameter_name': 'force_mask',
+                'force_parameter_name': 'dummy',
+                'force_mask_parameter_name': 'dummy',
                 'sparse_jitter': 1E-8,
                 'do_copy_at_file': 'F',
                 'sparse_separate_file': 'T',
                 'gp_file': 'Pt_test.xml',
                 'gap_cmd': 'gap_fit',
                 'mpi_cmd': None,
-                'mpi_procs': 4,
+                'mpi_procs': 1,
                 'omp_threads': 6
                 }
 
@@ -75,13 +80,14 @@ pot_wf = potential_trainer(train_params=train_params)
 # print(wf)
 # lpad.add_wf(wf)
 
-pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/liq/100.vasp'))
+pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
+#pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
 lammps_params = {
     'lammps_settings': [
-        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 2000',
+        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 500',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
-        'pair_style quip', 'pair_coeff * * Pt_test.xml "Potential xml_label=POT_FW_NAME" 78',
+        'pair_style quip', 'pair_coeff * * POT_FW_LABEL "Potential xml_label=POT_FW_NAME" 78',
         'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
         'fix 1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0',
         'run $t',
@@ -90,14 +96,17 @@ lammps_params = {
     'structure': pmg_struct.as_dict(),  # pymatgen structure object
     'units': 'metal',  # must match settings
     'lmp_bin': 'lmp',
-    'lmp_params': '-k on t 1 g 1 -sf kk',
-    'mpi_cmd': 'mpirun',
+    'lmp_params': '-k on t 4 g 1 -sf kk',
+    'mpi_cmd': '/usr/bin/mpirun',
     'mpi_procs': 2,
-    'omp_threads' : 2,
+    'omp_threads': 4,
 }
 
-md_wf = train_and_run_lammps(train_params=train_params, lammps_params=lammps_params)
-print(md_wf)
+# md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
+# print(md_wf)
 
-lpad.reset('2020-08-31')
+lpad.reset('2020-09-01')
+
+md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1)
+# print(md_wf)
 lpad.add_wf(md_wf)

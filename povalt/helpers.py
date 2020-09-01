@@ -57,3 +57,26 @@ def find_binary(binary):
     if result is None:
         raise FileNotFoundError('program >{}< not found in path'.format(binary))
     return result
+
+
+def env_chk(val, fw_spec, strict=True, default=None):
+    """
+    Gets what you need from the fw_spec env
+
+    Args:
+        val: what you are looking for
+        fw_spec: the env
+        strict: be strict
+        default: default
+
+    Returns:
+        the val you are looking for
+    """
+    if val is None:
+        return default
+
+    if isinstance(val, str) and val.startswith(">>") and val.endswith("<<"):
+        if strict:
+            return fw_spec['_fw_env'][val[2:-2]]
+        return fw_spec.get('_fw_env', {}).get(val[2:-2], default)
+    return val

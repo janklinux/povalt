@@ -21,7 +21,6 @@ import os
 import subprocess
 from povalt.helpers import find_binary
 from custodian.custodian import Job
-from fireworks import FWAction
 
 
 class TrainJob(Job):
@@ -37,6 +36,8 @@ class TrainJob(Job):
         """
         self.run_dir = os.getcwd()
         self.train_params = train_params
+        self.potential_name = ' *** FILE NOT FOUND *** '
+        self.potential_label = ' *** FILE NOT FOUND *** '
 
     def setup(self):
         pass
@@ -59,7 +60,7 @@ class TrainJob(Job):
 
         if self.train_params['mpi_cmd'] is not None:
             if self.train_params['mpi_procs'] is None:
-               raise ValueError('Running MPI you have to set mpi_procs')
+                raise ValueError('Running MPI you have to set mpi_procs')
             cmd = find_binary(str(self.train_params['mpi_cmd'].strip())).strip() + \
                   ' -n {} '.format(self.train_params['mpi_procs'])
         else:
@@ -107,18 +108,17 @@ class TrainJob(Job):
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err')
         finally:
-            print('I ran it all the way')
+            os.environ['OMP_NUM_THREADS'] = str(1)
+            # pass  # print('I ran it all the way')
 
         return p
 
     def postprocess(self):
         pass
 
-    def get_potential_filename(self):
-        potential_name = ' *** FILE NOT FOUND *** '
+    def get_potential_info(self):
+        pot_file = []
         for file in os.listdir(self.run_dir):
             if file.startswith(self.train_params['gp_file']):
-                if len(file.split('.')) == 4:
-                    potential_name = file.split('.')[3][:-1]
-                    break
-        return os.path.join(self.run_dir, potential_name)
+                pot_file.append(file)
+        return {'files': pot_file, 'path': self.run_dir, 'label': self.train_params['gp_file']}

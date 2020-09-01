@@ -25,10 +25,16 @@ import subprocess
 from ase.atoms import Atoms
 from ase.io import read as ase_read
 from ase.io.lammpsdata import write_lammps_data
+from ase.io.lammpsrun import read_lammps_dump_text
 from povalt.helpers import find_binary
-from pymatgen.core.structure import Structure
+from povalt.firetasks.vasp import StaticFW
+from pymatgen.core.structure import Structure, Element
 from custodian.custodian import Job
 from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.io.vasp import Kpoints
+from pymatgen.io.vasp.sets import MPStaticSet
+from atomate.vasp.powerups import add_modify_incar
+from fireworks import Workflow
 
 
 class LammpsJob(Job):
@@ -36,25 +42,43 @@ class LammpsJob(Job):
     Class to run LAMMPS MD as firework
     """
 
-    def __init__(self, lammps_params, potential_name):
+    def __init__(self, lammps_params, db_file, fw_spec):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
+            db_file: database info to be passed on to the store task
+            fw_spec: fireworks specs
         """
         self.lammps_params = lammps_params
-        self.potential_name = potential_name
+        self.fw_spec = fw_spec
+        self.potential_info = fw_spec['potential_info']
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
+        self.db_file = db_file
+        self.run_dir = os.getcwd()
 
     def setup(self):
+        self.setup_lammps_md()
+
+    def run(self):
+        return self.run_lammps_md()
+
+    def postprocess(self):
+        pass
+
+    def setup_lammps_md(self):
+        os.chdir(self.run_dir)
+        pot_name = self.link_potential()
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
                           units=self.lammps_params['units'])
         with open('lammps.in', 'w') as f:
             for line in self.lammps_params['lammps_settings']:
-                f.write(re.sub('POT_FW_NAME', self.potential_name, line.strip() + '\n'))
+                f.write(re.sub('POT_FW_LABEL', self.potential_info['label'],
+                               re.sub('POT_FW_NAME', pot_name, line.strip())) + '\n')
 
-    def run(self):
+    def run_lammps_md(self):
+        os.chdir(self.run_dir)
         for item in self.lammps_params:
             if self.lammps_params[item] is not None:
                 self.lammps_params[item] = str(self.lammps_params[item])
@@ -78,12 +102,51 @@ class LammpsJob(Job):
         except FileNotFoundError:
             raise FileNotFoundError('Command execution failed, check std_err.')
         finally:
-            print('I got LMP to the end')
-
+            os.environ['OMP_NUM_THREADS'] = str(1)
         return p
 
-    def postprocess(self):
-        pass
+    def link_potential(self):
+        pot_name = ' *** FILE NOT FOUND *** '
+        for file in self.potential_info['files']:
+            os.symlink(os.path.join(self.potential_info['path'], file),
+                       os.path.join(self.run_dir, file))
+            if len(file) > len(self.potential_info['label']):
+                pot_name = file.split('.')[3][:-1]
+        return pot_name
+
+    def get_vasp_static_dft(self):
+        """
+        Generates a static DFT run for VASP
+        Returns:
+            the workflow
+        """
+        with open(os.path.join(self.run_dir, 'final_positions.atom'), 'r') as f:
+            final_atoms = read_lammps_dump_text(fileobj=f, index=-1)
+        lammps_result = AseAtomsAdaptor.get_structure(final_atoms)
+        lattice = lammps_result.lattice
+        species = [Element('Pt') for _ in range(len(lammps_result.species))]
+        coords = lammps_result.frac_coords
+        rerun_structure = Structure(lattice=lattice, species=species, coords=coords, coords_are_cartesian=False)
+
+        kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
+        incar_mod = {'EDIFF': 1E-4, 'ENCUT': 220, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
+                     # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
+
+        print('\n')
+        print(kpt_set)
+        print('   *** CHECK IF SLAB OR BULK ***\n\n')
+
+        vis = MPStaticSet(rerun_structure)
+        v = vis.as_dict()
+        v.update({"user_kpoints_settings": kpt_set})
+        vis_static = vis.__class__.from_dict(v)
+
+        static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
+                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
+                                       db_file=self.db_file)])
+        run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
+        return run_wf
 
 
 class Lammps:

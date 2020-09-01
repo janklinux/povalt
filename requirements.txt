@@ -2,6 +2,7 @@ nose
 sphinx
 numpy
 scipy
+pymongo
 atomate
 custodian
 fireworks

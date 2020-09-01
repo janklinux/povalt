@@ -17,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
 import abc
-from fireworks import FiretaskBase, FWAction
+from fireworks import FiretaskBase, FWAction, ScriptTask, Firework
 from fireworks.utilities.fw_utilities import explicit_serialize
 from custodian import Custodian
 from povalt.training.training import TrainJob
@@ -31,48 +32,26 @@ class TrainBase(FiretaskBase):
     """
     @abc.abstractmethod
     def get_job(self):
-        """
-        Creates custodian job for the task
-
-        Returns:
-            a custodian job
-        """
         pass
 
     @abc.abstractmethod
     def get_handlers(self):
-        """
-        Returns handlers of job for the task
-
-        Returns:
-            job error handlers
-        """
         pass
 
     @abc.abstractmethod
     def get_validators(self):
-        """
-        Returns the validators for the job
-
-        Returns:
-            job validators
-        """
         pass
 
     def run_task(self, fw_spec):
-        """
-        Runs the task
-        Args:
-            fw_spec: firework specifications
-
-        Returns:
-
-        """
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-
-        return FWAction(update_spec={'potential_filename': job.get_potential_filename()})
+        if fw_spec['al_task'] is not None:
+            os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
+            os.system('qlaunch -q {} rapidfire --nlaunches {}'
+                                  .format(os.path.join(fw_spec['al_task']['base_dir'], 'my_queue.yaml'),
+                                  str(fw_spec['al_task']['num_launches'])))
+        return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
 @explicit_serialize
@@ -80,7 +59,7 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
-    required_params = ['train_params']
+    required_params = ['train_params', 'al_file']
     optional_params = []
 
     def get_job(self):
@@ -93,6 +72,10 @@ class PotentialTraining(TrainBase):
         return []
 
     def run_task(self, fw_spec):
+        if 'al_file' in fw_spec:
+            fw_spec['al_task'] = self['al_file']
+        else:
+            fw_spec['al_task'] = None
         return super().run_task(fw_spec=fw_spec)
 
 
@@ -102,58 +85,33 @@ class LammpsBase(FiretaskBase):
     """
     @abc.abstractmethod
     def get_job(self, fw_spec):
-        """
-        Creates custodian job for the task
-
-        Returns:
-            a custodian job
-        """
         pass
 
     @abc.abstractmethod
     def get_handlers(self):
-        """
-        Returns handlers of job for the task
-
-        Returns:
-            job error handlers
-        """
         pass
 
     @abc.abstractmethod
     def get_validators(self):
-        """
-        Returns the validators for the job
-
-        Returns:
-            job validators
-        """
         pass
 
     def run_task(self, fw_spec):
-        """
-        Runs the task
-        Args:
-            fw_spec: firework specifications
-
-        Returns:
-
-        """
         job = self.get_job(fw_spec)
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
+        return FWAction(additions=(job.get_vasp_static_dft()))
 
 
 @explicit_serialize
-class Lammps_MD(LammpsBase):
+class LammpsMD(LammpsBase):
     """
     Class to run MD
     """
-    required_params = ['lammps_params']
+    required_params = ['lammps_params', 'db_file']
     optional_params = []
 
-    def get_job(self, spec):
-        return LammpsJob(lammps_params=self['lammps_params'], potential_name=spec['potential_filename'])
+    def get_job(self, fw_spec):
+        return LammpsJob(lammps_params=self['lammps_params'], db_file=self['db_file'], fw_spec=fw_spec)
 
     def get_validators(self):
         pass
