@@ -45,7 +45,6 @@ class TrainBase(FiretaskBase):
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-
         return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
@@ -88,10 +87,8 @@ class LammpsBase(FiretaskBase):
 
     def run_task(self, fw_spec):
         job = self.get_job(fw_spec)
-
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-
         return FWAction(additions=(job.get_vasp_static_dft()))
 
 
@@ -100,11 +97,11 @@ class LammpsMD(LammpsBase):
     """
     Class to run MD
     """
-    required_params = ['lammps_params']
+    required_params = ['lammps_params', 'db_file']
     optional_params = []
 
     def get_job(self, fw_spec):
-        return LammpsJob(lammps_params=self['lammps_params'], fw_spec=fw_spec)
+        return LammpsJob(lammps_params=self['lammps_params'], db_file=self['db_file'], fw_spec=fw_spec)
 
     def get_validators(self):
         pass

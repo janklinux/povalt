@@ -89,7 +89,9 @@ def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
     all_fws.append(train_fw)
 
     for i in range(num_lammps):
-        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD'))
+        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params,
+                                          db_file='/home/jank/work/test/fireworks/db.json')],
+                                parents=train_fw, name='Lammps_MD'))
 
     all_fws.extend(dep_fws)
 

@@ -42,17 +42,19 @@ class LammpsJob(Job):
     Class to run LAMMPS MD as firework
     """
 
-    def __init__(self, lammps_params, fw_spec):
+    def __init__(self, lammps_params, db_file, fw_spec):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
+            db_file: database info to be passed on to the store task
             fw_spec: fireworks specs
         """
         self.lammps_params = lammps_params
         self.fw_spec = fw_spec
         self.potential_info = fw_spec['potential_info']
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
+        self.db_file = db_file
         self.run_dir = os.getcwd()
 
     def setup(self):
@@ -128,7 +130,7 @@ class LammpsJob(Job):
 
         kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
         incar_mod = {'EDIFF': 1E-4, 'ENCUT': 220, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': 'False'}
+                     'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
                      # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
         print('\n')
@@ -141,7 +143,8 @@ class LammpsJob(Job):
         vis_static = vis.__class__.from_dict(v)
 
         static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
-                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis')])
+                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
+                                       db_file=self.db_file)])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf
 

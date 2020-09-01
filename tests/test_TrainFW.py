@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import os
 from ase.io import read
 from fireworks import LaunchPad
@@ -77,12 +80,12 @@ pot_wf = potential_trainer(train_params=train_params)
 # print(wf)
 # lpad.add_wf(wf)
 
-#pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
-pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
+pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
+#pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
 lammps_params = {
     'lammps_settings': [
-        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 1000',
+        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 500',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
         'pair_style quip', 'pair_coeff * * POT_FW_LABEL "Potential xml_label=POT_FW_NAME" 78',
         'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
@@ -104,6 +107,6 @@ lammps_params = {
 
 lpad.reset('2020-09-01')
 
-md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=5)
+md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1)
 # print(md_wf)
 lpad.add_wf(md_wf)

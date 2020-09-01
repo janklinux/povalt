@@ -16,14 +16,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import io
 import os
+import gzip
+import json
 import datetime
 import subprocess
 import numpy as np
+from pymongo import MongoClient
+from ase.io import read as aseread
+from ase.io import write as asewrite
 from povalt.helpers import env_chk
 from fireworks import Workflow, Firework, FiretaskBase
 from fireworks.utilities.fw_utilities import explicit_serialize
-from pymatgen.io.vasp import Kpoints, Outcar
+from pymatgen.io.vasp import Kpoints, Outcar, Vasprun
 from pymatgen.io.vasp.sets import MPRelaxSet
 from pymatgen.core.structure import Structure, Lattice
 from atomate.vasp.fireworks.core import OptimizeFW
@@ -33,11 +39,12 @@ from custodian import Custodian
 from custodian.custodian import Job
 from custodian.vasp.handlers import VaspErrorHandler, MeshSymmetryErrorHandler, UnconvergedErrorHandler, \
     NonConvergingErrorHandler, PotimErrorHandler, PositiveEnergyErrorHandler, FrozenJobErrorHandler, StdErrHandler
+from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 
 
 @explicit_serialize
 class StaticFW(Firework):
-    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None):
+    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None, db_file=None):
         """
         Standard static calculation Firework from a structure.
 
@@ -46,11 +53,13 @@ class StaticFW(Firework):
             vasp_input_set (VaspInputSet): input set to use (for jobs w/no parents)
                 Defaults to MPStaticSet() if None.
             vasp_cmd (str): Command to run vasp.
+            db_file: file pointing to json-specified database credentials to store results
         """
 
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
+        t.append(AddToDbTask(force_thresh=float(1E-2), db_file=db_file))
         super(StaticFW, self).__init__(t, name=name)
 
 
@@ -70,19 +79,19 @@ class RunVaspCustodian(FiretaskBase):
         handlers = [VaspErrorHandler(), MeshSymmetryErrorHandler(), UnconvergedErrorHandler(),
                     NonConvergingErrorHandler(), PotimErrorHandler(),
                     PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
-        validators = []
+        validators = [VasprunXMLValidator(), VaspFilesValidator()]
 
-        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=8)
+        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=10)
         c.run()
 
 
 class VaspJob(Job):
     """
-    A basic vasp job.
+    A basic VASP job
     """
     def __init__(self, vasp_cmd):
         """
-        Simple Job for VASP
+        Get/set variables for a simple VASP job
         Args:
             vasp_cmd (str): Command to run vasp
         """
@@ -97,22 +106,110 @@ class VaspJob(Job):
     def run(self):
         """
         Runs VASP
-
         Returns:
-            (subprocess.Popen) for monitoring.
+            subprocess for monitoring
         """
         with open(self.std_out, 'w') as sout, open(self.std_err, 'w', buffering=1) as serr:
             p = subprocess.Popen(self.vasp_cmd.split(), stdout=sout, stderr=serr)
         return p
 
     def postprocess(self):
-        forces = Outcar(os.path.join(self.run_dir, 'OUTCAR')).read_table_pattern(
+        """
+        Gzips all files in the directory we ran VASP in
+        """
+        for file in os.listdir(self.run_dir):
+            with open(file, 'rb') as fin:
+                with gzip.open(file + '.gz', 'wb') as fout:
+                    fout.write(fin.read())
+            os.unlink(file)
+
+
+@explicit_serialize
+class AddToDbTask(FiretaskBase):
+    """
+    Task insert results into a database if forces exceed specification
+
+    Required:
+        db_file (str): absolute path to file containing the database credentials
+        force_thresh (float): Threshold for any force component above which the result is added to the training db
+    """
+
+    required_params = ['force_thresh', 'db_file']
+    optional_params = []
+
+    def run_task(self, fw_spec):
+        with open(self['db_file'], 'r') as f:
+            db_info = json.load(f)
+
+        connection = None
+
+        if 'ssl' in db_info:
+            if db_info['ssl'].lower() == 'true':
+                try:
+                    connection = MongoClient(host=db_info['host'], port=db_info['port'],
+                                             username=db_info['user'], password=db_info['password'],
+                                             ssl=True, tlsCAFile=db_info['ssl_ca_certs'],
+                                             ssl_certfile=db_info['ssl_certfile'])
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+            else:
+                try:
+                    connection = MongoClient(host=db_info['host'], port=db_info['port'],
+                                             username=db_info['user'], password=db_info['password'],
+                                             ssl=False)
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+
+        if connection is None:
+            raise ConnectionAbortedError('Connection failure, check internal routines')
+
+        db = connection[db_info['database']]
+        try:
+            db.authenticate(db_info['user'], db_info['password'])
+        except ConnectionRefusedError:
+            raise ConnectionRefusedError('Mongodb authentication failed')
+        collection = db[db_info['collection']]
+
+        # get the directory we parse files in
+        run_dir = os.getcwd()
+        if 'run_dir' in self:
+            run_dir = self['calc_dir']
+
+        vrun = os.path.join(run_dir, 'vasprun.xml.gz')
+        orun = os.path.join(run_dir, 'OUTCAR.gz')
+
+        run = Vasprun(vrun)
+        runo = Outcar(orun)
+        atoms = aseread(vrun)
+        xyz = ''
+        file = io.StringIO()
+        asewrite(filename=file, images=atoms, format='xyz')
+        file.seek(0)
+        for f in file:
+            xyz += f
+        file.close()
+
+        forces = runo.read_table_pattern(
             header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
             row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
             footer_pattern=r'\s--+',
             postprocess=lambda x: float(x),
             last_one_only=True)
-        print(np.array(forces))
+
+        if np.any(np.array(forces) > float(self['force_thresh'])):
+            dft_data = dict()
+            dft_data['xyz'] = xyz
+            dft_data['PBE_54'] = run.potcar_symbols
+            dft_data['parameters'] = run.parameters.as_dict()
+            dft_data['free_energy'] = runo.final_energy  # this is the FREE energy, different from vasprun.xml in 6.+
+            # dft_data['complete_dos'] = run.complete_dos.as_dict()
+            dft_data['final_structure'] = run.final_structure.as_dict()
+            data_name = 'Pt structure  ||  automatic addition from PoValT'
+            # collection.insert_one({'name': data_name, 'data': dft_data})
+        else:
+            pass
+            # print('All forces below specified threshold ({}), result is fine, not adding to training data'
+            #       .format(float(self['force_thresh'])))
 
 
 class VaspTasks:
