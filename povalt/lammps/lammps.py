@@ -22,6 +22,7 @@ import os
 import time
 import tempfile
 import subprocess
+from pymongo import MongoClient
 from ase.atoms import Atoms
 from ase.io import read as ase_read
 from ase.io.lammpsdata import write_lammps_data
@@ -42,33 +43,27 @@ class LammpsJob(Job):
     Class to run LAMMPS MD as firework
     """
 
-    def __init__(self, lammps_params, db_file, fw_spec):
+    def __init__(self, lammps_params, db_info, fw_spec):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
-            db_file: database info to be passed on to the store task
+            db_info: database info
             fw_spec: fireworks specs
         """
         self.lammps_params = lammps_params
         self.fw_spec = fw_spec
         self.potential_info = fw_spec['potential_info']
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
-        self.db_file = db_file
+        self.db_info = db_info
         self.run_dir = os.getcwd()
-
-    def setup(self):
-        self.setup_lammps_md()
-
-    def run(self):
-        return self.run_lammps_md()
 
     def postprocess(self):
         pass
 
-    def setup_lammps_md(self):
+    def setup(self):
         os.chdir(self.run_dir)
-        pot_name = self.link_potential()
+        pot_name = self.download_potential()
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
                           units=self.lammps_params['units'])
@@ -77,7 +72,7 @@ class LammpsJob(Job):
                 f.write(re.sub('POT_FW_LABEL', self.potential_info['label'],
                                re.sub('POT_FW_NAME', pot_name, line.strip())) + '\n')
 
-    def run_lammps_md(self):
+    def run(self):
         os.chdir(self.run_dir)
         for item in self.lammps_params:
             if self.lammps_params[item] is not None:
@@ -113,6 +108,44 @@ class LammpsJob(Job):
             if len(file) > len(self.potential_info['label']):
                 pot_name = file.split('.')[3][:-1]
         return pot_name
+
+    def download_potential(self):
+
+        connection = None
+
+        if 'ssl' in self.db_info:
+            if self.db_info['ssl'].lower() == 'true':
+                try:
+                    connection = MongoClient(host=self.db_info['host'], port=self.db_info['port'],
+                                             username=self.db_info['user'], password=self.db_info['password'],
+                                             ssl=True, tlsCAFile=self.db_info['ssl_ca_certs'],
+                                             ssl_certfile=self.db_info['ssl_certfile'])
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+            else:
+                try:
+                    connection = MongoClient(host=self.db_info['host'], port=self.db_info['port'],
+                                             username=self.db_info['user'], password=self.db_info['password'],
+                                             ssl=False)
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+
+        if connection is None:
+            raise ConnectionAbortedError('Connection failure, check internal routines')
+
+        db = connection[self.db_info['database']]
+        try:
+            db.authenticate(self.db_info['user'], self.db_info['password'])
+        except ConnectionRefusedError:
+            raise ConnectionRefusedError('Mongodb authentication failed')
+        collection = db[self.db_info['potential_collection']]
+
+        pot_info = collection.find()
+
+        print(pot_info)
+
+        quit()
+
 
     def get_vasp_static_dft(self):
         """
@@ -175,7 +208,7 @@ class Lammps:
 
     def write_md(self, atoms_file, lammps_settings, units):
         """
-        Writes LAMMPS input files to run MD
+        Writes LAMMPS input files to run MD and gets the potential from the db into a file on disk
         Args:
             atoms_file: file to write to
             lammps_settings: settings string to write as lammps input

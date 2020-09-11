@@ -134,30 +134,25 @@ class AddToDbTask(FiretaskBase):
         force_thresh (float): Threshold for any force component above which the result is added to the training db
     """
 
-    required_params = ['force_thresh', 'db_file']
+    required_params = ['force_thresh', 'db_info']
     optional_params = []
 
     def run_task(self, fw_spec):
-        if self['db_file'] is None:
-            return
-        with open(self['db_file'], 'r') as f:
-            db_info = json.load(f)
-
         connection = None
 
-        if 'ssl' in db_info:
-            if db_info['ssl'].lower() == 'true':
+        if 'ssl' in self['db_info']:
+            if self['db_info']['ssl'].lower() == 'true':
                 try:
-                    connection = MongoClient(host=db_info['host'], port=db_info['port'],
-                                             username=db_info['user'], password=db_info['password'],
-                                             ssl=True, tlsCAFile=db_info['ssl_ca_certs'],
-                                             ssl_certfile=db_info['ssl_certfile'])
+                    connection = MongoClient(host=self['db_info']['host'], port=self['db_info']['port'],
+                                             username=self['db_info']['user'], password=self['db_info']['password'],
+                                             ssl=True, tlsCAFile=self['db_info']['ssl_ca_certs'],
+                                             ssl_certfile=self['db_info']['ssl_certfile'])
                 except ConnectionError:
                     raise ConnectionError('Mongodb connection failed')
             else:
                 try:
-                    connection = MongoClient(host=db_info['host'], port=db_info['port'],
-                                             username=db_info['user'], password=db_info['password'],
+                    connection = MongoClient(host=self['db_info']['host'], port=self['db_info']['port'],
+                                             username=self['db_info']['user'], password=self['db_info']['password'],
                                              ssl=False)
                 except ConnectionError:
                     raise ConnectionError('Mongodb connection failed')
@@ -165,12 +160,12 @@ class AddToDbTask(FiretaskBase):
         if connection is None:
             raise ConnectionAbortedError('Connection failure, check internal routines')
 
-        db = connection[db_info['database']]
+        db = connection[self['db_info']['database']]
         try:
-            db.authenticate(db_info['user'], db_info['password'])
+            db.authenticate(self['db_info']['user'], self['db_info']['password'])
         except ConnectionRefusedError:
             raise ConnectionRefusedError('Mongodb authentication failed')
-        collection = db[db_info['collection']]
+        collection = db[self['db_info']['structure_collection']]
 
         # get the directory we parse files in
         run_dir = os.getcwd()
@@ -208,6 +203,7 @@ class AddToDbTask(FiretaskBase):
             dft_data['final_structure'] = run.final_structure.as_dict()
             data_name = 'Pt structure  ||  automatic addition from PoValT'
             # collection.insert_one({'name': data_name, 'data': dft_data})
+            print(dft_data)
         else:
             pass
             # print('All forces below specified threshold ({}), result is fine, not adding to training data'

@@ -17,8 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import re
 import os
 import subprocess
+from pymongo import MongoClient
 from povalt.helpers import find_binary
 from custodian.custodian import Job
 
@@ -27,14 +29,16 @@ class TrainJob(Job):
     """
     Training Job for the potential
     """
-    def __init__(self, train_params):
+    def __init__(self, train_params, db_info):
         """
         Class init
 
         Args:
             train_params: all parameters
+            db_info: db info to store the potential
         """
         self.run_dir = os.getcwd()
+        self.db_info = db_info
         self.train_params = train_params
         self.potential_name = ' *** FILE NOT FOUND *** '
         self.potential_label = ' *** FILE NOT FOUND *** '
@@ -77,12 +81,23 @@ class TrainJob(Job):
                    ' delta=' + self.train_params['nb_delta'] + \
                    ' theta_uniform=' + self.train_params['theta_uniform'] + \
                    ' nb_sparse_method=' + self.train_params['nb_sparse_method'] + \
-                   ' : soap' + \
+                   ' : soap_turbo' + \
                    ' l_max=' + self.train_params['l_max'] + \
-                   ' n_max=' + self.train_params['n_max'] + \
-                   ' atom_sigma=' + self.train_params['atom_sigma'] + \
+                   ' alpha_max=' + self.train_params['alpha_max'] + \
+                   ' atom_sigma_r=' + self.train_params['atom_sigma_r'] + \
+                   ' atom_sigma_t=' + self.train_params['atom_sigma_t'] + \
+                   ' atom_sigma_r_scaling=' + self.train_params['atom_sigma_r_scaling'] + \
+                   ' atom_sigma_t_scaling=' + self.train_params['atom_sigma_t_scaling'] + \
                    ' zeta=' + self.train_params['zeta'] + \
-                   ' cutoff=' + self.train_params['soap_cutoff'] + \
+                   ' rcut_hard=' + self.train_params['soap_rcuthard'] + \
+                   ' rcut_soft=' + self.train_params['soap_rcutsoft'] + \
+                   ' basis= ' + self.train_params['soap_basis'] + \
+                   ' scaling_mode=' + self.train_params['soap_scaling_mode'] + \
+                   ' amplitude_scaling=' + self.train_params['soap_amplitude_scaling'] + \
+                   ' n_species=' + self.train_params['soap_n_species'] + \
+                   ' species_Z=' + self.train_params['soap_species_Z'] + \
+                   ' radial_enhancement=' + self.train_params['radial_enhancement'] + \
+                   ' compress_file=' + self.train_params['compress_file'] + \
                    ' central_weight=' + self.train_params['central_weight'] + \
                    ' config_type_n_sparse=' + self.train_params['config_type_n_sparse'] + \
                    ' delta=' + self.train_params['soap_delta'] + \
@@ -114,7 +129,42 @@ class TrainJob(Job):
         return p
 
     def postprocess(self):
-        pass
+        connection = None
+
+        if 'ssl' in self.db_info:
+            if self.db_info['ssl'].lower() == 'true':
+                try:
+                    connection = MongoClient(host=self.db_info['host'], port=self.db_info['port'],
+                                             username=self.db_info['user'], password=self.db_info['password'],
+                                             ssl=True, tlsCAFile=self.db_info['ssl_ca_certs'],
+                                             ssl_certfile=self.db_info['ssl_certfile'])
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+            else:
+                try:
+                    connection = MongoClient(host=self.db_info['host'], port=self.db_info['port'],
+                                             username=self.db_info['user'], password=self.db_info['password'],
+                                             ssl=False)
+                except ConnectionError:
+                    raise ConnectionError('Mongodb connection failed')
+
+        if connection is None:
+            raise ConnectionAbortedError('Connection failure, check internal routines')
+
+        db = connection[self.db_info['database']]
+        try:
+            db.authenticate(self.db_info['user'], self.db_info['password'])
+        except ConnectionRefusedError:
+            raise ConnectionRefusedError('Mongodb authentication failed')
+        collection = db[self.db_info['potential_collection']]
+
+        pot_file = {}  # dict of filename: data
+        for file in os.listdir(self.run_dir):
+            if file.startswith(self.train_params['gp_file']):
+                with open(file, 'r') as f:
+                    pot_file[re.sub('.', ':', file)] = f.readlines()
+
+        collection.insert_one(pot_file)
 
     def get_potential_info(self):
         pot_file = []

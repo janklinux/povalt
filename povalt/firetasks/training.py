@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import os
+# import os
 import abc
 from fireworks import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
@@ -46,11 +46,11 @@ class TrainBase(FiretaskBase):
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-        if fw_spec['al_task'] is not None:
-            os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
-            os.system('qlaunch -q {} rapidfire --nlaunches {}'.format(os.path.join(fw_spec['al_task']['base_dir'],
-                                                                                   'my_queue.yaml'),
-                                                                      str(fw_spec['al_task']['num_launches'])))
+        # if fw_spec['al_task'] is not None:
+        #     os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
+        #     os.system('qlaunch -q {} rapidfire --nlaunches {}'.format(os.path.join(fw_spec['al_task']['base_dir'],
+        #                                                                            'my_queue.yaml'),
+        #                                                               str(fw_spec['al_task']['num_launches'])))
         return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
@@ -59,11 +59,11 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
-    required_params = ['train_params', 'al_file']
-    optional_params = []
+    required_params = ['train_params', 'db_info']
+    optional_params = ['al_file']
 
     def get_job(self):
-        return TrainJob(train_params=self['train_params'])
+        return TrainJob(train_params=self['train_params'], db_info=self['db_info'])
 
     def get_validators(self):
         pass
@@ -107,11 +107,11 @@ class LammpsMD(LammpsBase):
     """
     Class to run MD
     """
-    required_params = ['lammps_params', 'db_file']
+    required_params = ['lammps_params', 'db_info']
     optional_params = []
 
     def get_job(self, fw_spec):
-        return LammpsJob(lammps_params=self['lammps_params'], db_file=self['db_file'], fw_spec=fw_spec)
+        return LammpsJob(lammps_params=self['lammps_params'], db_info=self['db_info'], fw_spec=fw_spec)
 
     def get_validators(self):
         pass

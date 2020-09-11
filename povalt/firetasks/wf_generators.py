@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import os
-from fireworks import Firework, Workflow, ScriptTask
+import json
+from fireworks import Firework, Workflow
 from povalt.firetasks.training import LammpsMD
 from povalt.firetasks.training import PotentialTraining
 
@@ -65,7 +65,7 @@ def train_and_run_single_lammps(train_params, lammps_params):
     return Workflow([train_fw, md_run], {train_fw: [md_run]}, name='train_and_MD')
 
 
-def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
+def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps, db_file, al_file):
     """
     Trains a potential and then runs LAMMPS MD with it
 
@@ -80,7 +80,12 @@ def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
         the workflow for Launchpad
     """
 
-    if not train_params or len(train_params) != 33:
+    with open(al_file, 'r') as f:
+        al_info = json.load(f)
+    with open(db_file, 'r') as f:
+        db_info = json.load(f)
+
+    if not train_params or len(train_params) != 44:
         raise ValueError('Training parameters have to be defined, abort.')
     if not lammps_params or len(lammps_params) != 9:
         raise ValueError('LAMMPS parameters have to be defined, abort.')
@@ -88,18 +93,18 @@ def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps):
     all_fws = []
     dep_fws = []
 
-    train_fw = Firework([PotentialTraining(train_params=train_params, al_file=None)], parents=None, name='TrainTask')
+    train_fw = Firework([PotentialTraining(train_params=train_params, db_info=db_info)],
+                        parents=None, name='TrainTask')
 
     all_fws.append(train_fw)
 
     for i in range(num_lammps):
-        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_file=None)],
+        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],
                                 parents=train_fw, name='Lammps_MD'))
 
     all_fws.extend(dep_fws)
 
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_MD')
-
 
 
 def train_autolaunch_multiple_lammps(train_params, lammps_params, num_lammps, db_file, al_file):
@@ -117,6 +122,11 @@ def train_autolaunch_multiple_lammps(train_params, lammps_params, num_lammps, db
         the workflow for Launchpad
     """
 
+    with open(al_file, 'r') as f:
+        al_info = json.load(f)
+    with open(db_file, 'r') as f:
+        db_info = json.load(f)
+
     if not train_params or len(train_params) != 33:
         raise ValueError('Training parameters have to be defined, abort.')
     if not lammps_params or len(lammps_params) != 9:
@@ -125,7 +135,7 @@ def train_autolaunch_multiple_lammps(train_params, lammps_params, num_lammps, db
     all_fws = []
     dep_fws = []
 
-    train_fw = Firework([PotentialTraining(train_params=train_params, al_file=al_file)],
+    train_fw = Firework([PotentialTraining(train_params=train_params, al_info=al_info)],
                         parents=None, name='TrainTask')
     # launch_fw = Firework([ScriptTask('cd {};'.format(al_file['base_dir']) +
     #                                  'qlaunch -q {} rapidfire --nlaunches {}'
@@ -136,9 +146,9 @@ def train_autolaunch_multiple_lammps(train_params, lammps_params, num_lammps, db
     # all_fws.append(launch_fw)
 
     for i in range(num_lammps):
-        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_file=db_file)],
-                                parents=train_fw, name='Lammps_MD'))
+        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],
+                                parents=train_fw, name='LAMMPS CG'))
 
     all_fws.extend(dep_fws)
 
-    return Workflow(all_fws, {train_fw: launch_fw, launch_fw: dep_fws}, name='train_and_multi_MD')
+    return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_MD')

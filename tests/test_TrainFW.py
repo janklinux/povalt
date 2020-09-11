@@ -44,12 +44,23 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                 'theta_uniform': 1.0,
                 'nb_sparse_method': 'uniform',
                 'l_max': 8,
-                'n_max': 8,
-                'atom_sigma': 0.5,
-                'zeta': 4,
-                'soap_cutoff': 5.0,
+                'alpha_max': '{{8}}',
+                'atom_sigma_r': '{{0.5}}',
+                'atom_sigma_t': '{{0.5}}',
+                'atom_sigma_r_scaling': '{{0.0}}',
+                'atom_sigma_t_scaling': '{{0.0}}',
+                'zeta': 6,
+                'soap_rcuthard': 7.5,
+                'soap_rcutsoft': 6.5,
+                'soap_basis': 'poly3gauss',
+                'soap_scaling_mode': 'polynomial',
+                'soap_amplitude_scaling': '{{1.0}}',
+                'soap_n_species': 1,
+                'soap_species_Z': '{78}',
+                'radial_enhancement': '{{1}}',
+                'compress_file': '/home/jank/work/test/fireworks/compress.dat',
                 'central_weight': 1.0,
-                'config_type_n_sparse': '{fcc:500:bcc:500:hcp:500:sc:500:slab:500:cluster:0}',
+                'config_type_n_sparse': '{fcc:500:bcc:500:hcp:500:sc:500:slab:500:cluster:500}',
                 'soap_delta': 0.1,
                 'f0': 0.0,
                 'soap_covariance_type': 'dot_product',
@@ -75,22 +86,20 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                 'omp_threads': 6
                 }
 
-pot_wf = potential_trainer(train_params=train_params)
+# pot_wf = potential_trainer(train_params=train_params)
 
 # print(wf)
 # lpad.add_wf(wf)
 
-pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
-#pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
+# pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
+pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
 lammps_params = {
     'lammps_settings': [
-        'variable x index 1', 'variable y index 1', 'variable z index 1', 'variable t index 500',
         'newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos', 'mass * 195.084',
         'pair_style quip', 'pair_coeff * * POT_FW_LABEL "Potential xml_label=POT_FW_NAME" 78',
-        'compute energy all pe', 'neighbor 2.0 bin', 'thermo 100', 'timestep 0.001',
-        'fix 1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0',
-        'run $t',
+        'thermo_style custom time pe ke temp', 'thermo 1', 'velocity all zero linear',
+        'min_style cg', 'minimize 1e-10 1e-12 10000 100000',
         'write_dump all atom final_positions.atom'],
     'atoms_filename': 'atom.pos',  # filename must match the name in settings above
     'structure': pmg_struct.as_dict(),  # pymatgen structure object
@@ -105,8 +114,9 @@ lammps_params = {
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-lpad.reset('2020-09-01')
+lpad.reset('2020-09-11')
 
-md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1)
+md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1,
+                                      db_file='db.json', al_file='al.json')
 # print(md_wf)
 lpad.add_wf(md_wf)
