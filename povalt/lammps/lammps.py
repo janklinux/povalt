@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
 import os
+import lzma
 import time
 import tempfile
 import subprocess
@@ -64,6 +65,8 @@ class LammpsJob(Job):
     def setup(self):
         os.chdir(self.run_dir)
         pot_name = self.download_potential()
+        if pot_name is None:
+            raise ValueError('Potential download seems to have failed, check internal routines...')
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
                           units=self.lammps_params['units'])
@@ -110,9 +113,7 @@ class LammpsJob(Job):
         return pot_name
 
     def download_potential(self):
-
         connection = None
-
         if 'ssl' in self.db_info:
             if self.db_info['ssl'].lower() == 'true':
                 try:
@@ -140,12 +141,14 @@ class LammpsJob(Job):
             raise ConnectionRefusedError('Mongodb authentication failed')
         collection = db[self.db_info['potential_collection']]
 
-        pot_info = collection.find()
-
-        print(pot_info)
-
-        quit()
-
+        pot_name = None
+        for pot in collection.find():
+            for p in pot:
+                if len(p.split(':')) == 4:
+                    pot_name = p.split(':')[3][:-1]
+                with open(re.sub(':', '.', p), 'wb') as f:
+                    f.write(lzma.decompress(pot[p]))
+        return pot_name
 
     def get_vasp_static_dft(self):
         """

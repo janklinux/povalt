@@ -34,7 +34,7 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
-train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/potential_fit/testing/complete.xyz',
+train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
                 '2b_z1': 78,
                 '2b_z2': 78,
                 '2b_cutoff': 3.7,
@@ -47,7 +47,7 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                 '3b_z1': 78,
                 '3b_z2': 78,
                 '3b_cutoff': 3.0,
-                '3b_config_type_n_sparse': '{bcc:125:slab:50:fcc:25}',
+                '3b_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
                 '3b_covariance_type': 'pp',
                 '3b_delta': 0.003,
                 '3b_theta_uniform': 4.0,
@@ -67,16 +67,17 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                 'soap_n_species': 1,
                 'soap_species_Z': '{78}',
                 'soap_radial_enhancement': '{{1}}',
-                'soap_compress_file': '/home/jank/work/Aalto/vasp/training_data/potential_fit/testing/compress.dat',
+                'soap_compress_file': '/home/jank/work/test/fireworks/compress.dat',
                 'soap_central_weight': 1.0,
-                'soap_config_type_n_sparse': '{bcc:2500:slab:1000:fcc:500:cluster:30}',
+                'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
                 'soap_delta': 0.1,
                 'soap_f0': 0.0,
                 'soap_covariance_type': 'dot_product',
                 'soap_sparse_method': 'cur_points',
                 'default_sigma': '{0.002 0.2 0.2 0.2}',
-                'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:slab:0.002:0.2:0.2:0.2:'
-                                     'fcc:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
+                'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:fcc:0.002:0.2:0.2:0.2:'
+                                     'hcp:0.002:0.2:0.2:0.2:sc:0.002:0.2:0.2:0.2:'
+                                     'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
                 'energy_parameter_name': 'free_energy',
                 'force_parameter_name': 'dummy',
                 'force_mask_parameter_name': 'dummy',
@@ -84,14 +85,14 @@ train_params = {'atoms_filename': '/home/jank/work/Aalto/vasp/training_data/pote
                 'sparse_jitter': 1E-8,
                 'do_copy_at_file': 'F',
                 'sparse_separate_file': 'T',
-                'gp_file': 'plaitnum.xml',
+                'gp_file': 'platinum.xml',
                 'gap_cmd': 'gap_fit',
                 'mpi_cmd': None,
                 'mpi_procs': 1,
-                'omp_threads': 6
+                'omp_threads': 4
                 }
 
-print(len(train_params))
+# print(len(train_params))
 
 # pot_wf = potential_trainer(train_params=train_params)
 

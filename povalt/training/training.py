@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
 import os
+import lzma
 import subprocess
 from pymongo import MongoClient
 from povalt.helpers import find_binary
@@ -129,8 +130,6 @@ class TrainJob(Job):
 
         cmd += find_binary(self.train_params['gap_cmd']).strip() + arg_list
 
-        print(cmd)
-
         try:
             with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
                 p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
@@ -171,11 +170,14 @@ class TrainJob(Job):
             raise ConnectionRefusedError('Mongodb authentication failed')
         collection = db[self.db_info['potential_collection']]
 
-        pot_file = {}  # dict of filename: data
+        pot_file = {}  # dict with index filename: data
         for file in os.listdir(self.run_dir):
             if file.startswith(self.train_params['gp_file']):
-                with open(file, 'r') as f:
-                    pot_file[re.sub('.', ':', file)] = f.readlines()
+                with open(file, 'rb') as f:
+                    pot_file[re.sub('\.', ':', file)] = lzma.compress(f.read())
+
+        for pot in collection.find():
+            collection.delete_one({'_id': pot['_id']})
 
         collection.insert_one(pot_file)
 
