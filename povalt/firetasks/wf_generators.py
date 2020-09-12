@@ -85,10 +85,10 @@ def train_and_run_multiple_lammps(train_params, lammps_params, num_lammps, db_fi
     with open(db_file, 'r') as f:
         db_info = json.load(f)
 
-    if not train_params or len(train_params) != 44:
-        raise ValueError('Training parameters have to be defined, abort.')
-    if not lammps_params or len(lammps_params) != 9:
-        raise ValueError('LAMMPS parameters have to be defined, abort.')
+    # if not train_params or len(train_params) != 54:
+    #     raise ValueError('Training parameters have to be defined, abort.')
+    # if not lammps_params or len(lammps_params) != 9:
+    #     raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     all_fws = []
     dep_fws = []

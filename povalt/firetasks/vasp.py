@@ -44,7 +44,7 @@ from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 
 @explicit_serialize
 class StaticFW(Firework):
-    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None, db_file=None):
+    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None, db_info=None):
         """
         Standard static calculation Firework from a structure.
 
@@ -59,7 +59,7 @@ class StaticFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(1E-2), db_file=db_file))
+        t.append(AddToDbTask(force_thresh=float(1E-2), db_info=db_info))
         super(StaticFW, self).__init__(t, name=name)
 
 

@@ -177,7 +177,7 @@ class LammpsJob(Job):
 
         static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
                                        vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
-                                       db_file=self.db_file)])
+                                       db_info=self.db_info)])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf
 
