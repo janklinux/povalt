@@ -144,10 +144,11 @@ class LammpsJob(Job):
         pot_name = None
         for pot in collection.find():
             for p in pot:
-                if len(p.split(':')) == 4:
-                    pot_name = p.split(':')[3][:-1]
-                with open(re.sub(':', '.', p), 'wb') as f:
-                    f.write(lzma.decompress(pot[p]))
+                if p != '_id':
+                    if len(p.split(':')) == 4:
+                        pot_name = p.split(':')[3][:-1]
+                    with open(re.sub(':', '.', p), 'wb') as f:
+                        f.write(lzma.decompress(pot[p]))
         return pot_name
 
     def get_vasp_static_dft(self):

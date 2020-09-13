@@ -34,10 +34,10 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
-train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
+train_params = {'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
                 '2b_z1': 78,
                 '2b_z2': 78,
-                '2b_cutoff': 3.7,
+                '2b_cutoff': 4.7,
                 '2b_n_sparse': 15,
                 '2b_covariance_type': 'ard_se',
                 '2b_delta': 0.5,
@@ -46,7 +46,7 @@ train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
                 '3b_z_center': 78,
                 '3b_z1': 78,
                 '3b_z2': 78,
-                '3b_cutoff': 3.0,
+                '3b_cutoff': 4.0,
                 '3b_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
                 '3b_covariance_type': 'pp',
                 '3b_delta': 0.003,
@@ -59,15 +59,15 @@ train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
                 'soap_atom_sigma_r_scaling': '{{0.0}}',
                 'soap_atom_sigma_t_scaling': '{{0.0}}',
                 'soap_zeta': 6,
-                'soap_rcuthard': 3.7,
-                'soap_rcutsoft': 3.2,
+                'soap_rcuthard': 5.7,
+                'soap_rcutsoft': 4.2,
                 'soap_basis': 'poly3gauss',
                 'soap_scaling_mode': 'polynomial',
                 'soap_amplitude_scaling': '{{1.0}}',
                 'soap_n_species': 1,
                 'soap_species_Z': '{78}',
                 'soap_radial_enhancement': '{{1}}',
-                'soap_compress_file': '/home/jank/work/test/fireworks/compress.dat',
+                'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/compress.dat',
                 'soap_central_weight': 1.0,
                 'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
                 'soap_delta': 0.1,
@@ -89,7 +89,7 @@ train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
                 'gap_cmd': 'gap_fit',
                 'mpi_cmd': None,
                 'mpi_procs': 1,
-                'omp_threads': 4
+                'omp_threads': 128
                 }
 
 # print(len(train_params))
@@ -99,8 +99,10 @@ train_params = {'atoms_filename': '/home/jank/work/test/fireworks/complete.xyz',
 # print(wf)
 # lpad.add_wf(wf)
 
+structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[5:36]
+
 # pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
-pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
+# pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
 lammps_params = {
     'lammps_settings': [
@@ -110,21 +112,23 @@ lammps_params = {
         'min_style cg', 'minimize 1e-10 1e-12 10000 100000',
         'write_dump all atom final_positions.atom'],
     'atoms_filename': 'atom.pos',  # filename must match the name in settings above
-    'structure': pmg_struct.as_dict(),  # pymatgen structure object
+    # 'structure': '',  # placeholder for pymatgen structure object
     'units': 'metal',  # must match settings
     'lmp_bin': 'lmp',
-    'lmp_params': '-k on t 4 g 1 -sf kk',
-    'mpi_cmd': '/usr/bin/mpirun',
-    'mpi_procs': 2,
-    'omp_threads': 4,
+    'lmp_params': '',  # '-k on t 4 g 1 -sf kk',
+    'mpi_cmd': 'srun',
+    'mpi_procs': 8,
+    'omp_threads': 16,
 }
 
+# print(len(train_params))
+# print(len(lammps_params))
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-lpad.reset('2020-09-12')
+lpad.reset('2020-09-13')
 
-md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params, num_lammps=1,
-                                      db_file='db.json', al_file='al.json')
+md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params,
+                                      structures=structures, db_file='db.json', al_file='al.json')
 # print(md_wf)
 lpad.add_wf(md_wf)

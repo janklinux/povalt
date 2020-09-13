@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import io
 import os
 import gzip
-import json
 import datetime
 import subprocess
 import numpy as np
@@ -53,7 +52,7 @@ class StaticFW(Firework):
             vasp_input_set (VaspInputSet): input set to use (for jobs w/no parents)
                 Defaults to MPStaticSet() if None.
             vasp_cmd (str): Command to run vasp.
-            db_file: file pointing to json-specified database credentials to store results
+            db_info: database credentials to store results
         """
 
         t = list()
@@ -212,7 +211,7 @@ class AddToDbTask(FiretaskBase):
 
 class VaspTasks:
     """
-    Class
+    DEPRECATED Class
     """
     def __init__(self):
         """

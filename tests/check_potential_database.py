@@ -18,5 +18,6 @@ pot_coll = db[db_info['potential_collection']]
 
 for pot in pot_coll.find():
     for p in pot:
-        with open(re.sub(':', '.', p), 'wb') as f:
-            f.write(lzma.decompress(pot[p]))
+        if p != '_id':
+            with open(re.sub(':', '.', p), 'wb') as f:
+                f.write(lzma.decompress(pot[p]))

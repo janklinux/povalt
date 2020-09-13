@@ -60,7 +60,7 @@ class PotentialTraining(TrainBase):
     Class to train a potential
     """
     required_params = ['train_params', 'db_info']
-    optional_params = ['al_file']
+    optional_params = ['al_info']
 
     def get_job(self):
         return TrainJob(train_params=self['train_params'], db_info=self['db_info'])
