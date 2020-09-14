@@ -24,8 +24,8 @@ import os
 from ase.io import read
 from fireworks import LaunchPad
 from pymatgen.io.vasp import Xdatcar
-from povalt.firetasks.wf_generators import potential_trainer, \
-    train_and_run_single_lammps, train_and_run_multiple_lammps
+from povalt.firetasks.wf_generators import train_potential, \
+    run_lammps, train_and_run_multiple_lammps
 from pymatgen.io.ase import AseAtomsAdaptor
 
 
@@ -34,63 +34,117 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
-train_params = {'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
-                '2b_z1': 78,
-                '2b_z2': 78,
-                '2b_cutoff': 4.7,
-                '2b_n_sparse': 15,
-                '2b_covariance_type': 'ard_se',
-                '2b_delta': 0.5,
-                '2b_theta_uniform': 1.0,
-                '2b_sparse_method': 'uniform',
-                '3b_z_center': 78,
-                '3b_z1': 78,
-                '3b_z2': 78,
-                '3b_cutoff': 4.0,
-                '3b_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
-                '3b_covariance_type': 'pp',
-                '3b_delta': 0.003,
-                '3b_theta_uniform': 4.0,
-                '3b_sparse_method': 'uniform',
-                'soap_l_max': 8,
-                'soap_alpha_max': '{{8}}',
-                'soap_atom_sigma_r': '{{0.5}}',
-                'soap_atom_sigma_t': '{{0.5}}',
-                'soap_atom_sigma_r_scaling': '{{0.0}}',
-                'soap_atom_sigma_t_scaling': '{{0.0}}',
-                'soap_zeta': 6,
-                'soap_rcuthard': 5.7,
-                'soap_rcutsoft': 4.2,
-                'soap_basis': 'poly3gauss',
-                'soap_scaling_mode': 'polynomial',
-                'soap_amplitude_scaling': '{{1.0}}',
-                'soap_n_species': 1,
-                'soap_species_Z': '{78}',
-                'soap_radial_enhancement': '{{1}}',
-                'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/compress.dat',
-                'soap_central_weight': 1.0,
-                'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
-                'soap_delta': 0.1,
-                'soap_f0': 0.0,
-                'soap_covariance_type': 'dot_product',
-                'soap_sparse_method': 'cur_points',
-                'default_sigma': '{0.002 0.2 0.2 0.2}',
-                'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:fcc:0.002:0.2:0.2:0.2:'
-                                     'hcp:0.002:0.2:0.2:0.2:sc:0.002:0.2:0.2:0.2:'
-                                     'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
-                'energy_parameter_name': 'free_energy',
-                'force_parameter_name': 'dummy',
-                'force_mask_parameter_name': 'dummy',
-                'e0': -0.54289024,
-                'sparse_jitter': 1E-8,
-                'do_copy_at_file': 'F',
-                'sparse_separate_file': 'T',
-                'gp_file': 'platinum.xml',
-                'gap_cmd': 'gap_fit',
-                'mpi_cmd': None,
-                'mpi_procs': 1,
-                'omp_threads': 128
-                }
+train_params_3body = {
+    '3_body': True,
+    'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
+    '2b_z1': 78,
+    '2b_z2': 78,
+    '2b_cutoff': 4.7,
+    '2b_n_sparse': 15,
+    '2b_covariance_type': 'ard_se',
+    '2b_delta': 0.5,
+    '2b_theta_uniform': 1.0,
+    '2b_sparse_method': 'uniform',
+    '3b_z_center': 78,
+    '3b_z1': 78,
+    '3b_z2': 78,
+    '3b_cutoff': 4.0,
+    '3b_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
+    '3b_covariance_type': 'pp',
+    '3b_delta': 0.003,
+    '3b_theta_uniform': 4.0,
+    '3b_sparse_method': 'uniform',
+    'soap_l_max': 8,
+    'soap_alpha_max': '{{8}}',
+    'soap_atom_sigma_r': '{{0.5}}',
+    'soap_atom_sigma_t': '{{0.5}}',
+    'soap_atom_sigma_r_scaling': '{{0.0}}',
+    'soap_atom_sigma_t_scaling': '{{0.0}}',
+    'soap_zeta': 6,
+    'soap_rcuthard': 5.7,
+    'soap_rcutsoft': 4.2,
+    'soap_basis': 'poly3gauss',
+    'soap_scaling_mode': 'polynomial',
+    'soap_amplitude_scaling': '{{1.0}}',
+    'soap_n_species': 1,
+    'soap_species_Z': '{78}',
+    'soap_radial_enhancement': '{{1}}',
+    'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/compress.dat',
+    'soap_central_weight': 1.0,
+    'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
+    'soap_delta': 0.1,
+    'soap_f0': 0.0,
+    'soap_covariance_type': 'dot_product',
+    'soap_sparse_method': 'cur_points',
+    'default_sigma': '{0.002 0.2 0.2 0.2}',
+    'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:fcc:0.002:0.2:0.2:0.2:'
+                         'hcp:0.002:0.2:0.2:0.2:sc:0.002:0.2:0.2:0.2:'
+                         'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
+    'energy_parameter_name': 'free_energy',
+    'force_parameter_name': 'dummy',
+    'force_mask_parameter_name': 'dummy',
+    'e0': -0.54289024,
+    'sparse_jitter': 1E-8,
+    'do_copy_at_file': 'F',
+    'sparse_separate_file': 'T',
+    'gp_file': 'platinum.xml',
+    'gap_cmd': 'gap_fit',
+    'mpi_cmd': None,
+    'mpi_procs': 1,
+    'omp_threads': 128
+    }
+
+
+train_params_nbody = {
+    'N_body': True,
+    'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
+    'nb_order' :2,
+    'nb_compact_clusters': 'T',
+    'nb_cutoff': 5.0,
+    'nb_n_sparse': 20,
+    'nb_covariance_type': 'ard_se',
+    'nb_delta': 0.5,
+    'nb_theta_uniform': 1.0,
+    'nb_sparse_method': 'uniform',
+    'soap_l_max': 8,
+    'soap_alpha_max': '{{8}}',
+    'soap_atom_sigma_r': '{{0.5}}',
+    'soap_atom_sigma_t': '{{0.5}}',
+    'soap_atom_sigma_r_scaling': '{{0.0}}',
+    'soap_atom_sigma_t_scaling': '{{0.0}}',
+    'soap_zeta': 6,
+    'soap_rcuthard': 5.7,
+    'soap_rcutsoft': 4.2,
+    'soap_basis': 'poly3gauss',
+    'soap_scaling_mode': 'polynomial',
+    'soap_amplitude_scaling': '{{1.0}}',
+    'soap_n_species': 1,
+    'soap_species_Z': '{78}',
+    'soap_radial_enhancement': '{{1}}',
+    'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/compress.dat',
+    'soap_central_weight': 1.0,
+    'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
+    'soap_delta': 0.1,
+    'soap_f0': 0.0,
+    'soap_covariance_type': 'dot_product',
+    'soap_sparse_method': 'cur_points',
+    'default_sigma': '{0.002 0.2 0.2 0.2}',
+    'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:fcc:0.002:0.2:0.2:0.2:'
+                         'hcp:0.002:0.2:0.2:0.2:sc:0.002:0.2:0.2:0.2:'
+                         'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
+    'energy_parameter_name': 'free_energy',
+    'force_parameter_name': 'dummy',
+    'force_mask_parameter_name': 'dummy',
+    'e0': -0.54289024,
+    'sparse_jitter': 1E-8,
+    'do_copy_at_file': 'F',
+    'sparse_separate_file': 'T',
+    'gp_file': 'platinum.xml',
+    'gap_cmd': 'gap_fit',
+    'mpi_cmd': None,
+    'mpi_procs': 1,
+    'omp_threads': 128
+}
 
 # print(len(train_params))
 
@@ -128,7 +182,7 @@ lammps_params = {
 
 lpad.reset('2020-09-13')
 
-md_wf = train_and_run_multiple_lammps(train_params=train_params, lammps_params=lammps_params,
+md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file='al.json')
 # print(md_wf)
 lpad.add_wf(md_wf)

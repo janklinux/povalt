@@ -23,51 +23,60 @@ from povalt.firetasks.training import LammpsMD
 from povalt.firetasks.training import PotentialTraining
 
 
-def potential_trainer(train_params):
+def train_potential(train_params, db_file):
     """
-    Trains a potential with given parameters
+    Trains a potential with given parameters and stores it in the db
 
     Args:
         train_params: parameters for gap_fit
+        db_file: database info for storing the potential
 
     Returns:
         the workflow to add into Launchpad
     """
 
-    if not train_params or len(train_params) != 33:
+    db_info, al_info = read_info(db_file=db_file, al_file=None)
+
+    if not train_params or len(train_params) != 54:
         raise ValueError('Training parameters have to be defined, abort.')
 
-    fw_train = Firework([PotentialTraining(train_params=train_params, al_file=None)],
+    fw_train = Firework([PotentialTraining(train_params=train_params, al_file=None, db_info=db_info)],
                         parents=None, name='TrainTask')
     return Workflow([fw_train], name='TrainFlow')
 
 
-def train_and_run_single_lammps(train_params, lammps_params):
+def run_lammps(lammps_params, structures, db_file, al_file):
     """
-    Trains a potential and then runs LAMMPS MD with it
+    Runs LAMMPS with the supplied structures
+    Use when a trained potential exists and we need more LAMMPS runs with it
 
     Args:
-        train_params: parameters for the potential training
         lammps_params:  parameters for the MD in LAMMPS
+        structures: list of pymatgen structures
+        db_file: file containing the db information
+        al_file: auto-launcher settings
 
     Returns:
         the workflow for Launchpad
     """
 
-    if not train_params or len(train_params) != 33:
-        raise ValueError('Training parameters have to be defined, abort.')
-    if not lammps_params or len(lammps_params) != 9:
+    db_info, al_info = read_info(db_file=db_file, al_file=al_file)
+
+    if not lammps_params or len(lammps_params) != 8:
         raise ValueError('LAMMPS parameters have to be defined, abort.')
 
-    train_fw = Firework([PotentialTraining(train_params=train_params)], parents=None, name='TrainTask')
-    md_run = Firework([LammpsMD(lammps_params=lammps_params)], parents=train_fw, name='Lammps_MD')
+    md_fws = []
+    for s in structures:
+        lammps_params['structure'] = s.as_dict()
+        md_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],
+                               parents=None, name='Lammps_MD'))
 
-    return Workflow([train_fw, md_run], {train_fw: [md_run]}, name='train_and_MD')
+    return Workflow(md_fws, name='LAMMPS')
 
 
 def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, al_file):
     """
-    Trains a potential and then runs LAMMPS MD with it
+    Trains a potential and then runs LAMMPS with it
 
     Args:
         train_params: parameters for the potential training
@@ -80,10 +89,7 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
         the workflow for Launchpad
     """
 
-    with open(al_file, 'r') as f:
-        al_info = json.load(f)
-    with open(db_file, 'r') as f:
-        db_info = json.load(f)
+    db_info, al_info = read_info(db_file=db_file, al_file=al_file)
 
     if not train_params or len(train_params) != 54:
         raise ValueError('Training parameters have to be defined, abort.')
@@ -111,3 +117,26 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     all_fws.extend(dep_fws)
 
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_MD')
+
+
+def read_info(db_file, al_file):
+    """
+    simple read in of the json files
+    Args:
+        db_file: database info
+        al_file: auto-launch info
+
+    Returns:
+        dictionaries db_info and al_info
+    """
+    try:
+        with open(al_file, 'r') as f:
+            al_info = json.load(f)
+    except FileNotFoundError:
+        pass
+    try:
+        with open(db_file, 'r') as f:
+            db_info = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError('db_file has to exist')
+    return db_info, al_info

@@ -30,19 +30,22 @@ class TrainJob(Job):
     """
     Training Job for the potential
     """
-    def __init__(self, train_params, db_info):
+    def __init__(self, train_params, for_validation, db_info):
         """
         Class init
 
         Args:
             train_params: all parameters
+            for_validation: boolean, whether training is for validation or not
             db_info: db info to store the potential
         """
         self.run_dir = os.getcwd()
         self.db_info = db_info
         self.train_params = train_params
-        self.potential_name = ' *** FILE NOT FOUND *** '
-        self.potential_label = ' *** FILE NOT FOUND *** '
+
+        if not isinstance(for_validation, bool):
+            raise TypeError('for-validation argument has to be boolean')
+        self.for_validation = for_validation
 
     def setup(self):
         pass
@@ -51,7 +54,7 @@ class TrainJob(Job):
         """
         Runs the training routine
 
-        Returns:
+        Returns: open subprocess
 
         """
         for item in self.train_params:
@@ -71,62 +74,111 @@ class TrainJob(Job):
         else:
             cmd = ''
 
-        arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
-            ' gap = {' + \
-            ' distance_2b' + \
-            ' Z1=' + self.train_params['2b_z1'] + \
-            ' Z2=' + self.train_params['2b_z2'] + \
-            ' cutoff=' + self.train_params['2b_cutoff'] + \
-            ' n_sparse=' + self.train_params['2b_n_sparse'] + \
-            ' covariance_type=' + self.train_params['2b_covariance_type'] + \
-            ' delta=' + self.train_params['2b_delta'] + \
-            ' theta_uniform=' + self.train_params['2b_theta_uniform'] + \
-            ' sparse_method=' + self.train_params['2b_sparse_method'] + \
-            ' :' + \
-            ' angle_3b' + \
-            ' Z_center=' + self.train_params['3b_z_center'] + \
-            ' Z1=' + self.train_params['3b_z1'] + \
-            ' Z2=' + self.train_params['3b_z2'] + \
-            ' cutoff=' + self.train_params['3b_cutoff'] + \
-            ' config_type_n_sparse=' + self.train_params['3b_config_type_n_sparse'] + \
-            ' covariance_type=' + self.train_params['3b_covariance_type'] + \
-            ' delta=' + self.train_params['3b_delta'] + \
-            ' theta_uniform=' + self.train_params['3b_theta_uniform'] + \
-            ' sparse_method=' + self.train_params['3b_sparse_method'] + \
-            ' :' + \
-            ' soap_turbo' + \
-            ' l_max=' + self.train_params['soap_l_max'] + \
-            ' alpha_max=' + self.train_params['soap_alpha_max'] + \
-            ' atom_sigma_r=' + self.train_params['soap_atom_sigma_r'] + \
-            ' atom_sigma_t=' + self.train_params['soap_atom_sigma_t'] + \
-            ' atom_sigma_r_scaling=' + self.train_params['soap_atom_sigma_r_scaling'] + \
-            ' atom_sigma_t_scaling=' + self.train_params['soap_atom_sigma_t_scaling'] + \
-            ' zeta=' + self.train_params['soap_zeta'] + \
-            ' rcut_hard=' + self.train_params['soap_rcuthard'] + \
-            ' rcut_soft=' + self.train_params['soap_rcutsoft'] + \
-            ' basis=' + self.train_params['soap_basis'] + \
-            ' scaling_mode=' + self.train_params['soap_scaling_mode'] + \
-            ' amplitude_scaling=' + self.train_params['soap_amplitude_scaling'] + \
-            ' n_species=' + self.train_params['soap_n_species'] + \
-            ' species_Z=' + self.train_params['soap_species_Z'] + \
-            ' radial_enhancement=' + self.train_params['soap_radial_enhancement'] + \
-            ' compress_file=' + self.train_params['soap_compress_file'] + \
-            ' central_weight=' + self.train_params['soap_central_weight'] + \
-            ' config_type_n_sparse=' + self.train_params['soap_config_type_n_sparse'] + \
-            ' delta=' + self.train_params['soap_delta'] + \
-            ' f0=' + self.train_params['soap_f0'] + \
-            ' covariance_type=' + self.train_params['soap_covariance_type'] + \
-            ' sparse_method=' + self.train_params['soap_sparse_method'] + \
-            ' }' + \
-            ' default_sigma=' + self.train_params['default_sigma'] + \
-            ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
-            ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
-            ' force_parameter_name=' + self.train_params['force_parameter_name'] + \
-            ' sparse_jitter=' + self.train_params['sparse_jitter'] + \
-            ' e0=' + self.train_params['e0'] + \
-            ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
-            ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
-            ' gp_file=' + self.train_params['gp_file']
+        if '3_body' in self.train_params:
+            arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
+                ' gap = {' + \
+                ' distance_2b' + \
+                ' Z1=' + self.train_params['2b_z1'] + \
+                ' Z2=' + self.train_params['2b_z2'] + \
+                ' cutoff=' + self.train_params['2b_cutoff'] + \
+                ' n_sparse=' + self.train_params['2b_n_sparse'] + \
+                ' covariance_type=' + self.train_params['2b_covariance_type'] + \
+                ' delta=' + self.train_params['2b_delta'] + \
+                ' theta_uniform=' + self.train_params['2b_theta_uniform'] + \
+                ' sparse_method=' + self.train_params['2b_sparse_method'] + \
+                ' :' + \
+                ' angle_3b' + \
+                ' Z_center=' + self.train_params['3b_z_center'] + \
+                ' Z1=' + self.train_params['3b_z1'] + \
+                ' Z2=' + self.train_params['3b_z2'] + \
+                ' cutoff=' + self.train_params['3b_cutoff'] + \
+                ' config_type_n_sparse=' + self.train_params['3b_config_type_n_sparse'] + \
+                ' covariance_type=' + self.train_params['3b_covariance_type'] + \
+                ' delta=' + self.train_params['3b_delta'] + \
+                ' theta_uniform=' + self.train_params['3b_theta_uniform'] + \
+                ' sparse_method=' + self.train_params['3b_sparse_method'] + \
+                ' :' + \
+                ' soap_turbo' + \
+                ' l_max=' + self.train_params['soap_l_max'] + \
+                ' alpha_max=' + self.train_params['soap_alpha_max'] + \
+                ' atom_sigma_r=' + self.train_params['soap_atom_sigma_r'] + \
+                ' atom_sigma_t=' + self.train_params['soap_atom_sigma_t'] + \
+                ' atom_sigma_r_scaling=' + self.train_params['soap_atom_sigma_r_scaling'] + \
+                ' atom_sigma_t_scaling=' + self.train_params['soap_atom_sigma_t_scaling'] + \
+                ' zeta=' + self.train_params['soap_zeta'] + \
+                ' rcut_hard=' + self.train_params['soap_rcuthard'] + \
+                ' rcut_soft=' + self.train_params['soap_rcutsoft'] + \
+                ' basis=' + self.train_params['soap_basis'] + \
+                ' scaling_mode=' + self.train_params['soap_scaling_mode'] + \
+                ' amplitude_scaling=' + self.train_params['soap_amplitude_scaling'] + \
+                ' n_species=' + self.train_params['soap_n_species'] + \
+                ' species_Z=' + self.train_params['soap_species_Z'] + \
+                ' radial_enhancement=' + self.train_params['soap_radial_enhancement'] + \
+                ' compress_file=' + self.train_params['soap_compress_file'] + \
+                ' central_weight=' + self.train_params['soap_central_weight'] + \
+                ' config_type_n_sparse=' + self.train_params['soap_config_type_n_sparse'] + \
+                ' delta=' + self.train_params['soap_delta'] + \
+                ' f0=' + self.train_params['soap_f0'] + \
+                ' covariance_type=' + self.train_params['soap_covariance_type'] + \
+                ' sparse_method=' + self.train_params['soap_sparse_method'] + \
+                ' }' + \
+                ' default_sigma=' + self.train_params['default_sigma'] + \
+                ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
+                ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
+                ' force_parameter_name=' + self.train_params['force_parameter_name'] + \
+                ' sparse_jitter=' + self.train_params['sparse_jitter'] + \
+                ' e0=' + self.train_params['e0'] + \
+                ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
+                ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
+                ' gp_file=' + self.train_params['gp_file']
+        elif 'N_body' in self.train_params:
+            arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
+                ' gap = {' + \
+                ' distance_N2b' + \
+                ' order=' + self.train_params['nb_order'] + \
+                ' compact_clusters=' + self.train_params['nb_compact_clusters'] + \
+                ' cutoff=' + self.train_params['nb_cutoff'] + \
+                ' n_sparse=' + self.train_params['nb_n_sparse'] + \
+                ' covariance_type=' + self.train_params['nb_covariance_type'] + \
+                ' delta=' + self.train_params['nb_delta'] + \
+                ' theta_uniform=' + self.train_params['nb_theta_uniform'] + \
+                ' sparse_method=' + self.train_params['nb_sparse_method'] + \
+                ' :' + \
+                ' soap_turbo' + \
+                ' l_max=' + self.train_params['soap_l_max'] + \
+                ' alpha_max=' + self.train_params['soap_alpha_max'] + \
+                ' atom_sigma_r=' + self.train_params['soap_atom_sigma_r'] + \
+                ' atom_sigma_t=' + self.train_params['soap_atom_sigma_t'] + \
+                ' atom_sigma_r_scaling=' + self.train_params['soap_atom_sigma_r_scaling'] + \
+                ' atom_sigma_t_scaling=' + self.train_params['soap_atom_sigma_t_scaling'] + \
+                ' zeta=' + self.train_params['soap_zeta'] + \
+                ' rcut_hard=' + self.train_params['soap_rcuthard'] + \
+                ' rcut_soft=' + self.train_params['soap_rcutsoft'] + \
+                ' basis=' + self.train_params['soap_basis'] + \
+                ' scaling_mode=' + self.train_params['soap_scaling_mode'] + \
+                ' amplitude_scaling=' + self.train_params['soap_amplitude_scaling'] + \
+                ' n_species=' + self.train_params['soap_n_species'] + \
+                ' species_Z=' + self.train_params['soap_species_Z'] + \
+                ' radial_enhancement=' + self.train_params['soap_radial_enhancement'] + \
+                ' compress_file=' + self.train_params['soap_compress_file'] + \
+                ' central_weight=' + self.train_params['soap_central_weight'] + \
+                ' config_type_n_sparse=' + self.train_params['soap_config_type_n_sparse'] + \
+                ' delta=' + self.train_params['soap_delta'] + \
+                ' f0=' + self.train_params['soap_f0'] + \
+                ' covariance_type=' + self.train_params['soap_covariance_type'] + \
+                ' sparse_method=' + self.train_params['soap_sparse_method'] + \
+                ' }' + \
+                ' default_sigma=' + self.train_params['default_sigma'] + \
+                ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
+                ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
+                ' force_parameter_name=' + self.train_params['force_parameter_name'] + \
+                ' sparse_jitter=' + self.train_params['sparse_jitter'] + \
+                ' e0=' + self.train_params['e0'] + \
+                ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
+                ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
+                ' gp_file=' + self.train_params['gp_file']
+        else:
+            raise ValueError('Training Parameters are ill-defined, please correct')
 
         cmd += find_binary(self.train_params['gap_cmd']).strip() + arg_list
 
@@ -142,6 +194,41 @@ class TrainJob(Job):
         return p
 
     def postprocess(self):
+        pot_file = {}  # dict with index filename: data
+        for file in os.listdir(self.run_dir):
+            if file.startswith(self.train_params['gp_file']):
+                with open(file, 'rb') as f:
+                    pot_file[re.sub('\.', ':', file)] = lzma.compress(f.read())
+
+        db = self.connect_db()
+        if self.for_validation:
+            collection = db[self.db_info['validation_collection']]
+            collection.insert_one(pot_file)
+        else:
+            collection = db[self.db_info['potential_collection']]
+            for pot in collection.find():
+                collection.delete_one({'_id': pot['_id']})
+            collection.insert_one(pot_file)
+
+    def clear_validation_database(self):
+        """
+        Empties the validation database, only to be called ONCE from the top level script,
+        not automatically in the workflows as it will then delete everything each time
+
+        Returns:
+            nothing
+        """
+        db = self.connect_db()
+        collection = db[self.db_info['validation_collection']]
+        for pot in collection.find():
+            collection.delete_one({'_id': pot['_id']})
+
+    def connect_db(self):
+        """
+        Connects to the MongoDB
+        Returns:
+            open db
+        """
         connection = None
         if 'ssl' in self.db_info:
             if self.db_info['ssl'].lower() == 'true':
@@ -168,22 +255,5 @@ class TrainJob(Job):
             db.authenticate(self.db_info['user'], self.db_info['password'])
         except ConnectionRefusedError:
             raise ConnectionRefusedError('Mongodb authentication failed')
-        collection = db[self.db_info['potential_collection']]
 
-        pot_file = {}  # dict with index filename: data
-        for file in os.listdir(self.run_dir):
-            if file.startswith(self.train_params['gp_file']):
-                with open(file, 'rb') as f:
-                    pot_file[re.sub('\.', ':', file)] = lzma.compress(f.read())
-
-        for pot in collection.find():
-            collection.delete_one({'_id': pot['_id']})
-
-        collection.insert_one(pot_file)
-
-    def get_potential_info(self):
-        pot_file = []
-        for file in os.listdir(self.run_dir):
-            if file.startswith(self.train_params['gp_file']):
-                pot_file.append(file)
-        return {'files': pot_file, 'path': self.run_dir, 'label': self.train_params['gp_file']}
+        return db
