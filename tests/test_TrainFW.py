@@ -183,7 +183,7 @@ lammps_params = {
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-lpad.reset('2020-09-14')
+lpad.reset('2020-09-15')
 
 
 # for i in np.arange(4.5, 5.6, 0.1):

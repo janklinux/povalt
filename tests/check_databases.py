@@ -14,14 +14,27 @@ con = MongoClient(host=db_info['host'], port=db_info['port'],
 db = con[db_info['database']]
 db.authenticate(db_info['user'], db_info['password'])
 
+add_coll = db[db_info['structure_collection']]
 pot_coll = db[db_info['potential_collection']]
 val_coll = db[db_info['validation_collection']]
 
+
+print('   --- AdditionalStructureDB contents')
+print(add_coll.estimated_document_count())
+# for add in add_coll.find():
+#     if add['data'] == '':
+#         print('leer')
+
+# add_coll.remove({})
+
+
 print('   --- ValidationDB contents')
-for val in val_coll.find():
-    for v in val:
-        print(v)
-        # val_coll.delete_one({'_id': val['_id']})
+print(val_coll.estimated_document_count())
+# for val in val_coll.find():
+#     for v in val:
+#         print(v)
+
+# val_coll.remove({})
 
 
 print('\n   --- PotentialDB contents')

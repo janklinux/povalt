@@ -80,7 +80,7 @@ class PotentialTraining(TrainBase):
 
 class LammpsBase(FiretaskBase):
     """
-    Base class to train potentials
+    Base class to run LAMMPS
     """
     @abc.abstractmethod
     def get_job(self, fw_spec):
@@ -104,7 +104,7 @@ class LammpsBase(FiretaskBase):
 @explicit_serialize
 class LammpsMD(LammpsBase):
     """
-    Class to run MD
+    Class to run LAMMPS
     """
     required_params = ['lammps_params', 'db_info']
     optional_params = []

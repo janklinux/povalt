@@ -201,12 +201,12 @@ class AddToDbTask(FiretaskBase):
             # dft_data['complete_dos'] = run.complete_dos.as_dict()
             dft_data['final_structure'] = run.final_structure.as_dict()
             data_name = 'Pt structure  ||  automatic addition from PoValT'
-            # collection.insert_one({'name': data_name, 'data': dft_data})
+            collection.insert_one({'name': data_name, 'data': dft_data})
             print(dft_data)
         else:
-            pass
-            # print('All forces below specified threshold ({}), result is fine, not adding to training data'
-            #       .format(float(self['force_thresh'])))
+            print('All forces below specified threshold ({}), result is fine, not adding to training data'
+                  .format(float(self['force_thresh'])))
+            print(forces)
 
 
 class VaspTasks:
