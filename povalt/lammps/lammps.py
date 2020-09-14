@@ -160,7 +160,7 @@ class LammpsJob(Job):
         rerun_structure = Structure(lattice=lattice, species=species, coords=coords, coords_are_cartesian=False)
 
         kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
-        incar_mod = {'EDIFF': 1E-4, 'ENCUT': 220, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+        incar_mod = {'EDIFF': 1E-4, 'ENCUT': 220, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
                      'ALGO': 'Fast', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
                      # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
@@ -174,7 +174,7 @@ class LammpsJob(Job):
         vis_static = vis.__class__.from_dict(v)
 
         static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
-                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
+                                       vasp_cmd='srun vasp_std', name='VASP analysis',
                                        db_info=self.db_info)])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf
