@@ -63,7 +63,7 @@ class LammpsJob(Job):
 
     def setup(self):
         os.chdir(self.run_dir)
-        xml_label, xml_name = self.download_potential()
+        xml_name, xml_label = self.download_potential()
         if xml_name is None:
             raise ValueError('Potential download seems to have failed, check internal routines...')
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
