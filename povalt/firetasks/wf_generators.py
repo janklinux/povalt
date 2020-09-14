@@ -38,11 +38,8 @@ def train_potential(train_params, for_validation, db_file):
 
     db_info, al_info = read_info(db_file=db_file, al_file=None)
 
-    if not train_params or len(train_params) != 54:
-        raise ValueError('Training parameters have to be defined, abort.')
-
     fw_train = Firework([PotentialTraining(train_params=train_params, for_validation=for_validation,
-                                           al_file=None, db_info=db_info)],
+                                           al_info=None, db_info=db_info)],
                         parents=None, name='TrainTask')
     return Workflow([fw_train], name='TrainFlow')
 
@@ -63,9 +60,6 @@ def run_lammps(lammps_params, structures, db_file, al_file):
     """
 
     db_info, al_info = read_info(db_file=db_file, al_file=al_file)
-
-    if not lammps_params or len(lammps_params) != 8:
-        raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     md_fws = []
     for s in structures:
@@ -92,11 +86,6 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     """
 
     db_info, al_info = read_info(db_file=db_file, al_file=al_file)
-
-    if not train_params or len(train_params) != 54:
-        raise ValueError('Training parameters have to be defined, abort.')
-    if not lammps_params or len(lammps_params) != 8:
-        raise ValueError('LAMMPS parameters have to be defined, abort.')
 
     all_fws = []
     dep_fws = []
@@ -132,14 +121,19 @@ def read_info(db_file, al_file):
     Returns:
         dictionaries db_info and al_info
     """
-    try:
-        with open(al_file, 'r') as f:
-            al_info = json.load(f)
-    except FileNotFoundError:
+    if al_file is not None:
+        try:
+            with open(al_file, 'r') as f:
+                al_info = json.load(f)
+        except FileNotFoundError:
+            al_info = None
+    else:
         al_info = None
+
     try:
         with open(db_file, 'r') as f:
             db_info = json.load(f)
     except FileNotFoundError:
         raise FileNotFoundError('db_file has to exist')
+
     return db_info, al_info

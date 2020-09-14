@@ -74,7 +74,7 @@ class TrainJob(Job):
         else:
             cmd = ''
 
-        if '3_body' in self.train_params:
+        if 'do_3_body' in self.train_params:
             arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
                 ' gap = {' + \
                 ' distance_2b' + \
@@ -131,7 +131,8 @@ class TrainJob(Job):
                 ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
                 ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
                 ' gp_file=' + self.train_params['gp_file']
-        elif 'N_body' in self.train_params:
+
+        elif 'do_n_body' in self.train_params:
             arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
                 ' gap = {' + \
                 ' distance_N2b' + \
@@ -177,8 +178,9 @@ class TrainJob(Job):
                 ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
                 ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
                 ' gp_file=' + self.train_params['gp_file']
+
         else:
-            raise ValueError('Training Parameters are ill-defined, please correct')
+            raise ValueError('Training choice parameter missing (do_3_body / do_n_body), please correct')
 
         cmd += find_binary(self.train_params['gap_cmd']).strip() + arg_list
 

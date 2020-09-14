@@ -30,13 +30,15 @@ from povalt.firetasks.wf_generators import train_potential, \
 from pymatgen.io.ase import AseAtomsAdaptor
 
 
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
-                 ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+# ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
+# cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+
+lpad = LaunchPad.auto_load()
+# lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank', password='b@sf_mongo',
+#                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
 train_params_3body = {
-    '3_body': True,
+    'do_3_body': True,
     'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
     '2b_z1': 78,
     '2b_z2': 78,
@@ -97,7 +99,7 @@ train_params_3body = {
 
 
 train_params_nbody = {
-    'N_body': True,
+    'do_n_body': True,
     'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
     'nb_order' :2,
     'nb_compact_clusters': 'T',
@@ -181,19 +183,17 @@ lammps_params = {
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-# lpad.reset('2020-09-14')
+lpad.reset('2020-09-14')
 
 
 for i in np.arange(4.5, 5.6, 0.1):
-    print(np.round(i, 1))
     train_params_nbody['nb_cutoff'] = np.round(i, 1)
-
     print(train_params_nbody)
-
-
-
-
-quit()
+    if 'do_3_body' in train_params_nbody:
+        print('FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK')
+    trapot = train_potential(train_params=train_params_nbody, for_validation=True, db_file='db.json')
+#    lpad.add_wf(trapot)
+    quit()
 
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file='al.json')
