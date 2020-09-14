@@ -188,12 +188,11 @@ lpad.reset('2020-09-14')
 
 for i in np.arange(4.5, 5.6, 0.1):
     train_params_nbody['nb_cutoff'] = np.round(i, 1)
-    print(train_params_nbody)
-    if 'do_3_body' in train_params_nbody:
-        print('FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK')
     trapot = train_potential(train_params=train_params_nbody, for_validation=True, db_file='db.json')
-#    lpad.add_wf(trapot)
-    quit()
+    lpad.add_wf(trapot)
+
+
+quit()
 
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file='al.json')

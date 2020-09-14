@@ -51,7 +51,7 @@ class TrainBase(FiretaskBase):
         #     os.system('qlaunch -q {} rapidfire --nlaunches {}'.format(os.path.join(fw_spec['al_task']['base_dir'],
         #                                                                            'my_queue.yaml'),
         #                                                               str(fw_spec['al_task']['num_launches'])))
-        return FWAction(update_spec={'potential_info': job.get_potential_info()})
+        # return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
 @explicit_serialize
