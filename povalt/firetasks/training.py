@@ -59,11 +59,12 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
-    required_params = ['train_params', 'db_info']
+    required_params = ['train_params', 'for_validation', 'db_info']
     optional_params = ['al_info']
 
     def get_job(self):
-        return TrainJob(train_params=self['train_params'], db_info=self['db_info'])
+        return TrainJob(train_params=self['train_params'], for_validation=self['for_validation'],
+                        db_info=self['db_info'])
 
     def get_validators(self):
         pass

@@ -21,6 +21,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import os
+import numpy as np
 from ase.io import read
 from fireworks import LaunchPad
 from pymatgen.io.vasp import Xdatcar
@@ -180,7 +181,19 @@ lammps_params = {
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-lpad.reset('2020-09-13')
+# lpad.reset('2020-09-14')
+
+
+for i in np.arange(4.5, 5.6, 0.1):
+    print(np.round(i, 1))
+    train_params_nbody['nb_cutoff'] = np.round(i, 1)
+
+    print(train_params_nbody)
+
+
+
+
+quit()
 
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file='al.json')

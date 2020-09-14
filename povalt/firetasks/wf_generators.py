@@ -23,12 +23,13 @@ from povalt.firetasks.training import LammpsMD
 from povalt.firetasks.training import PotentialTraining
 
 
-def train_potential(train_params, db_file):
+def train_potential(train_params, for_validation, db_file):
     """
     Trains a potential with given parameters and stores it in the db
 
     Args:
         train_params: parameters for gap_fit
+        for_validation: is the potential for validation (boolean)
         db_file: database info for storing the potential
 
     Returns:
@@ -40,7 +41,8 @@ def train_potential(train_params, db_file):
     if not train_params or len(train_params) != 54:
         raise ValueError('Training parameters have to be defined, abort.')
 
-    fw_train = Firework([PotentialTraining(train_params=train_params, al_file=None, db_info=db_info)],
+    fw_train = Firework([PotentialTraining(train_params=train_params, for_validation=for_validation,
+                                           al_file=None, db_info=db_info)],
                         parents=None, name='TrainTask')
     return Workflow([fw_train], name='TrainFlow')
 
@@ -99,7 +101,8 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     all_fws = []
     dep_fws = []
 
-    train_fw = Firework([PotentialTraining(train_params=train_params, db_info=db_info, al_info=al_info)],
+    train_fw = Firework([PotentialTraining(train_params=train_params, for_validation=False,
+                                           db_info=db_info, al_info=al_info)],
                         parents=None, name='TrainTask')
     # launch_fw = Firework([ScriptTask('cd {};'.format(al_file['base_dir']) +
     #                                  'qlaunch -q {} rapidfire --nlaunches {}'
@@ -133,7 +136,7 @@ def read_info(db_file, al_file):
         with open(al_file, 'r') as f:
             al_info = json.load(f)
     except FileNotFoundError:
-        pass
+        al_info = None
     try:
         with open(db_file, 'r') as f:
             db_info = json.load(f)
