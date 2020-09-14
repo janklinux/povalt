@@ -73,10 +73,8 @@ class PotentialTraining(TrainBase):
         return []
 
     def run_task(self, fw_spec):
-        if 'al_file' in fw_spec:
-            fw_spec['al_task'] = self['al_file']
-        else:
-            fw_spec['al_task'] = None
+        if self['al_info'] and self['al_info'] is not None:
+            fw_spec['al_info'] = self['al_info']
         return super().run_task(fw_spec=fw_spec)
 
 

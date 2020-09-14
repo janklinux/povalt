@@ -54,7 +54,6 @@ class LammpsJob(Job):
         """
         self.lammps_params = lammps_params
         self.fw_spec = fw_spec
-        self.potential_info = fw_spec['potential_info']
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
         self.db_info = db_info
         self.run_dir = os.getcwd()
@@ -64,16 +63,16 @@ class LammpsJob(Job):
 
     def setup(self):
         os.chdir(self.run_dir)
-        pot_name = self.download_potential()
-        if pot_name is None:
+        xml_label, xml_name = self.download_potential()
+        if xml_name is None:
             raise ValueError('Potential download seems to have failed, check internal routines...')
         write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
                           atoms=self.structure,
                           units=self.lammps_params['units'])
         with open('lammps.in', 'w') as f:
             for line in self.lammps_params['lammps_settings']:
-                f.write(re.sub('POT_FW_LABEL', self.potential_info['label'],
-                               re.sub('POT_FW_NAME', pot_name, line.strip())) + '\n')
+                f.write(re.sub('POT_FW_LABEL', xml_label,
+                               re.sub('POT_FW_NAME', xml_name, line.strip())) + '\n')
 
     def run(self):
         os.chdir(self.run_dir)
@@ -102,15 +101,6 @@ class LammpsJob(Job):
         finally:
             os.environ['OMP_NUM_THREADS'] = str(1)
         return p
-
-    def link_potential(self):
-        pot_name = ' *** FILE NOT FOUND *** '
-        for file in self.potential_info['files']:
-            os.symlink(os.path.join(self.potential_info['path'], file),
-                       os.path.join(self.run_dir, file))
-            if len(file) > len(self.potential_info['label']):
-                pot_name = file.split('.')[3][:-1]
-        return pot_name
 
     def download_potential(self):
         connection = None
@@ -141,15 +131,19 @@ class LammpsJob(Job):
             raise ConnectionRefusedError('Mongodb authentication failed')
         collection = db[self.db_info['potential_collection']]
 
-        pot_name = None
+        xml_name = None
+        xml_label = None
         for pot in collection.find():
             for p in pot:
                 if p != '_id':
-                    if len(p.split(':')) == 4:
-                        pot_name = p.split(':')[3][:-1]
+                    bits = p.split(':')
+                    if len(bits) == 2:
+                        xml_name = bits[0] + '.' + bits[1]
+                    if len(bits) == 4:
+                        xml_label = p.split(':')[3][:-1]
                     with open(re.sub(':', '.', p), 'wb') as f:
                         f.write(lzma.decompress(pot[p]))
-        return pot_name
+        return xml_label, xml_name
 
     def get_vasp_static_dft(self):
         """

@@ -54,7 +54,8 @@ class TrainJob(Job):
         """
         Runs the training routine
 
-        Returns: open subprocess
+        Returns:
+             open subprocess
 
         """
         for item in self.train_params:
@@ -191,12 +192,11 @@ class TrainJob(Job):
             raise FileNotFoundError('Command execution failed, check std_err')
         finally:
             os.environ['OMP_NUM_THREADS'] = str(1)
-            # pass  # print('I ran it all the way')
 
         return p
 
     def postprocess(self):
-        pot_file = {}  # dict with index filename: data
+        pot_file = {}  # dict as {filename: data}
         for file in os.listdir(self.run_dir):
             if file.startswith(self.train_params['gp_file']):
                 with open(file, 'rb') as f:

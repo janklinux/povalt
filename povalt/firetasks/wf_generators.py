@@ -101,6 +101,9 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     all_fws.append(train_fw)
     # all_fws.append(launch_fw)
 
+    if not isinstance(structures, list):
+        structures = list(structures)
+
     for s in structures:
         lammps_params['structure'] = s.as_dict()
         dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],

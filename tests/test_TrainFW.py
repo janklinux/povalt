@@ -101,7 +101,7 @@ train_params_3body = {
 train_params_nbody = {
     'do_n_body': True,
     'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
-    'nb_order' :2,
+    'nb_order': 2,
     'nb_compact_clusters': 'T',
     'nb_cutoff': 5.0,
     'nb_n_sparse': 20,
@@ -186,15 +186,13 @@ lammps_params = {
 lpad.reset('2020-09-14')
 
 
-for i in np.arange(4.5, 5.6, 0.1):
-    train_params_nbody['nb_cutoff'] = np.round(i, 1)
-    trapot = train_potential(train_params=train_params_nbody, for_validation=True, db_file='db.json')
-    lpad.add_wf(trapot)
-
-
-quit()
+# for i in np.arange(4.5, 5.6, 0.1):
+#     train_params_nbody['nb_cutoff'] = np.round(i, 1)
+#     trapot = train_potential(train_params=train_params_nbody, for_validation=True, db_file='db.json')
+#     lpad.add_wf(trapot)
+# quit()
 
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
-                                      structures=structures, db_file='db.json', al_file='al.json')
+                                      structures=structures, db_file='db.json', al_file=None)
 # print(md_wf)
 lpad.add_wf(md_wf)

@@ -4,7 +4,7 @@ import json
 from pymongo import MongoClient
 
 
-with open('db.json', 'r') as f:
+with open('localssl.json', 'r') as f:
     db_info = json.load(f)
 
 con = MongoClient(host=db_info['host'], port=db_info['port'],
@@ -15,9 +15,19 @@ db = con[db_info['database']]
 db.authenticate(db_info['user'], db_info['password'])
 
 pot_coll = db[db_info['potential_collection']]
+val_coll = db[db_info['validation_collection']]
 
+print('   --- ValidationDB contents')
+for val in val_coll.find():
+    for v in val:
+        print(v)
+        # val_coll.delete_one({'_id': val['_id']})
+
+
+print('\n   --- PotentialDB contents')
 for pot in pot_coll.find():
     for p in pot:
-        if p != '_id':
-            with open(re.sub(':', '.', p), 'wb') as f:
-                f.write(lzma.decompress(pot[p]))
+        print(p)
+        # if p != '_id':
+        #     with open(re.sub(':', '.', p), 'wb') as f:
+        #         f.write(lzma.decompress(pot[p]))
