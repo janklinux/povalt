@@ -135,7 +135,7 @@ class TrainJob(Job):
         elif 'do_n_body' in self.train_params:
             arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
                 ' gap = {' + \
-                ' distance_N2b' + \
+                ' distance_Nb' + \
                 ' order=' + self.train_params['nb_order'] + \
                 ' compact_clusters=' + self.train_params['nb_compact_clusters'] + \
                 ' cutoff=' + self.train_params['nb_cutoff'] + \
