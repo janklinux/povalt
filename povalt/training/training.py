@@ -208,8 +208,7 @@ class TrainJob(Job):
             collection.insert_one(pot_file)
         else:
             collection = db[self.db_info['potential_collection']]
-            for pot in collection.find():
-                collection.delete_one({'_id': pot['_id']})
+            collection.remove({})
             collection.insert_one(pot_file)
 
     def clear_validation_database(self):
