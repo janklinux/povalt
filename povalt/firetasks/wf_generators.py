@@ -100,6 +100,13 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
 
     all_fws.append(train_fw)
 
+    launch_fw = Firework([ScriptTask.from_str('cd {}; qlaunch -q {} rapidfire --nlaunches {}'
+                                              .format(al_info['base_dir'],
+                                                      os.path.join(al_info['base_dir'], al_info['queue_file']),
+                                                      str(al_info['num_launches'])))],
+                         name='AutoLauncher')
+    all_fws.append(launch_fw)
+
     if not isinstance(structures, list):
         structures = list(structures)
 
@@ -110,16 +117,9 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
                                 parents=train_fw,
                                 name='LAMMPS CG'))
 
-    launch_fw = Firework([ScriptTask.from_str('cd {}; qlaunch -q {} rapidfire --nlaunches {}'
-                                              .format(al_info['base_dir'],
-                                                      os.path.join(al_info['base_dir'], al_info['queue_file']),
-                                                      str(al_info['num_launches'])))],
-                         name='AutoLauncher')
-
-    dep_fws.append(launch_fw)
     all_fws.extend(dep_fws)
 
-    return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
+    return Workflow(all_fws, {launch_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
 def read_info(db_file, al_file):
