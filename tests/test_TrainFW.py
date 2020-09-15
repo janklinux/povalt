@@ -156,7 +156,7 @@ train_params_nbody = {
 # print(wf)
 # lpad.add_wf(wf)
 
-structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[5:106]
+structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[5:8]
 
 # pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
 # pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
@@ -192,6 +192,6 @@ lpad.reset('2020-09-15')
 # quit()
 
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
-                                      structures=structures, db_file='db.json', al_file=None)
+                                      structures=structures, db_file='db.json', al_file='al.json')
 
 lpad.add_wf(md_wf)
