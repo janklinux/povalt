@@ -180,8 +180,9 @@ class LammpsJob(Job):
         return run_wf
 
 
-class Lammps:
+class LammpsOLD:
     """
+    DEPRECATED
     General class for all LAMMPS related jobs like generating and running structures
     for validation and potential refinement
     """

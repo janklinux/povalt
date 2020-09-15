@@ -102,7 +102,7 @@ class LammpsBase(FiretaskBase):
 
 
 @explicit_serialize
-class LammpsMD(LammpsBase):
+class Lammps(LammpsBase):
     """
     Class to run LAMMPS
     """

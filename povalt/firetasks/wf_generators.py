@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.training import LammpsMD
+from povalt.firetasks.training import Lammps
 from povalt.firetasks.training import PotentialTraining
 
 
@@ -66,7 +66,7 @@ def run_lammps(lammps_params, structures, db_file, al_file):
     for s in structures:
         params = lammps_params.copy()
         params['structure'] = s.as_dict()
-        lmp_fws.append(Firework([LammpsMD(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
+        lmp_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
 
     return Workflow(lmp_fws, name='multi_LAMMPS')
 
@@ -106,7 +106,7 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     for s in structures:
         params = lammps_params.copy()
         params['structure'] = s.as_dict()
-        dep_fws.append(Firework([LammpsMD(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
+        dep_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
 
     launch_fw = Firework([ScriptTask('cd {}; '.format(al_info['base_dir']) +
                                      'qlaunch -q {} rapidfire --nlaunches {}'
@@ -116,7 +116,9 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     dep_fws.append(launch_fw)
     all_fws.extend(dep_fws)
 
-    return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_LAMMPS')
+    return Workflow(all_fws, {train_fw: dep_fws, dep_fws: launch_fw}, name='train_multiLammps_autolaunch')
+
+    # return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_LAMMPS')
 
 
 def read_info(db_file, al_file):
