@@ -171,8 +171,6 @@ class AddToDbTask(FiretaskBase):
         if 'run_dir' in self:
             run_dir = self['calc_dir']
 
-        print('\nRUNNING IN: {}\n\n'.format(run_dir))
-
         vrun = os.path.join(run_dir, 'vasprun.xml.gz')
         orun = os.path.join(run_dir, 'OUTCAR.gz')
 
