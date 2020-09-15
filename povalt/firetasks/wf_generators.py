@@ -114,7 +114,7 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
                                               .format(al_info['base_dir'],
                                                       os.path.join(al_info['base_dir'], al_info['queue_file']),
                                                       str(al_info['num_launches'])))],
-                         name='AutoLauncher', parents=dep_fws)
+                         name='AutoLauncher')
 
     dep_fws.append(launch_fw)
     all_fws.extend(dep_fws)

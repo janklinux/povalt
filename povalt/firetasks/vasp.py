@@ -59,6 +59,8 @@ class StaticFW(Firework):
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
         t.append(AddToDbTask(force_thresh=float(1E-2), db_info=db_info))
+        # with os.chdir(db_info['base_dir']):
+        #     parent = LaunchPad.auto_load().get_fw_ids(query={"name": "AutoLauncher"})
         super(StaticFW, self).__init__(t, name=name)
 
 
