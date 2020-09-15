@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import os
 import numpy as np
 from ase.io import read
-from fireworks import LaunchPad
+from fireworks import LaunchPad, Workflow
 from pymatgen.io.vasp import Xdatcar
 from povalt.firetasks.wf_generators import train_potential, \
     run_lammps, train_and_run_multiple_lammps
@@ -192,7 +192,14 @@ lpad.reset('2020-09-15')
 #     lpad.add_wf(trapot)
 # quit()
 
+# lmp_fws = []
+# for s in structures:
+#     lammps_params['struture'] = s.as_dict()
+#     lmp_fws.append(run_lammps(lammps_params=lammps_params, db_file='db.json', al_file=None))
+# lpad.add_wf(Workflow(lmp_fws))
+
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file=None)
 # print(md_wf)
+
 lpad.add_wf(md_wf)

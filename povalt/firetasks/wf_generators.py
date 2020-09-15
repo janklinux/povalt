@@ -61,13 +61,13 @@ def run_lammps(lammps_params, structures, db_file, al_file):
 
     db_info, al_info = read_info(db_file=db_file, al_file=al_file)
 
-    md_fws = []
+    lmp_fws = []
     for s in structures:
-        lammps_params['structure'] = s.as_dict()
-        md_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],
-                               parents=None, name='Lammps_MD'))
+        params = lammps_params.copy()
+        params['structure'] = s.as_dict()
+        lmp_fws.append(Firework([LammpsMD(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
 
-    return Workflow(md_fws, name='LAMMPS')
+    return Workflow(lmp_fws, name='multi_LAMMPS')
 
 
 def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, al_file):
@@ -101,17 +101,17 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     all_fws.append(train_fw)
     # all_fws.append(launch_fw)
 
-    if not isinstance(structures, list):
-        structures = list(structures)
+    # if not isinstance(structures, list):
+    #     structures = list(structures)
 
     for s in structures:
-        lammps_params['structure'] = s.as_dict()
-        dep_fws.append(Firework([LammpsMD(lammps_params=lammps_params, db_info=db_info)],
-                                parents=train_fw, name='LAMMPS CG'))
+        params = lammps_params.copy()
+        params['structure'] = s.as_dict()
+        dep_fws.append(Firework([LammpsMD(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
 
     all_fws.extend(dep_fws)
 
-    return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_MD')
+    return Workflow(all_fws, {train_fw: dep_fws}, name='train_and_multi_LAMMPS')
 
 
 def read_info(db_file, al_file):
