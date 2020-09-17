@@ -100,7 +100,7 @@ train_params_3body = {
 
 train_params_nbody = {
     'do_n_body': True,
-    'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/complete.xyz',
+    'atoms_filename': '/users/kloppej1/scratch/vasp/fireworks/pot_train/complete.xyz',
     'nb_order': 2,
     'nb_compact_clusters': 'T',
     'nb_cutoff': 5.0,
@@ -124,9 +124,9 @@ train_params_nbody = {
     'soap_n_species': 1,
     'soap_species_Z': '{78}',
     'soap_radial_enhancement': '{{1}}',
-    'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/compress.dat',
+    'soap_compress_file': '/users/kloppej1/scratch/vasp/fireworks/pot_train/compress.dat',
     'soap_central_weight': 1.0,
-    'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250}',
+    'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250:addition:250}',
     'soap_delta': 0.1,
     'soap_f0': 0.0,
     'soap_covariance_type': 'dot_product',
@@ -134,10 +134,11 @@ train_params_nbody = {
     'default_sigma': '{0.002 0.2 0.2 0.2}',
     'config_type_sigma': '{bcc:0.002:0.2:0.2:0.2:fcc:0.002:0.2:0.2:0.2:'
                          'hcp:0.002:0.2:0.2:0.2:sc:0.002:0.2:0.2:0.2:'
-                         'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2}',
+                         'slab:0.002:0.02:0.02:0.2:cluster:0.002:0.2:0.2:0.2:'
+                         'addition:0.002:0.02:0.02:0.2}',
     'energy_parameter_name': 'free_energy',
-    'force_parameter_name': 'dummy',
-    'force_mask_parameter_name': 'dummy',
+    'force_parameter_name': 'forces',
+    'force_mask_parameter_name': 'force_mask',
     'e0': -0.54289024,
     'sparse_jitter': 1E-8,
     'do_copy_at_file': 'F',
@@ -146,7 +147,7 @@ train_params_nbody = {
     'gap_cmd': 'gap_fit',
     'mpi_cmd': None,
     'mpi_procs': 1,
-    'omp_threads': 128
+    'omp_threads': 40
 }
 
 # print(len(train_params))
@@ -183,7 +184,7 @@ lammps_params = {
 # md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
 # print(md_wf)
 
-# lpad.reset('2020-09-15')
+lpad.reset('2020-09-17')
 
 # for i in np.arange(4.5, 5.6, 0.1):
 #     train_params_nbody['nb_cutoff'] = np.round(i, 1)
@@ -194,7 +195,9 @@ lammps_params = {
 # md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
 #                                       structures=structures, db_file='db.json', al_file='al.json')
 
-structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106:1000]
-md_wf = run_lammps(lammps_params=lammps_params, structures=structures, db_file='db.json', al_file=None)
+#structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106:1000]
+#md_wf = run_lammps(lammps_params=lammps_params, structures=structures, db_file='db.json', al_file=None)
+#lpad.add_wf(md_wf)
 
-lpad.add_wf(md_wf)
+tpot = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
+lpad.add_wf(tpot)

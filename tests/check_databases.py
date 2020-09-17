@@ -19,17 +19,14 @@ pot_coll = db[db_info['potential_collection']]
 val_coll = db[db_info['validation_collection']]
 
 
-print('   --- AdditionalStructureDB contents')
-print(add_coll.estimated_document_count())
-# for add in add_coll.find():
-#     if add['data'] == '':
-#         print('leer')
-
+print('\n   --- AdditionalStructureDB contents #: {}\n'.format(add_coll.estimated_document_count()))
+# for add in add_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
+#     print(add['data']['xyz'])
+#     quit()
 # add_coll.remove({})
 
 
-print('   --- ValidationDB contents')
-print(val_coll.estimated_document_count())
+print('   --- ValidationDB contents #: {}\n'.format(val_coll.estimated_document_count()))
 # for val in val_coll.find():
 #     for v in val:
 #         print(v)
