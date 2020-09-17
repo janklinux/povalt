@@ -41,7 +41,7 @@ from fireworks import Workflow
 
 class LammpsJob(Job):
     """
-    Class to run LAMMPS MD as firework
+    Class to run LAMMPS as firework
     """
 
     def __init__(self, lammps_params, db_info, fw_spec):
@@ -52,6 +52,7 @@ class LammpsJob(Job):
             db_info: database info
             fw_spec: fireworks specs
         """
+
         self.lammps_params = lammps_params
         self.fw_spec = fw_spec
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
@@ -145,9 +146,13 @@ class LammpsJob(Job):
                         f.write(lzma.decompress(pot[p]))
         return xml_label, xml_name
 
-    def get_vasp_static_dft(self):
+    def get_vasp_static_dft(self, lammps_energy):
         """
         Generates a static DFT run for VASP
+
+        Args:
+            lammps_energy: energy from LAMMPS for this structure
+
         Returns:
             the workflow
         """
@@ -164,9 +169,9 @@ class LammpsJob(Job):
                      'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
                      # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
-        print('\n')
-        print(kpt_set)
-        print('   *** CHECK IF SLAB OR BULK ***\n\n')
+        # print('\n')
+        # print(kpt_set)
+        # print('   *** CHECK IF SLAB OR BULK ***\n\n')
 
         vis = MPStaticSet(rerun_structure)
         v = vis.as_dict()
@@ -174,10 +179,30 @@ class LammpsJob(Job):
         vis_static = vis.__class__.from_dict(v)
 
         static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
-                                       vasp_cmd='srun vasp_std', name='VASP analysis',
-                                       db_info=self.db_info)])
+                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
+                                       db_info=self.db_info, lammps_energy=lammps_energy)])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf
+
+    def get_lammps_energy(self):
+        """
+        Greps the energy computed by LAMMPS for comparison to VASP energy
+        Returns:
+            LAMMPS final energy
+        """
+
+        parse = False
+        energy = None
+
+        with open(os.path.join(self.run_dir, 'log.lammps'), 'r') as f:
+            for line in f:
+                if parse:
+                    energy = float(line.split()[-1])
+                    parse = False
+                if 'Energy initial, next-to-last, final =' in line:
+                    parse = True
+
+        return energy
 
 
 class LammpsOLD:

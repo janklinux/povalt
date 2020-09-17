@@ -24,6 +24,7 @@ import os
 import numpy as np
 from ase.io import read
 from fireworks import LaunchPad, Workflow
+from pymatgen import Structure
 from pymatgen.io.vasp import Xdatcar
 from povalt.firetasks.wf_generators import train_potential, \
     run_lammps, train_and_run_multiple_lammps
@@ -159,7 +160,8 @@ train_params_nbody = {
 
 # test_st = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106:1000]
 
-# pmg_struct = AseAtomsAdaptor().get_structure(read('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR'))
+pmg_struct = Structure.from_file('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR')
+
 # pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
 lammps_params = {
@@ -174,8 +176,8 @@ lammps_params = {
     'units': 'metal',  # must match settings
     'lmp_bin': 'lmp',
     'lmp_params': '',  # '-k on t 4 g 1 -sf kk',
-    'mpi_cmd': 'srun',
-    'mpi_procs': 8,
+    'mpi_cmd': 'mpirun', #'srun',
+    'mpi_procs': 1,
     'omp_threads': 16,
 }
 
@@ -195,9 +197,11 @@ lpad.reset('2020-09-17')
 # md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
 #                                       structures=structures, db_file='db.json', al_file='al.json')
 
-#structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106:1000]
-#md_wf = run_lammps(lammps_params=lammps_params, structures=structures, db_file='db.json', al_file=None)
-#lpad.add_wf(md_wf)
+# structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106]
 
-tpot = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
-lpad.add_wf(tpot)
+md_wf = run_lammps(lammps_params=lammps_params, structures=[pmg_struct], db_file='db.json', al_file=None)
+
+lpad.add_wf(md_wf)
+
+#tpot = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
+#lpad.add_wf(tpot)

@@ -96,7 +96,7 @@ class LammpsBase(FiretaskBase):
         job = self.get_job(fw_spec)
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-        return FWAction(additions=(job.get_vasp_static_dft()))
+        return FWAction(additions=job.get_vasp_static_dft(job.get_lammps_energy()))
 
 
 @explicit_serialize

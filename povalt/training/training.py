@@ -221,8 +221,7 @@ class TrainJob(Job):
         """
         db = self.connect_db()
         collection = db[self.db_info['validation_collection']]
-        for pot in collection.find():
-            collection.delete_one({'_id': pot['_id']})
+        collection.delete_many({})
 
     def connect_db(self):
         """

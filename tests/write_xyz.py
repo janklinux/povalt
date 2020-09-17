@@ -1,6 +1,5 @@
 import io
 import os
-import time
 import json
 import pymongo
 
@@ -10,9 +9,23 @@ import matplotlib.pyplot as plt
 from ase.io import read, write
 
 
-read_from_db = True
+read_from_db = False
 force_fraction = 0.98  # percentage of forces to EXCLUDE from training
 do_soap = False
+
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
+
+train_split = dict()
+split = {'fcc': 0.8,
+         'bcc': 0.8,
+         'hcp': 0.8,
+         'sc': 0.8,
+         'slab': 0.8,
+         'cluster': 0.8,
+         'addition': 0.8}
+
+for sys in systems:
+    train_split[sys] = split[sys]
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
@@ -112,8 +125,6 @@ if show_dimer:
     plt.show()
     plt.close()
 
-system_count = {'fcc': 0, 'bcc': 0, 'sc': 0, 'hcp': 0,
-                'slab': 0, 'cluster': 0, 'addition': 0}
 
 if read_from_db:
     complete_xyz = []
@@ -148,13 +159,42 @@ else:
     with open('systems.json', 'r') as f:
         crystal_system = json.load(f)
 
+# system_count = {'fcc': 0, 'bcc': 0, 'sc': 0, 'hcp': 0,
+#                 'slab': 0, 'cluster': 0, 'addition': 0}
+
+np.random.seed(1410)  # fix for reproduction
+
+system_count = dict()
+train_selected = dict()
+for sys in systems:
+    system_count[sys] = crystal_system.count(sys)
+    tmp = []
+    for i in range(system_count[sys]):
+        if i < system_count[sys] * train_split[sys]:
+            tmp.append(True)
+        else:
+            tmp.append(False)
+        train_selected[sys] = tmp
+    np.random.shuffle(train_selected[sys])
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
+print('Systems in DB: fcc: {:5d}  bcc: {:5d}  sc: {:5d}  hcp: {:5d}\n'
+      '               slab: {:5d}  cluster: {:5d} addition: {:5d}'.format(
+    system_count['fcc'], system_count['bcc'], system_count['sc'], system_count['hcp'],
+    system_count['slab'], system_count['cluster'], system_count['addition']))
 
-np.random.seed(int(time.time()))
+
+np.random.seed(1410)  # fix for reproduction
+
+processed = {'fcc': [],
+             'bcc': [],
+             'hcp': [],
+             'sc': [],
+             'slab': [],
+             'cluster': [],
+             'addition': []}
 
 force_flag = []
-processed_xyz = []
 for i, xyz in enumerate(complete_xyz):
     tmp = ''
     tmp_line = []
@@ -164,7 +204,6 @@ for i, xyz in enumerate(complete_xyz):
             tmp_line.append(tmp)
             tmp = ''
     tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
-    system_count[crystal_system[i]] += 1
     wtmp = ''
     for bit in tmp_line[1].split(' '):
         if 'Properties' in bit:
@@ -179,25 +218,52 @@ for i, xyz in enumerate(complete_xyz):
     np.random.shuffle(force_flag)
 
     for j in range(2, len(tmp_line)):
-        tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j-2]))
+        tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j - 2]))
 
-    processed_xyz.append(tmp_line)
+    processed[crystal_system[i]].append(tmp_line)
 
-print('Systems in DB: fcc: {:5d}  bcc: {:5d}  sc: {:5d}  hcp: {:5d}\n'
-      '             slab: {:5d}  cluster: {:5d} additions:'.format(
-    system_count['fcc'], system_count['bcc'], system_count['sc'], system_count['hcp'],
-    system_count['slab'], system_count['cluster'], system_count['additions']))
 
-limit = 11111500
-with open('complete.xyz', 'a') as f:
-    if limit < len(processed_xyz):
-        np.random.shuffle(processed_xyz)
-    for i, xyz in enumerate(processed_xyz):
+if 1 == 0:
+    force_flag = []
+    processed_xyz = []
+    for i, xyz in enumerate(complete_xyz):
+        tmp = ''
+        tmp_line = []
         for line in xyz:
-            f.write(line)
-        if i >= limit:
-            print('Wrote {} randomized structures only...'.format(i))
-            break
+            tmp += line
+            if '\n' in line:
+                tmp_line.append(tmp)
+                tmp = ''
+        tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
+        system_count[crystal_system[i]] += 1
+        wtmp = ''
+        for bit in tmp_line[1].split(' '):
+            if 'Properties' in bit:
+                bit += ':force_mask:L:1'
+            wtmp += bit + ' '
+        tmp_line[1] = wtmp.strip() + '\n'
+        tmp_line[0] = tmp_line[0].strip() + '\n'
+
+        force_flag = np.zeros(len(tmp_line[2:]))
+        for j in range(int(force_fraction * len(force_flag))):
+            force_flag[j] = 1
+        np.random.shuffle(force_flag)
+
+        for j in range(2, len(tmp_line)):
+            tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j-2]))
+
+        processed_xyz.append(tmp_line)
+
+
+np.random.seed(1410)  # change for a change in splitting of training / testing data
+
+with open('complete.xyz', 'a') as f:
+    for sys in systems:
+        for i, xyz in enumerate(processed[sys]):
+            if train_selected[sys][i]:
+                for line in xyz:
+                    f.write(line)
+
 
 if do_soap:
     with open('input', 'w') as f:

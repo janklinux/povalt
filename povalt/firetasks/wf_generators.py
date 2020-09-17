@@ -61,8 +61,12 @@ def run_lammps(lammps_params, structures, db_file, al_file):
 
     db_info, al_info = read_info(db_file=db_file, al_file=al_file)
 
-    if not isinstance(structures, list):
-        structures = list(structures)
+    # print(structures)
+
+    # if not isinstance(structures, list):
+    #     structures = [structures]
+
+    # print(structures)
 
     lmp_fws = []
     for s in structures:

@@ -43,7 +43,7 @@ from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 
 @explicit_serialize
 class StaticFW(Firework):
-    def __init__(self, structure=None, vasp_input_set=None, vasp_cmd=None, name=None, db_info=None):
+    def __init__(self, structure, vasp_input_set, vasp_cmd, name, db_info, lammps_energy):
         """
         Standard static calculation Firework from a structure.
 
@@ -53,14 +53,13 @@ class StaticFW(Firework):
                 Defaults to MPStaticSet() if None.
             vasp_cmd (str): Command to run vasp.
             db_info: database credentials to store results
+            lammps_energy: energy from LAMMPS run for this structure
         """
 
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(1E-2), db_info=db_info))
-        # with os.chdir(db_info['base_dir']):
-        #     parent = LaunchPad.auto_load().get_fw_ids(query={"name": "AutoLauncher"})
+        t.append(AddToDbTask(force_thresh=float(1E-2), db_info=db_info, lammps_energy=lammps_energy))
         super(StaticFW, self).__init__(t, name=name)
 
 
@@ -135,7 +134,7 @@ class AddToDbTask(FiretaskBase):
         force_thresh (float): Threshold for any force component above which the result is added to the training db
     """
 
-    required_params = ['force_thresh', 'db_info']
+    required_params = ['force_thresh', 'db_info', 'lammps_energy']
     optional_params = []
 
     def run_task(self, fw_spec):
@@ -170,8 +169,6 @@ class AddToDbTask(FiretaskBase):
 
         # get the directory we parse files in
         run_dir = os.getcwd()
-        if 'run_dir' in self:
-            run_dir = self['calc_dir']
 
         vrun = os.path.join(run_dir, 'vasprun.xml.gz')
         orun = os.path.join(run_dir, 'OUTCAR.gz')
@@ -201,6 +198,7 @@ class AddToDbTask(FiretaskBase):
             dft_data['parameters'] = run.parameters.as_dict()
             dft_data['free_energy'] = runo.final_energy  # this is the FREE energy, different from vasprun.xml in 6.+
             dft_data['final_structure'] = run.final_structure.as_dict()
+            dft_data['lammps_energy'] = self['lammps_energy']
             data_name = 'Pt structure  ||  automatic addition from PoValT'
             collection.insert_one({'name': data_name, 'data': dft_data})
             # print(dft_data)
