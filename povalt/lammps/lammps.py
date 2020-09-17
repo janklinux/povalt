@@ -179,7 +179,7 @@ class LammpsJob(Job):
         vis_static = vis.__class__.from_dict(v)
 
         static_wf = Workflow([StaticFW(structure=rerun_structure, vasp_input_set=vis_static,
-                                       vasp_cmd='mpirun -n 4 vasp_std', name='VASP analysis',
+                                       vasp_cmd='srun vasp_std', name='VASP analysis',
                                        db_info=self.db_info, lammps_energy=lammps_energy)])
         run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
         return run_wf

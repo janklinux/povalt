@@ -101,7 +101,7 @@ train_params_3body = {
 
 train_params_nbody = {
     'do_n_body': True,
-    'atoms_filename': '/users/kloppej1/scratch/vasp/fireworks/pot_train/complete.xyz',
+    'atoms_filename': '/users/kloppej1/scratch/jank/fireworks/pot_train/complete.xyz',
     'nb_order': 2,
     'nb_compact_clusters': 'T',
     'nb_cutoff': 5.0,
@@ -125,9 +125,9 @@ train_params_nbody = {
     'soap_n_species': 1,
     'soap_species_Z': '{78}',
     'soap_radial_enhancement': '{{1}}',
-    'soap_compress_file': '/users/kloppej1/scratch/vasp/fireworks/pot_train/compress.dat',
+    'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/pot_train/compress.dat',
     'soap_central_weight': 1.0,
-    'soap_config_type_n_sparse': '{bcc:250:fcc:250:hcp:250:sc:250:slab:250:cluster:250:addition:250}',
+    'soap_config_type_n_sparse': '{bcc:50:fcc:50:hcp:50:sc:50:slab:50:cluster:50:addition:50}',
     'soap_delta': 0.1,
     'soap_f0': 0.0,
     'soap_covariance_type': 'dot_product',
@@ -148,7 +148,7 @@ train_params_nbody = {
     'gap_cmd': 'gap_fit',
     'mpi_cmd': None,
     'mpi_procs': 1,
-    'omp_threads': 40
+    'omp_threads': 128
 }
 
 # print(len(train_params))
@@ -157,10 +157,6 @@ train_params_nbody = {
 
 # print(wf)
 # lpad.add_wf(wf)
-
-# test_st = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106:1000]
-
-pmg_struct = Structure.from_file('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR')
 
 # pmg_struct = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD/XDATCAR').structures[-1]
 
@@ -176,15 +172,13 @@ lammps_params = {
     'units': 'metal',  # must match settings
     'lmp_bin': 'lmp',
     'lmp_params': '',  # '-k on t 4 g 1 -sf kk',
-    'mpi_cmd': 'mpirun', #'srun',
-    'mpi_procs': 1,
+    'mpi_cmd': 'srun',
+    'mpi_procs': 8,
     'omp_threads': 16,
 }
 
 # print(len(train_params))
 # print(len(lammps_params))
-# md_wf = train_and_run_single_lammps(train_params=train_params, lammps_params=lammps_params)
-# print(md_wf)
 
 lpad.reset('2020-09-17')
 
@@ -194,14 +188,20 @@ lpad.reset('2020-09-17')
 #     lpad.add_wf(trapot)
 # quit()
 
+tp = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
+lpad.add_wf(tp)
+
+
+# structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[1001:2000]
 # md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
 #                                       structures=structures, db_file='db.json', al_file='al.json')
+# lpad.add_wf(md_wf)
 
 # structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106]
 
-md_wf = run_lammps(lammps_params=lammps_params, structures=[pmg_struct], db_file='db.json', al_file=None)
-
-lpad.add_wf(md_wf)
+#pmg_struct = Structure.from_file('/home/jank/work/Aalto/vasp/training_data/bcc/POSCAR')
+#md_wf = run_lammps(lammps_params=lammps_params, structures=[pmg_struct], db_file='db.json', al_file=None)
+#lpad.add_wf(md_wf)
 
 #tpot = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
 #lpad.add_wf(tpot)

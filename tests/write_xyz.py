@@ -179,9 +179,9 @@ for sys in systems:
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
 print('Systems in DB: fcc: {:5d}  bcc: {:5d}  sc: {:5d}  hcp: {:5d}\n'
-      '               slab: {:5d}  cluster: {:5d} addition: {:5d}'.format(
-    system_count['fcc'], system_count['bcc'], system_count['sc'], system_count['hcp'],
-    system_count['slab'], system_count['cluster'], system_count['addition']))
+      '               slab: {:5d}  cluster: {:5d} addition: {:5d}'.
+      format(system_count['fcc'], system_count['bcc'], system_count['sc'], system_count['hcp'],
+             system_count['slab'], system_count['cluster'], system_count['addition']))
 
 
 np.random.seed(1410)  # fix for reproduction
@@ -221,38 +221,6 @@ for i, xyz in enumerate(complete_xyz):
         tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j - 2]))
 
     processed[crystal_system[i]].append(tmp_line)
-
-
-if 1 == 0:
-    force_flag = []
-    processed_xyz = []
-    for i, xyz in enumerate(complete_xyz):
-        tmp = ''
-        tmp_line = []
-        for line in xyz:
-            tmp += line
-            if '\n' in line:
-                tmp_line.append(tmp)
-                tmp = ''
-        tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
-        system_count[crystal_system[i]] += 1
-        wtmp = ''
-        for bit in tmp_line[1].split(' '):
-            if 'Properties' in bit:
-                bit += ':force_mask:L:1'
-            wtmp += bit + ' '
-        tmp_line[1] = wtmp.strip() + '\n'
-        tmp_line[0] = tmp_line[0].strip() + '\n'
-
-        force_flag = np.zeros(len(tmp_line[2:]))
-        for j in range(int(force_fraction * len(force_flag))):
-            force_flag[j] = 1
-        np.random.shuffle(force_flag)
-
-        for j in range(2, len(tmp_line)):
-            tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j-2]))
-
-        processed_xyz.append(tmp_line)
 
 
 np.random.seed(1410)  # change for a change in splitting of training / testing data
