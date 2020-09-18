@@ -127,7 +127,7 @@ train_params_nbody = {
     'soap_radial_enhancement': '{{1}}',
     'soap_compress_file': '/users/kloppej1/scratch/jank/fireworks/pot_train/compress.dat',
     'soap_central_weight': 1.0,
-    'soap_config_type_n_sparse': '{bcc:50:fcc:50:hcp:50:sc:50:slab:50:cluster:50:addition:50}',
+    'soap_config_type_n_sparse': '{bcc:150:fcc:150:hcp:150:sc:150:slab:150:cluster:150:addition:150}',
     'soap_delta': 0.1,
     'soap_f0': 0.0,
     'soap_covariance_type': 'dot_product',
@@ -180,7 +180,7 @@ lammps_params = {
 # print(len(train_params))
 # print(len(lammps_params))
 
-lpad.reset('2020-09-17')
+lpad.reset('2020-09-18')
 
 # for i in np.arange(4.5, 5.6, 0.1):
 #     train_params_nbody['nb_cutoff'] = np.round(i, 1)
@@ -188,14 +188,14 @@ lpad.reset('2020-09-17')
 #     lpad.add_wf(trapot)
 # quit()
 
-tp = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
-lpad.add_wf(tp)
+#tp = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
+#lpad.add_wf(tp)
 
 
-# structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[1001:2000]
-# md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
-#                                       structures=structures, db_file='db.json', al_file='al.json')
-# lpad.add_wf(md_wf)
+structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[1001:2000]
+md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
+                                      structures=structures, db_file='db.json', al_file='al.json')
+lpad.add_wf(md_wf)
 
 # structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106]
 

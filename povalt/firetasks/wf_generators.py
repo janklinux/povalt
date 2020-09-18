@@ -101,30 +101,25 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     dep_fws = []
 
     train_fw = Firework([PotentialTraining(train_params=train_params, for_validation=False,
-                                           db_info=db_info, al_info=al_info)],
-                        parents=None, name='TrainTask')
+                                           db_info=db_info, al_info=al_info)], parents=None, name='TrainTask')
 
     all_fws.append(train_fw)
 
     launch_fw = Firework([ScriptTask.from_str('cd {}; qlaunch -q {} rapidfire --nlaunches {}'
                                               .format(al_info['base_dir'],
                                                       os.path.join(al_info['base_dir'], al_info['queue_file']),
-                                                      str(al_info['num_launches'])))], name='AutoLauncher')
+                                                      str(al_info['num_launches'])))],
+                         parents=train_fw, name='AutoLauncher')
     all_fws.append(launch_fw)
-
-    if not isinstance(structures, list):
-        structures = list(structures)
 
     for s in structures:
         params = lammps_params.copy()
         params['structure'] = s.as_dict()
-        dep_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)],
-                                parents=launch_fw,
-                                name='LAMMPS CG'))
+        dep_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)], parents=train_fw, name='LAMMPS CG'))
 
     all_fws.extend(dep_fws)
 
-    return Workflow(all_fws, {launch_fw: dep_fws}, name='train_multiLammps_autolaunch')
+    return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
 def read_info(db_file, al_file):

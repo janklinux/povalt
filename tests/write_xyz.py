@@ -16,13 +16,13 @@ do_soap = False
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
 train_split = dict()
-split = {'fcc': 0.8,
-         'bcc': 0.8,
-         'hcp': 0.8,
-         'sc': 0.8,
-         'slab': 0.8,
-         'cluster': 0.8,
-         'addition': 0.8}
+split = {'fcc': 0.75,
+         'bcc': 0.75,
+         'hcp': 0.75,
+         'sc': 0.75,
+         'slab': 0.85,
+         'cluster': 0.95,
+         'addition': 1.0}
 
 for sys in systems:
     train_split[sys] = split[sys]
@@ -178,11 +178,27 @@ for sys in systems:
     np.random.shuffle(train_selected[sys])
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
-print('Systems in DB: fcc: {:5d}  bcc: {:5d}  sc: {:5d}  hcp: {:5d}\n'
-      '               slab: {:5d}  cluster: {:5d} addition: {:5d}'.
-      format(system_count['fcc'], system_count['bcc'], system_count['sc'], system_count['hcp'],
-             system_count['slab'], system_count['cluster'], system_count['addition']))
-
+print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
+      '                          bcc     : {:5d} [{:3.1f}%]\n'
+      '                          sc      : {:5d} [{:3.1f}%]\n'
+      '                          hcp     : {:5d} [{:3.1f}%]\n'
+      '                          slab    : {:5d} [{:3.1f}%]\n'
+      '                          cluster : {:5d} [{:3.1f}%]\n'
+      '                          addition: {:5d} [{:3.1f}%]'.
+      format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
+             int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
+             int(system_count['sc'] * train_split['sc']), train_split['sc']*100,
+             int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
+             int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
+             int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
+             int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
+print('This will need approximately {} GB of memory during training.'.format(np.round(
+    (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
+     system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
+     system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
+     system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
+# ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
+# |          dim1           | * |    dim2    | * numerics
 
 np.random.seed(1410)  # fix for reproduction
 
