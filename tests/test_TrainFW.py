@@ -180,7 +180,7 @@ lammps_params = {
 # print(len(train_params))
 # print(len(lammps_params))
 
-lpad.reset('2020-09-18')
+lpad.reset('2020-09-19')
 
 # for i in np.arange(4.5, 5.6, 0.1):
 #     train_params_nbody['nb_cutoff'] = np.round(i, 1)
@@ -192,7 +192,7 @@ lpad.reset('2020-09-18')
 #lpad.add_wf(tp)
 
 
-structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[1001:2000]
+structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[2001:3000]
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
                                       structures=structures, db_file='db.json', al_file='al.json')
 lpad.add_wf(md_wf)

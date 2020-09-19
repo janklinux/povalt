@@ -9,17 +9,17 @@ import matplotlib.pyplot as plt
 from ase.io import read, write
 
 
-read_from_db = False
+read_from_db = True
 force_fraction = 0.98  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
 train_split = dict()
-split = {'fcc': 0.75,
-         'bcc': 0.75,
-         'hcp': 0.75,
-         'sc': 0.75,
+split = {'fcc': 0.65,
+         'bcc': 0.65,
+         'hcp': 0.65,
+         'sc': 0.65,
          'slab': 0.85,
          'cluster': 0.95,
          'addition': 1.0}
@@ -159,8 +159,6 @@ else:
     with open('systems.json', 'r') as f:
         crystal_system = json.load(f)
 
-# system_count = {'fcc': 0, 'bcc': 0, 'sc': 0, 'hcp': 0,
-#                 'slab': 0, 'cluster': 0, 'addition': 0}
 
 np.random.seed(1410)  # fix for reproduction
 
@@ -238,8 +236,6 @@ for i, xyz in enumerate(complete_xyz):
 
     processed[crystal_system[i]].append(tmp_line)
 
-
-np.random.seed(1410)  # change for a change in splitting of training / testing data
 
 with open('complete.xyz', 'a') as f:
     for sys in systems:

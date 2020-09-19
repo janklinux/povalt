@@ -59,7 +59,7 @@ class StaticFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(1E-2), db_info=db_info, lammps_energy=lammps_energy))
+        t.append(AddToDbTask(force_thresh=float(0.5), db_info=db_info, lammps_energy=lammps_energy))
         super(StaticFW, self).__init__(t, name=name)
 
 
@@ -191,7 +191,9 @@ class AddToDbTask(FiretaskBase):
             postprocess=lambda x: float(x),
             last_one_only=True)
 
-        if np.any(np.array(forces) > float(self['force_thresh'])):
+        dE = float((float(runo.final_energy) - float(self['lammps_energy'])) / len(run.final_structure.sites) * 1000.0)
+
+        if np.any(np.array(forces) > float(self['force_thresh'])) or dE > 1:
             dft_data = dict()
             dft_data['xyz'] = xyz
             dft_data['PBE_54'] = run.potcar_symbols
