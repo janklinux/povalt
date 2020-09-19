@@ -201,7 +201,8 @@ class AddToDbTask(FiretaskBase):
             dft_data['free_energy'] = runo.final_energy  # this is the FREE energy, different from vasprun.xml in 6.+
             dft_data['final_structure'] = run.final_structure.as_dict()
             dft_data['lammps_energy'] = self['lammps_energy']
-            data_name = 'Pt structure  ||  automatic addition from PoValT'
+            data_name = 'Pt structure added {}  ||  automatic addition from PoValT'.format(
+                datetime.datetime.now().strftime('%Y/%m/%d-%T'))
             collection.insert_one({'name': data_name, 'data': dft_data})
             # print(dft_data)
         # else:
