@@ -44,13 +44,14 @@ class LammpsJob(Job):
     Class to run LAMMPS as firework
     """
 
-    def __init__(self, lammps_params, db_info, fw_spec):
+    def __init__(self, lammps_params, db_info, fw_spec, is_slab):
         """
         Sets parameters
         Args:
             lammps_params: all LAMMPS parameters
             db_info: database info
             fw_spec: fireworks specs
+            is_slab: is the structure a slab? for the VASP FW
         """
 
         self.lammps_params = lammps_params
@@ -58,6 +59,9 @@ class LammpsJob(Job):
         self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
         self.db_info = db_info
         self.run_dir = os.getcwd()
+        if not isinstance(is_slab, bool):
+            raise ValueError('is_slab has to be boolean')
+        self.is_slab = is_slab
 
     def postprocess(self):
         pass
@@ -164,14 +168,15 @@ class LammpsJob(Job):
         coords = lammps_result.frac_coords
         rerun_structure = Structure(lattice=lattice, species=species, coords=coords, coords_are_cartesian=False)
 
-        kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
-        incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-                     'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
-                     # 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
-
-        # print('\n')
-        # print(kpt_set)
-        # print('   *** CHECK IF SLAB OR BULK ***\n\n')
+        if self.is_slab:
+            kpt_set = Kpoints.gamma_automatic((6, 6, 1), shift=(0, 0, 0))
+            incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+                         'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.',
+                         'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
+        else:
+            kpt_set = Kpoints.automatic_density(rerun_structure, kppa=1200, force_gamma=False)
+            incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+                         'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.'}
 
         vis = MPStaticSet(rerun_structure)
         v = vis.as_dict()

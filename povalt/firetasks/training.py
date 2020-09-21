@@ -104,11 +104,12 @@ class Lammps(LammpsBase):
     """
     Class to run LAMMPS
     """
-    required_params = ['lammps_params', 'db_info']
+    required_params = ['lammps_params', 'db_info', 'is_slab']
     optional_params = []
 
     def get_job(self, fw_spec):
-        return LammpsJob(lammps_params=self['lammps_params'], db_info=self['db_info'], fw_spec=fw_spec)
+        return LammpsJob(lammps_params=self['lammps_params'], db_info=self['db_info'],
+                         is_slab=self['is_slab'], fw_spec=fw_spec)
 
     def get_validators(self):
         pass

@@ -77,7 +77,7 @@ def run_lammps(lammps_params, structures, db_file, al_file):
     return Workflow(lmp_fws, name='multi_LAMMPS')
 
 
-def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, al_file=None):
+def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, is_slab, al_file=None):
     """
     Trains a potential and then runs LAMMPS with it
 
@@ -87,6 +87,7 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
         structures: list of structures to run
         db_file: json formatted file containing the db info
         al_file: json formatted file containing the auto-launch settings
+        is_slab: True is structure is slab, for VASP runs
 
     Returns:
         the workflow for Launchpad
@@ -115,7 +116,8 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     for s in structures:
         params = lammps_params.copy()
         params['structure'] = s.as_dict()
-        dep_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)], parents=train_fw, name='LAMMPS CG'))
+        dep_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info, is_slab=is_slab)],
+                                parents=train_fw, name='LAMMPS CG'))
 
     all_fws.extend(dep_fws)
 

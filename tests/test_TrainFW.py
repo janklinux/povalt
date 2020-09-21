@@ -180,7 +180,7 @@ lammps_params = {
 # print(len(train_params))
 # print(len(lammps_params))
 
-lpad.reset('2020-09-19')
+lpad.reset('2020-09-21')
 
 # for i in np.arange(4.5, 5.6, 0.1):
 #     train_params_nbody['nb_cutoff'] = np.round(i, 1)
@@ -191,10 +191,13 @@ lpad.reset('2020-09-19')
 #tp = train_potential(train_params=train_params_nbody, for_validation=False, db_file='db.json')
 #lpad.add_wf(tp)
 
+# last MD run was 2001:3000
+# structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[2001:3000]
 
-structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[2001:3000]
+# last 3x3 slab was 1:500
+structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/slab/5000K_MD_slab_3x3/XDATCAR').structures[1:500]
 md_wf = train_and_run_multiple_lammps(train_params=train_params_nbody, lammps_params=lammps_params,
-                                      structures=structures, db_file='db.json', al_file='al.json')
+                                      structures=structures, db_file='db.json', is_slab=True, al_file='al.json')
 lpad.add_wf(md_wf)
 
 # structures = Xdatcar('/home/jank/work/Aalto/vasp/training_data/liq/5000K_MD_large_cell/XDATCAR').structures[106]

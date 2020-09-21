@@ -16,12 +16,12 @@ do_soap = False
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
 train_split = dict()
-split = {'fcc': 0.65,
-         'bcc': 0.65,
-         'hcp': 0.65,
-         'sc': 0.65,
+split = {'fcc': 0.55,
+         'bcc': 0.55,
+         'hcp': 0.55,
+         'sc': 0.55,
          'slab': 0.85,
-         'cluster': 0.95,
+         'cluster': 0.85,
          'addition': 1.0}
 
 for sys in systems:
