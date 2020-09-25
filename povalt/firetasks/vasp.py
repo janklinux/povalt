@@ -59,7 +59,8 @@ class StaticFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(0.5), db_info=db_info, lammps_energy=lammps_energy))
+        t.append(AddToDbTask(force_thresh=float(0.05), energy_thresh=25.0,
+                             db_info=db_info, lammps_energy=lammps_energy))
         super(StaticFW, self).__init__(t, name=name)
 
 
@@ -81,7 +82,7 @@ class RunVaspCustodian(FiretaskBase):
                     PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
         validators = [VasprunXMLValidator(), VaspFilesValidator()]
 
-        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=10)
+        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=5)
         c.run()
 
 
@@ -134,7 +135,7 @@ class AddToDbTask(FiretaskBase):
         force_thresh (float): Threshold for any force component above which the result is added to the training db
     """
 
-    required_params = ['force_thresh', 'db_info', 'lammps_energy']
+    required_params = ['force_thresh', 'energy_thresh', 'db_info', 'lammps_energy']
     optional_params = []
 
     def run_task(self, fw_spec):
@@ -174,6 +175,8 @@ class AddToDbTask(FiretaskBase):
         orun = os.path.join(run_dir, 'OUTCAR.gz')
 
         run = Vasprun(vrun)
+        if not run.converged:
+            return
         runo = Outcar(orun)
         atoms = aseread(vrun)
         xyz = ''
@@ -193,7 +196,7 @@ class AddToDbTask(FiretaskBase):
 
         dE = float((float(runo.final_energy) - float(self['lammps_energy'])) / len(run.final_structure.sites) * 1000.0)
 
-        if np.any(np.array(forces) > float(self['force_thresh'])) or dE > 1:
+        if np.any(np.array(forces) > float(self['force_thresh'])) or dE > float(self['energy_thresh']):
             dft_data = dict()
             dft_data['xyz'] = xyz
             dft_data['PBE_54'] = run.potcar_symbols
