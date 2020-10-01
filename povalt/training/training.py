@@ -53,11 +53,16 @@ class TrainJob(Job):
     def run(self):
         """
         Runs the training routine
+        Contains some internal checking for which parameter line format to use. It should be moved to a separate
+        routine at some point. Currently only supported combinations are
+            distance_2b + angle3b + soap_turbo
+            distance_Nb + soap_turbo
 
         Returns:
-             open subprocess
+             open subprocess to run
 
         """
+
         for item in self.train_params:
             if self.train_params[item] is not None:
                 self.train_params[item] = str(self.train_params[item])
@@ -70,8 +75,8 @@ class TrainJob(Job):
         if self.train_params['mpi_cmd'] is not None:
             if self.train_params['mpi_procs'] is None:
                 raise ValueError('Running MPI you have to set mpi_procs')
-            cmd = find_binary(str(self.train_params['mpi_cmd'].strip())).strip() + \
-                  ' -n {} '.format(self.train_params['mpi_procs'])
+            cmd = find_binary(str(self.train_params['mpi_cmd'].strip())).strip() + ' -n {} '.format(
+                self.train_params['mpi_procs'])
         else:
             cmd = ''
 
@@ -196,6 +201,15 @@ class TrainJob(Job):
         return p
 
     def postprocess(self):
+        """
+        Removes the old potential and uploads the trained potential files to the db. Currently this is used for
+        the automatic routine only, NOT for validation procedures. Use two different dbs in that case.
+
+        Returns:
+            nothing
+
+        """
+
         pot_file = {}  # dict as {filename: data}
         for file in os.listdir(self.run_dir):
             if file.startswith(self.train_params['gp_file']):
@@ -219,6 +233,7 @@ class TrainJob(Job):
         Returns:
             nothing
         """
+
         db = self.connect_db()
         collection = db[self.db_info['validation_collection']]
         collection.delete_many({})
@@ -226,9 +241,11 @@ class TrainJob(Job):
     def connect_db(self):
         """
         Connects to the MongoDB
+
         Returns:
             open db
         """
+
         connection = None
         if 'ssl' in self.db_info:
             if self.db_info['ssl'].lower() == 'true':

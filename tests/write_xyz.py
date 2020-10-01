@@ -9,20 +9,20 @@ import matplotlib.pyplot as plt
 from ase.io import read, write
 
 
-read_from_db = True
-force_fraction = 0.98  # percentage of forces to EXCLUDE from training
+read_from_db = False
+force_fraction = 0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
 train_split = dict()
-split = {'fcc': 0.55,
-         'bcc': 0.55,
-         'hcp': 0.55,
-         'sc': 0.55,
-         'slab': 0.85,
-         'cluster': 0.85,
-         'addition': 1.0}
+split = {'fcc': 0.02,
+         'bcc': 0.02,
+         'hcp': 0.02,
+         'sc': 0.02,
+         'slab': 0.25,
+         'cluster': 0.55,
+         'addition': 0.05}
 
 for sys in systems:
     train_split[sys] = split[sys]

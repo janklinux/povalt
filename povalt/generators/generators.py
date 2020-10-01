@@ -21,29 +21,45 @@ import os
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+from povalt.firetasks.vasp import VaspTasks
 
 
 class Dimer:
     """
     Class for dimer related generators
     """
-    def __init__(self, species, lattice, min_dist, max_dist, n_points):
+
+    def __init__(self, species, lattice, min_dist, max_dist):
+        """
+        Checks parameters and sets up the grid
+
+        Args:
+            species: list of species to generate dimer curves for
+            lattice: for VASP only, the box we live in
+            min_dist: minimal atom distance
+            max_dist: maximal atom distance
+        """
+
         if not isinstance(species, list):
             raise ValueError('Argument species has to be of type list')
         self.species = species
         self.lattice = lattice
         self.min_dist = min_dist
         self.max_dist = max_dist
-        self.n_points = n_points
         self.base_dir = os.getcwd()
-        self.grid = np.linspace(start=min_dist, stop=max_dist, num=n_points, endpoint=True)
-
-    def print_species(self):
-        for i in range(len(self.species)):
-            for j in range(i, len(self.species)):
-                print('a: {} -- b: {}'.format(self.species[i], self.species[j]))
+        self.grid = np.linspace(start=min_dist, stop=1, num=5, endpoint=False)
+        self.grid = np.append(self.grid, np.linspace(start=1, stop=3.5, num=25, endpoint=False))
+        self.grid = np.append(self.grid, np.linspace(start=3.5, stop=8, num=15, endpoint=True))
 
     def run_dimer_aims(self):
+        """
+        Runs the dimers with FHIaims and shows the result when a pair is completed
+
+        Returns:
+            nothing, writes and parses everything to disk
+
+        """
+
         if os.path.isfile(os.path.join(self.base_dir, 'dimer.xyz')):
             os.unlink(os.path.join(self.base_dir, 'dimer.xyz'))
 
@@ -78,8 +94,7 @@ class Dimer:
                             f.write(fin.read())
 
                     os.chdir(str(np.round(d, 1)))
-                    os.system('mpirun -n 1 /home/jank/compile/FHIaims/BUILD/aims.200920.scalapack.mpi.x '
-                              '| tee run.light')
+                    os.system('mpirun -n 1 /home/jank/bin/aims | tee run.light')
 
                     energy = None
                     forces = []
@@ -153,3 +168,56 @@ class Dimer:
                 plt.close()
 
                 os.chdir(self.base_dir)
+
+
+class Bulk:
+    """
+    Class to generate bulk structures for training data, incomplete, needs implementation and testing
+    """
+
+    def __init__(self, cell_type, atom_type, ncore):
+        """
+        checks and init variables
+        """
+
+        if cell_type not in ['fcc', 'bcc', 'sc', 'hcp']:
+            raise ValueError('Wrong cell type, please correct')
+        self.cell_type = cell_type
+        self.atom_type = atom_type
+        self.ncore = ncore
+
+        pass
+
+    def generate_fcc_cell(self):
+        """
+        generates a FCC cell with the specified atom as only occupant
+
+        returns:
+            a relaxation workflow for vasp
+
+        """
+
+        metadata = {'name': 'cell generation',
+                    'task': 'relaxation',
+                    'cell': self.cell_type}
+
+        return VaspTasks.get_relax_wf(structure='fcc', structure_name='FCC input cell', atom_type=self.atom_type,
+                                      vasp_cmd='srun --nodes 1 vasp_std', ncore=self.ncore, metadata=metadata)
+
+    def generate_bcc_cell(self, atom_type):
+        """
+        generates a BCC cell with the specified atom as only occupant
+        """
+        pass
+
+    def generate_sc_cell(self, atom_type):
+        """
+        generates a SC cell with the specified atom as only occupant
+        """
+        pass
+
+    def generate_hcp_cell(self, atom_type):
+        """
+        generates a HCP cell with the specified atom as only occupant
+        """
+        pass

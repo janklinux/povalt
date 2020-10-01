@@ -61,13 +61,6 @@ def run_lammps(lammps_params, structures, db_file, al_file):
 
     db_info, al_info = read_info(db_file=db_file, al_file=al_file)
 
-    # print(structures)
-
-    # if not isinstance(structures, list):
-    #     structures = [structures]
-
-    # print(structures)
-
     lmp_fws = []
     for s in structures:
         params = lammps_params.copy()
@@ -134,6 +127,7 @@ def read_info(db_file, al_file):
     Returns:
         dictionaries db_info and al_info
     """
+
     if al_file is not None:
         try:
             with open(al_file, 'r') as f:

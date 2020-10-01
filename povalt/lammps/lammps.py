@@ -46,7 +46,8 @@ class LammpsJob(Job):
 
     def __init__(self, lammps_params, db_info, fw_spec, is_slab):
         """
-        Sets parameters
+        Init class, sets parameters and does checks
+
         Args:
             lammps_params: all LAMMPS parameters
             db_info: database info
@@ -64,9 +65,25 @@ class LammpsJob(Job):
         self.is_slab = is_slab
 
     def postprocess(self):
+        """
+        Possible tasks after run has finished, does nothing for now
+
+        Returns:
+            nothing
+
+        """
+
         pass
 
     def setup(self):
+        """
+        Prepare for LAMMPS run, downloads the potential, writes and parses input files
+
+        Returns:
+            nothing
+
+        """
+
         os.chdir(self.run_dir)
         xml_name, xml_label = self.download_potential()
         if xml_name is None:
@@ -80,6 +97,13 @@ class LammpsJob(Job):
                                re.sub('POT_FW_NAME', xml_name, line.strip())) + '\n')
 
     def run(self):
+        """
+        Runs the job
+
+        Returns:
+            open subprocess
+        """
+
         os.chdir(self.run_dir)
         for item in self.lammps_params:
             if self.lammps_params[item] is not None:
@@ -108,6 +132,14 @@ class LammpsJob(Job):
         return p
 
     def download_potential(self):
+        """
+        Downloads the potential, currently only one potential is allowed in this specific collection
+
+        Returns:
+            name and label of the potential for parsing
+
+        """
+
         connection = None
         if 'ssl' in self.db_info:
             if self.db_info['ssl'].lower() == 'true':
@@ -160,6 +192,7 @@ class LammpsJob(Job):
         Returns:
             the workflow
         """
+
         with open(os.path.join(self.run_dir, 'final_positions.atom'), 'r') as f:
             final_atoms = read_lammps_dump_text(fileobj=f, index=-1)
         lammps_result = AseAtomsAdaptor.get_structure(final_atoms)
@@ -192,6 +225,7 @@ class LammpsJob(Job):
     def get_lammps_energy(self):
         """
         Greps the energy computed by LAMMPS for comparison to VASP energy
+
         Returns:
             LAMMPS final energy
         """
@@ -212,7 +246,8 @@ class LammpsJob(Job):
 
 class LammpsOLD:
     """
-    DEPRECATED
+    DEPRECATED -- KEPT FOR REFINEMENT ONLY --- DO NOT USE
+
     General class for all LAMMPS related jobs like generating and running structures
     for validation and potential refinement
     """

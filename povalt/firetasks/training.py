@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-# import os
 import abc
 from fireworks import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
@@ -28,8 +27,9 @@ from povalt.lammps.lammps import LammpsJob
 
 class TrainBase(FiretaskBase):
     """
-    Base class to train potentials
+    Base class to train potentials, we inherit from it
     """
+
     @abc.abstractmethod
     def get_job(self):
         pass
@@ -46,12 +46,6 @@ class TrainBase(FiretaskBase):
         job = self.get_job()
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
-        # if fw_spec['al_task'] is not None:
-        #     os.chdir('cd {}'.format(fw_spec['al_task']['base_dir']))
-        #     os.system('qlaunch -q {} rapidfire --nlaunches {}'.format(os.path.join(fw_spec['al_task']['base_dir'],
-        #                                                                            'my_queue.yaml'),
-        #                                                               str(fw_spec['al_task']['num_launches'])))
-        # return FWAction(update_spec={'potential_info': job.get_potential_info()})
 
 
 @explicit_serialize
@@ -59,6 +53,7 @@ class PotentialTraining(TrainBase):
     """
     Class to train a potential
     """
+
     required_params = ['train_params', 'for_validation', 'db_info']
     optional_params = ['al_info']
 
@@ -78,8 +73,9 @@ class PotentialTraining(TrainBase):
 
 class LammpsBase(FiretaskBase):
     """
-    Base class to run LAMMPS
+    Base class to run LAMMPS, for inheritance
     """
+
     @abc.abstractmethod
     def get_job(self, fw_spec):
         pass
@@ -104,6 +100,7 @@ class Lammps(LammpsBase):
     """
     Class to run LAMMPS
     """
+
     required_params = ['lammps_params', 'db_info', 'is_slab']
     optional_params = []
 

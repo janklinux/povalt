@@ -16,6 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+
 import io
 import os
 import gzip
@@ -45,13 +46,13 @@ from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 class StaticFW(Firework):
     def __init__(self, structure, vasp_input_set, vasp_cmd, name, db_info, lammps_energy):
         """
-        Standard static calculation Firework from a structure.
+        Standard static calculation Firework for a structure.
 
         Args:
             structure (Structure): Input structure
-            vasp_input_set (VaspInputSet): input set to use (for jobs w/no parents)
-                Defaults to MPStaticSet() if None.
+            vasp_input_set (VaspInputSet): input set to use
             vasp_cmd (str): Command to run vasp.
+            name: the name of the workflow
             db_info: database credentials to store results
             lammps_energy: energy from LAMMPS run for this structure
         """
@@ -67,11 +68,13 @@ class StaticFW(Firework):
 @explicit_serialize
 class RunVaspCustodian(FiretaskBase):
     """
-    Run VASP using custodian "on rails", fixes most runtime errors.
+    Run VASP using custodian "on rails", fixes most runtime errors, uses default handlers
+    and validators from custodian package
 
     Required params:
-        vasp_cmd (str): the name of the full executable for running VASP.
+        vasp_cmd (str): the name of the full executable for running VASP
     """
+
     required_params = ['vasp_cmd']
     optional_params = []
 
@@ -90,6 +93,7 @@ class VaspJob(Job):
     """
     A basic VASP job
     """
+
     def __init__(self, vasp_cmd):
         """
         Get/set variables for a simple VASP job
@@ -102,22 +106,28 @@ class VaspJob(Job):
         self.std_err = 'std_err.txt'  # compatible to handlers
 
     def setup(self):
+        """
+        We don't have to do anything here
+        """
         pass
 
     def run(self):
         """
         Runs VASP
+
         Returns:
-            subprocess for monitoring
+            open subprocess for monitoring by custodian
         """
+
         with open(self.std_out, 'w') as sout, open(self.std_err, 'w', buffering=1) as serr:
             p = subprocess.Popen(self.vasp_cmd.split(), stdout=sout, stderr=serr)
         return p
 
     def postprocess(self):
         """
-        Gzips all files in the directory we ran VASP in
+        For now, gzip all files in the directory we ran VASP in
         """
+
         for file in os.listdir(self.run_dir):
             with open(file, 'rb') as fin:
                 with gzip.open(file + '.gz', 'wb') as fout:
@@ -128,7 +138,7 @@ class VaspJob(Job):
 @explicit_serialize
 class AddToDbTask(FiretaskBase):
     """
-    Task insert results into a database if forces exceed specification
+    Task insert results into a database if energy and forces exceed specification
 
     Required:
         db_file (str): absolute path to file containing the database credentials
@@ -139,6 +149,18 @@ class AddToDbTask(FiretaskBase):
     optional_params = []
 
     def run_task(self, fw_spec):
+        """
+        Does the work by connecting to db, parsing the results, checking the thresholds and adding the
+        structure to the db if needed
+
+        Args:
+            fw_spec: fireworks specifics
+
+        Returns:
+            nothing
+
+        """
+
         connection = None
 
         if 'ssl' in self['db_info']:
@@ -207,16 +229,11 @@ class AddToDbTask(FiretaskBase):
             data_name = 'Pt structure added {}  ||  automatic addition from PoValT'.format(
                 datetime.datetime.now().strftime('%Y/%m/%d-%T'))
             collection.insert_one({'name': data_name, 'data': dft_data})
-            # print(dft_data)
-        # else:
-        #     print('All forces below specified threshold ({}), result is fine, not adding to training data'
-        #           .format(float(self['force_thresh'])))
-        #     print(forces)
 
 
 class VaspTasks:
     """
-    DEPRECATED Class -- not in use here, kept for future integration of a automatic generator
+    DEPRECATED Class -- not in use here, kept for future integration of a automatic generator -- DO NOT USE
     """
     def __init__(self):
         """
