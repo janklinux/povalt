@@ -11,21 +11,18 @@ from ase.io import read, write
 
 read_from_db = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
+show_dimer = False
 do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = dict()
-split = {'fcc': 0.02,
-         'bcc': 0.02,
-         'hcp': 0.02,
-         'sc': 0.02,
-         'slab': 0.25,
-         'cluster': 0.55,
-         'addition': 0.05}
-
-for sys in systems:
-    train_split[sys] = split[sys]
+train_split = {'fcc': 0.02,
+               'bcc': 0.02,
+               'hcp': 0.02,
+               'sc': 0.02,
+               'slab': 0.25,
+               'cluster': 0.55,
+               'addition': 0.05}
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
@@ -37,12 +34,12 @@ data_coll = data_db['platinum']
 add_coll = data_db['platinum_additions']
 
 
-with open('complete.xyz', 'w') as f:
+with open('train.xyz', 'w') as f:
     f.write('1\n')
     f.write('Lattice="20.0 0.0 0.0 0.0 20.0 0.0 0.0 0.0 20.0" Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1 '
-            'energy=-0.52810937 stress="-8.1156408296031e-06 3.659415525032732e-06 1.5484996896042586e-06 '
-            '3.659415525032732e-06 -8.890405598908113e-08 -4.473464352776056e-06 1.5484996896042586e-06 '
-            '-4.473464352776056e-06 -3.0529280832706558e-06" free_energy=-0.54289024 pbc="T T T" '
+            'energy=-0.52810937 stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
+            'virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
+            'free_energy=-0.54289024 pbc="T T T" '
             'config_type=isolated_atom\n')
     f.write('Pt 0.0 0.0 0.0 0.0 0.0 0.0 0\n')
 
@@ -51,7 +48,7 @@ force_curve = list()
 zcrds = np.round(np.arange(0.7, 8.1, 0.1, dtype=np.float16), 1)
 
 for crd in zcrds:
-    atoms = read(os.path.join('/home/jank/work/Aalto/vasp/training_data/dimer', str(crd), 'vasprun.xml'))
+    atoms = read(os.path.join('/home/jank/work/Aalto/training_data/dimer', str(crd), 'vasprun.xml'))
     dimer_curve.append(atoms.get_potential_energy(force_consistent=True))
     atoms.info['config_type'] = 'dimer'
 
@@ -70,11 +67,48 @@ for crd in zcrds:
         if '\n' in line:
             tmp_line.append(tmp)
             tmp = ''
-#    tmp_line[1] = tmp_line[1].strip() + ' config_type=random\n'
+
+    s_pos = 0
+    l_pos = 0
+    s_append = False
+    l_append = False
+    stress = []
+    lattice = []
+    for i, el in enumerate(tmp_line[1].split()):
+        if s_append:
+            if '"' in el:
+                el = el[:-1]
+            stress.append(float(el))
+            if i > s_pos + 7:
+                s_append = False
+        if 'stress' in el:
+            s_pos = i
+            stress.append(float(el.split('"')[1]))
+            s_append = True
+        if l_append:
+            if '"' in el:
+                el = el[:-1]
+            lattice.append(float(el))
+            if i > l_pos + 7:
+                l_append = False
+        if 'Lattice' in el:
+            l_pos = i
+            lattice.append(float(el.split('"')[1]))
+            l_append = True
+
+    stress = np.array([stress[0:3], stress[3:6], stress[6:9]])
+    lattice = np.array([lattice[0:3], lattice[3:6], lattice[6:9]])
+    vol = np.abs(np.dot(lattice[2], np.cross(lattice[0], lattice[1])))
+    virial = - np.dot(vol, stress)
+
     wtmp = ''
     for bit in tmp_line[1].split(' '):
         if 'Properties' in bit:
-            bit += ':force_mask:L:1'
+            bit += ':force_mask:L:1 '
+            bit += 'virial="{} {} {} {} {} {} {} {} {}"'.format(
+                virial[0][0], virial[0][1], virial[0][2],
+                virial[1][0], virial[1][1], virial[1][2],
+                virial[2][0], virial[1][2], virial[2][2])
         wtmp += bit + ' '
     tmp_line[1] = wtmp.strip() + '\n'
     tmp_line[0] = tmp_line[0].strip() + '\n'
@@ -87,13 +121,13 @@ for crd in zcrds:
     for j in range(2, len(tmp_line)):
         tmp_line[j] = tmp_line[j].strip() + '     0\n'
 
-    with open('complete.xyz', 'a') as f:
+    with open('train.xyz', 'a') as f:
         for line in tmp_line:
             f.write(line)
 
     force_curve.append(atoms.get_forces()[1][2])
 
-show_dimer = False
+
 if show_dimer:
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
@@ -208,7 +242,9 @@ processed = {'fcc': [],
              'cluster': [],
              'addition': []}
 
+skips = 0
 force_flag = []
+
 for i, xyz in enumerate(complete_xyz):
     tmp = ''
     tmp_line = []
@@ -217,11 +253,58 @@ for i, xyz in enumerate(complete_xyz):
         if '\n' in line:
             tmp_line.append(tmp)
             tmp = ''
+
+    s_pos = 0
+    l_pos = 0
+    s_append = False
+    l_append = False
+    stress = []
+    lattice = []
+    for ii, el in enumerate(tmp_line[1].split()):
+        if s_append:
+            if '"' in el:
+                el = el[:-1]
+            stress.append(float(el))
+            if ii > s_pos + 7:
+                s_append = False
+        if 'stress' in el:
+            s_pos = ii
+            stress.append(float(el.split('"')[1]))
+            s_append = True
+        if l_append:
+            if '"' in el:
+                el = el[:-1]
+            lattice.append(float(el))
+            if ii > l_pos + 7:
+                l_append = False
+        if 'Lattice' in el:
+            l_pos = ii
+            lattice.append(float(el.split('"')[1]))
+            l_append = True
+
+    if len(stress) == 0:
+        stress = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    stress = np.array([stress[0:3], stress[3:6], stress[6:9]])
+    lattice = np.array([lattice[0:3], lattice[3:6], lattice[6:9]])
+    vol = np.abs(np.dot(lattice[2], np.cross(lattice[0], lattice[1])))
+    virial = - np.dot(vol, stress)
+
+    # print(lattice)
+    # print(stress)
+    # print(vol)
+    # print(virial)
+    # print(len(virial))
+
     tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
     wtmp = ''
     for bit in tmp_line[1].split(' '):
         if 'Properties' in bit:
-            bit += ':force_mask:L:1'
+            bit += ':force_mask:L:1 '
+            bit += 'virial="{} {} {} {} {} {} {} {} {}"'.format(
+                virial[0][0], virial[0][1], virial[0][2],
+                virial[1][0], virial[1][1], virial[1][2],
+                virial[2][0], virial[1][2], virial[2][2])
         wtmp += bit + ' '
     tmp_line[1] = wtmp.strip() + '\n'
     tmp_line[0] = tmp_line[0].strip() + '\n'
@@ -237,12 +320,16 @@ for i, xyz in enumerate(complete_xyz):
     processed[crystal_system[i]].append(tmp_line)
 
 
-with open('complete.xyz', 'a') as f:
-    for sys in systems:
-        for i, xyz in enumerate(processed[sys]):
-            if train_selected[sys][i]:
-                for line in xyz:
-                    f.write(line)
+with open('train.xyz', 'a') as f:
+    with open('test.xyz', 'w') as t:
+        for sys in systems:
+            for i, xyz in enumerate(processed[sys]):
+                if train_selected[sys][i]:
+                    for line in xyz:
+                        f.write(line)
+                else:
+                    for line in xyz:
+                        t.write(line)
 
 
 if do_soap:

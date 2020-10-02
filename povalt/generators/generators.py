@@ -22,6 +22,7 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from povalt.firetasks.vasp import VaspTasks
+from pymatgen.io.vasp import Potcar, Outcar
 
 
 class Dimer:
@@ -29,7 +30,7 @@ class Dimer:
     Class for dimer related generators
     """
 
-    def __init__(self, species, lattice, min_dist, max_dist):
+    def __init__(self, species, lattice, min_dist, max_dist, show_curve):
         """
         Checks parameters and sets up the grid
 
@@ -46,10 +47,11 @@ class Dimer:
         self.lattice = lattice
         self.min_dist = min_dist
         self.max_dist = max_dist
+        self.show_curve = show_curve
         self.base_dir = os.getcwd()
         self.grid = np.linspace(start=min_dist, stop=1, num=5, endpoint=False)
-        self.grid = np.append(self.grid, np.linspace(start=1, stop=3.5, num=25, endpoint=False))
-        self.grid = np.append(self.grid, np.linspace(start=3.5, stop=8, num=15, endpoint=True))
+        self.grid = np.append(self.grid, np.linspace(start=1, stop=3.5, num=30, endpoint=False))
+        self.grid = np.append(self.grid, np.linspace(start=3.5, stop=max_dist, num=15, endpoint=True))
 
     def run_dimer_aims(self):
         """
@@ -78,22 +80,22 @@ class Dimer:
                 os.chdir(species_dir)
 
                 for d in self.grid:
-                    if os.path.isdir(str(np.round(d, 1))):
-                        shutil.rmtree(str(np.round(d, 1)))
+                    if os.path.isdir(str(np.round(d, 2))):
+                        shutil.rmtree(str(np.round(d, 2)))
 
                 for d in self.grid:
-                    os.mkdir(str(np.round(d, 1)))
-                    with open(os.path.join(str(np.round(d, 1)), 'geometry.in'), 'w') as f:
+                    os.mkdir(str(np.round(d, 2)))
+                    with open(os.path.join(str(np.round(d, 2)), 'geometry.in'), 'w') as f:
                         f.write('atom 0.0 0.0 0.0 {}\n'.format(self.species[i]))
                         f.write('  initial_moment 0.81\n')
                         f.write('atom 0.0 0.0 {} {}\n'.format(d, self.species[j]))
                         f.write('  initial_moment -0.81\n')
 
-                    with open(os.path.join(str(np.round(d, 1)), 'control.in'), 'w') as f:
+                    with open(os.path.join(str(np.round(d, 2)), 'control.in'), 'w') as f:
                         with open(os.path.join(self.base_dir, 'control.in'), 'r') as fin:
                             f.write(fin.read())
 
-                    os.chdir(str(np.round(d, 1)))
+                    os.chdir(str(np.round(d, 2)))
                     os.system('mpirun -n 1 /home/jank/bin/aims | tee run.light')
 
                     energy = None
@@ -135,37 +137,144 @@ class Dimer:
 
                     os.chdir(species_dir)
 
-                plt.rc('text', usetex=True)
-                plt.rc('font', family='sans-serif', serif='Palatino')
-                plt.rcParams['font.family'] = 'DejaVu Sans'
-                plt.rcParams['font.sans-serif'] = 'cm'
-                plt.rcParams['xtick.major.size'] = 8
-                plt.rcParams['xtick.major.width'] = 3
-                plt.rcParams['xtick.minor.size'] = 4
-                plt.rcParams['xtick.minor.width'] = 3
-                plt.rcParams['xtick.labelsize'] = 18
-                plt.rcParams['ytick.major.size'] = 8
-                plt.rcParams['ytick.major.width'] = 3
-                plt.rcParams['ytick.minor.size'] = 4
-                plt.rcParams['ytick.minor.width'] = 3
-                plt.rcParams['ytick.labelsize'] = 18
-                plt.rcParams['axes.linewidth'] = 3
-                fig, ax1 = plt.subplots()
-                color = 'red'
-                ax1.plot(dists, energies, '.-', color=color)
-                ax1.set_xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
-                ax1.set_ylabel(r'Free Energy [eV]', fontsize=22, color=color)
-                ax1.tick_params(axis='y', labelcolor=color)
-                # ax2 = ax1.twinx()
-                # color = 'navy'
-                # ax2.plot(dists, energies, '.-', color=color)
-                # ax2.set_ylabel(r'Force in sep dir [eV/\AA]', fontsize=22, color=color)
-                # ax2.tick_params(axis='y', labelcolor=color)
-                plt.title(r'{}'.format(str(self.species[i]+self.species[j]), fontsize=14))
-                fig.tight_layout()
-                plt.show()
-                # plt.savefig('dimer.png', dpi=170)
-                plt.close()
+                if self.show_curve:
+                    plt.rc('text', usetex=True)
+                    plt.rc('font', family='sans-serif', serif='Palatino')
+                    plt.rcParams['font.family'] = 'DejaVu Sans'
+                    plt.rcParams['font.sans-serif'] = 'cm'
+                    plt.rcParams['xtick.major.size'] = 8
+                    plt.rcParams['xtick.major.width'] = 3
+                    plt.rcParams['xtick.minor.size'] = 4
+                    plt.rcParams['xtick.minor.width'] = 3
+                    plt.rcParams['xtick.labelsize'] = 18
+                    plt.rcParams['ytick.major.size'] = 8
+                    plt.rcParams['ytick.major.width'] = 3
+                    plt.rcParams['ytick.minor.size'] = 4
+                    plt.rcParams['ytick.minor.width'] = 3
+                    plt.rcParams['ytick.labelsize'] = 18
+                    plt.rcParams['axes.linewidth'] = 3
+                    plt.plot(dists, energies, '.-', color='navy')
+                    plt.xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
+                    plt.ylabel(r'Free Energy [eV]', fontsize=22, color='k')
+                    plt.title(r'{} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
+                    plt.tight_layout()
+                    plt.show()
+                    plt.close()
+
+                os.chdir(self.base_dir)
+
+    def run_dimer_vasp(self):
+        """
+        Runs the dimers with VASP and shows the result when a pair is completed if desired
+
+        Returns:
+            nothing, writes and parses everything to disk
+
+        """
+
+        if os.path.isfile(os.path.join(self.base_dir, 'dimer.xyz')):
+            os.unlink(os.path.join(self.base_dir, 'dimer.xyz'))
+
+        for i in range(len(self.species)):
+            for j in range(i, len(self.species)):
+                dists = []
+                energies = []
+
+                print('Running {} <--> {}'.format(self.species[i], self.species[j]))
+
+                species_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j]))
+
+                if os.path.isdir(species_dir):
+                    shutil.rmtree(species_dir)
+                os.mkdir(species_dir)
+                os.chdir(species_dir)
+
+                for d in self.grid:
+                    if os.path.isdir(str(np.round(d, 2))):
+                        shutil.rmtree(str(np.round(d, 2)))
+
+                for d in self.grid:
+                    os.mkdir(str(np.round(d, 2)))
+                    with open(os.path.join(str(np.round(d, 2)), 'POSCAR'), 'w') as f:
+                        f.write('autogen by PoValT\n')
+                        f.write('1.0\n')
+                        f.write('{} {} {}\n'.format(self.lattice[0][0], self.lattice[0][1], self.lattice[0][2]))
+                        f.write('{} {} {}\n'.format(self.lattice[1][0], self.lattice[1][1], self.lattice[1][2]))
+                        f.write('{} {} {}\n'.format(self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]))
+                        f.write(' {} {}\n'.format(self.species[i], self.species[j]))
+                        f.write(' 1 1\n')
+                        f.write('cartesian\n')
+                        f.write('0.0 0.0 0.0\n')
+                        f.write('0.0 0.0 {}\n'.format(d))
+
+                    with open(os.path.join(str(np.round(d, 2)), 'INCAR'), 'w') as f:
+                        with open(os.path.join(self.base_dir, 'INCAR'), 'r') as fin:
+                            f.write(fin.read())
+                        f.write('   DIPOL = 0.0 0.0 {}'.format(d/2))
+
+                    with open(os.path.join(str(np.round(d, 2)), 'KPOINTS'), 'w') as f:
+                        with open(os.path.join(self.base_dir, 'KPOINTS'), 'r') as fin:
+                            f.write(fin.read())
+
+                    pots = Potcar([self.species[i], self.species[j]])
+                    pots.write_file(os.path.join(str(np.round(d, 2)), 'POTCAR'))
+
+                    os.chdir(str(np.round(d, 2)))
+                    os.system('mpirun -n 6 /home/jank/bin/vasp_std | tee run')
+
+                    run = Outcar('OUTCAR')
+                    forces = run.read_table_pattern(
+                        header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
+                        row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s'
+                                    '+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
+                        footer_pattern=r'\s--+',
+                        postprocess=lambda x: float(x),
+                        last_one_only=True)
+
+                    dists.append(d)
+                    energies.append(run.final_energy)
+
+                    with open('../dimer.xyz', 'a') as f:
+                        f.write('2\n')
+                        f.write('Lattice="{} {} {} {} {} {} {} {} {}"'.format(
+                            self.lattice[0][0], self.lattice[0][1], self.lattice[0][2],
+                            self.lattice[1][0], self.lattice[1][1], self.lattice[1][2],
+                            self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]) +
+                                ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
+                                ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
+                                ' free_energy={:6.6f} pbc="T T T"'
+                                ' config_type=dimer\n'.format(run.final_energy))
+                        f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
+                            self.species[i], forces[0][0], forces[0][1], forces[0][2]))
+                        f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
+                            self.species[j], float(d), forces[1][0], forces[1][1], forces[1][2]))
+                        f.write('\n')
+
+                    os.chdir(species_dir)
+
+                if self.show_curve:
+                    plt.rc('text', usetex=True)
+                    plt.rc('font', family='sans-serif', serif='Palatino')
+                    plt.rcParams['font.family'] = 'DejaVu Sans'
+                    plt.rcParams['font.sans-serif'] = 'cm'
+                    plt.rcParams['xtick.major.size'] = 8
+                    plt.rcParams['xtick.major.width'] = 3
+                    plt.rcParams['xtick.minor.size'] = 4
+                    plt.rcParams['xtick.minor.width'] = 3
+                    plt.rcParams['xtick.labelsize'] = 18
+                    plt.rcParams['ytick.major.size'] = 8
+                    plt.rcParams['ytick.major.width'] = 3
+                    plt.rcParams['ytick.minor.size'] = 4
+                    plt.rcParams['ytick.minor.width'] = 3
+                    plt.rcParams['ytick.labelsize'] = 18
+                    plt.rcParams['axes.linewidth'] = 3
+                    plt.plot(dists, energies, '.-', color='navy')
+                    plt.xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
+                    plt.ylabel(r'Free Energy [eV]', fontsize=22, color='k')
+                    plt.title(r'{} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
+                    plt.tight_layout()
+                    plt.show()
+                    plt.close()
 
                 os.chdir(self.base_dir)
 
