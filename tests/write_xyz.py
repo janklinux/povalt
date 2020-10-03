@@ -2,12 +2,12 @@ import io
 import os
 import json
 import pymongo
-
 import numpy as np
 import matplotlib.pyplot as plt
-
 from ase.io import read, write
 
+
+np.random.seed(1410)  # fix for reproduction
 
 read_from_db = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
@@ -16,13 +16,13 @@ do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.02,
-               'bcc': 0.02,
-               'hcp': 0.02,
-               'sc': 0.02,
-               'slab': 0.25,
-               'cluster': 0.55,
-               'addition': 0.05}
+train_split = {'fcc': 0.25,
+               'bcc': 0.25,
+               'hcp': 0.25,
+               'sc': 0.25,
+               'slab': 0.5,
+               'cluster': 0.8,
+               'addition': 0.8}
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
@@ -48,7 +48,7 @@ force_curve = list()
 zcrds = np.round(np.arange(0.7, 8.1, 0.1, dtype=np.float16), 1)
 
 for crd in zcrds:
-    atoms = read(os.path.join('/home/jank/work/Aalto/training_data/dimer', str(crd), 'vasprun.xml'))
+    atoms = read(os.path.join('/home/jank/work/Aalto/GAP_data/Pt/training_data/dimer', str(crd), 'vasprun.xml'))
     dimer_curve.append(atoms.get_potential_energy(force_consistent=True))
     atoms.info['config_type'] = 'dimer'
 
@@ -194,8 +194,6 @@ else:
         crystal_system = json.load(f)
 
 
-np.random.seed(1410)  # fix for reproduction
-
 system_count = dict()
 train_selected = dict()
 for sys in systems:
@@ -231,8 +229,6 @@ print('This will need approximately {} GB of memory during training.'.format(np.
      system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
 # ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
 # |          dim1           | * |    dim2    | * numerics
-
-np.random.seed(1410)  # fix for reproduction
 
 processed = {'fcc': [],
              'bcc': [],
@@ -289,12 +285,6 @@ for i, xyz in enumerate(complete_xyz):
     lattice = np.array([lattice[0:3], lattice[3:6], lattice[6:9]])
     vol = np.abs(np.dot(lattice[2], np.cross(lattice[0], lattice[1])))
     virial = - np.dot(vol, stress)
-
-    # print(lattice)
-    # print(stress)
-    # print(vol)
-    # print(virial)
-    # print(len(virial))
 
     tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
     wtmp = ''
