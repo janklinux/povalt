@@ -17,6 +17,7 @@ for i, struct in enumerate(structures):
     os.mkdir(str(i))
     os.chdir(str(i))
 
+    dft_free_energy = None
     with open('/tmp/stru', 'wt') as f:
         for line in struct:
             f.write(line)
@@ -26,23 +27,22 @@ for i, struct in enumerate(structures):
                 for e in line.split():
                     if 'energy' in e:
                         if 'free' in e:
-                            vasp_free_energy = e.split('=')[1]
+                            dft_free_energy = e.split('=')[1]
                         else:
-                            vasp_energy = e.split('=')[1]
-    with open('DFT_energy', 'wt') as f:
-        f.write(vasp_free_energy)
+                            dft_energy = e.split('=')[1]
+
+    if dft_free_energy is None:
+        raise ValueError('Check inputs for correct values, vasp_free_energy is undefined...')
+
     atoms = read(filename='/tmp/stru')
     write_lammps_data(fileobj='atom.pos', atoms=atoms, units='metal')
-    # os.symlink('../Pt_Zhou04.eam.alloy', 'Pt_Zhou04.eam.alloy')
-    os.symlink('../platinum.xml', 'platinum.xml')
-    os.symlink('../platinum.xml.sparseX.GAP_2020_9_28_180_10_57_12_4571',
-               'platinum.xml.sparseX.GAP_2020_9_28_180_10_57_12_4571')
-    os.symlink('../platinum.xml.sparseX.GAP_2020_9_28_180_10_57_12_4572',
-               'platinum.xml.sparseX.GAP_2020_9_28_180_10_57_12_4572')
-    # os.symlink('../platinum.xml.sparseX.', 'platinum.xml.sparseX.')
+
+    for file in os.listdir(base_dir):
+        if file.startswith('platinum.xml'):
+            os.symlink(os.path.join('..', file), file)
+
     os.symlink('../compress.dat', 'compress.dat')
     os.symlink('../lammps.in', 'lammps.in')
-    # os.system('/usr/bin/time /home/jank/bin/lmp -in lammps.in > run.time')
     os.system('/home/jank/bin/lmp -in lammps.in > /dev/zero')
     with open('log.lammps', 'rt') as f:
         parse = False
@@ -52,8 +52,11 @@ for i, struct in enumerate(structures):
                 parse = False
             if 'Time PotEng KinEng Temp' in line:
                 parse = True
-    with open('LAMMPS_energy', 'wt') as f:
-        f.write(lammps_energy)
+
+    dump = {'dft': dft_free_energy,
+            'lammps': lammps_energy}
+    with open('energies', 'w') as f:
+        json.dump(obj=dump, fp=f)
 
     if i % 100 == 0:
         print('Running {}'.format(i))

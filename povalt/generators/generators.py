@@ -124,16 +124,16 @@ class Dimer:
 
                     with open('../dimer.xyz', 'a') as f:
                         f.write('2\n')
-                        f.write('Lattice="200.0 0.0 0.0 0.0 200.0 0.0 0.0 0.0 200.0"'
+                        f.write('Lattice="20.0 0.0 0.0 0.0 20.0 0.0 0.0 0.0 20.0"'
                                 ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
-                                ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
+                                ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
+                                ' virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
                                 ' free_energy={:6.6f} pbc="T T T"'
                                 ' config_type=dimer\n'.format(energy))
                         f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
                             self.species[i], forces[0][0], forces[0][1], forces[0][2]))
                         f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
                             self.species[j], float(d), forces[1][0], forces[1][1], forces[1][2]))
-                        f.write('\n')
 
                     os.chdir(species_dir)
 

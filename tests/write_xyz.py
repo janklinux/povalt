@@ -16,13 +16,13 @@ do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.25,
-               'bcc': 0.25,
-               'hcp': 0.25,
-               'sc': 0.25,
-               'slab': 0.5,
-               'cluster': 0.8,
-               'addition': 0.8}
+train_split = {'fcc': 0.75,
+               'bcc': 0.75,
+               'hcp': 0.75,
+               'sc': 0.75,
+               'slab': 0.85,
+               'cluster': 0.9,
+               'addition': 0.9}
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
