@@ -10,10 +10,10 @@ from monty.serialization import dumpfn, loadfn
 
 def get_surfaces_and_energies():
     np.random.seed(int(time.time()))
-    basic_energies = np.array([0.1, 0.11, 0.12, 0.13, 0.14, 0.15])
+    basic_energies = np.random.uniform(0.1, 0.3, size=6)
     np.random.shuffle(basic_energies)
-    surface_list = []
 
+    surface_list = []
     while len(surface_list) < 6:
         candidate = list(np.random.randint(low=1, high=4, size=3))
         if candidate not in surface_list:
@@ -29,14 +29,18 @@ else:
 
 pmg_lat = Lattice(np.array([[150, 0, 0], [0, 150, 0], [0, 0, 150]]))  # this lattice is hacked
 
-for n_atoms in range(80, 85):
+for n_atoms in range(15, 250):
     if n_atoms in all_clusters:
         tmp = all_clusters[n_atoms]['structures']
+        edft = all_clusters[n_atoms]['energies']['dft']
+        egap = all_clusters[n_atoms]['energies']['gap']
     else:
         tmp = list()
+        edft = list()
+        egap = list()
     print('n_atoms: {:d} -- rep:'.format(n_atoms), end='')
     sys.stdout.flush()
-    for reps in range(20):
+    for reps in range(35):
         print(' {}'.format(reps), end='')
         sys.stdout.flush()
         faces, energies = get_surfaces_and_energies()
@@ -49,6 +53,10 @@ for n_atoms in range(80, 85):
 
         if len(tmp) == 0:
             tmp.append(struct.as_dict())
+            edft.append(False)
+            egap.append(False)
+            print('+', end='')
+            sys.stdout.flush()
         else:
             equal = False
             for c in tmp:
@@ -59,10 +67,12 @@ for n_atoms in range(80, 85):
 
             if not equal:
                 tmp.append(struct.as_dict())
+                edft.append(False)
+                egap.append(False)
                 print('+', end='')
                 sys.stdout.flush()
 
-    all_clusters[n_atoms] = {'structures': tmp, 'energies': {'dft': None, 'gap': None}}
+    all_clusters[n_atoms] = {'structures': tmp, 'energies': {'dft': edft, 'gap': egap}}
     print('')
 
 

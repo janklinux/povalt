@@ -116,21 +116,19 @@ class AimsJob(Job):
 
     def run(self):
         """
-        Perform the actual run.
+        Performs the actual run
 
         Returns:
-            (subprocess.Popen) Used for monitoring.
+            subprocess.Popen for monitoring
         """
 
-        cmd = self.aims_cmd.split()
-
         with open(self.output_file, 'w') as f_std, open(self.stderr_file, "w", buffering=1) as f_err:
-            p = subprocess.Popen(cmd, stdout=f_std, stderr=f_err)
+            p = subprocess.Popen(self.aims_cmd.split(), stdout=f_std, stderr=f_err)
         return p
 
     def postprocess(self):
         """
-        Postprocessing is gzip for now
+        Postprocessing is adding tight run if previous was light and gzip for now
         """
         action = []
 
