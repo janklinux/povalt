@@ -10,7 +10,7 @@ force_fraction = 0.1  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 systems = ['bulk']
-train_split = {'bulk': 0.8}
+train_split = {'bulk': 0.05}
 
 with open('train.xyz', 'w') as fout:
     for a in ['Cu', 'Pt', 'Ir']:

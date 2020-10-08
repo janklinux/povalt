@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import read
 from pymatgen.io.ase import AseAtomsAdaptor
@@ -11,6 +12,11 @@ gap_time = []
 
 gap_per_atom = []
 gap_per_atom_err = []
+
+gap_forces = []
+dft_forces = []
+force_err = []
+check_err = []
 
 n_atoms = []
 
@@ -27,7 +33,7 @@ energy_gap = {'fcc': {'calc': [], 'pred': []},
               'cluster': {'calc': [], 'pred': []},
               'addition': {'calc': [], 'pred': []}}
 
-energy_old = {'fcc': {'calc': [], 'pred': []},
+forces_gap = {'fcc': {'calc': [], 'pred': []},
               'bcc': {'calc': [], 'pred': []},
               'sc': {'calc': [], 'pred': []},
               'hcp': {'calc': [], 'pred': []},
@@ -54,10 +60,29 @@ for i in range(len(structures)):
         if not found:
             print('No run in {}'.format(i))
             continue
+
     with open(os.path.join('lammps_gap', str(i), 'energies')) as f:
         ens = json.load(f)
         gap_energy.append(float(ens['lammps']))
         dft_energy.append(float(ens['dft']))
+
+    with open(os.path.join('lammps_gap', str(i), 'final.dump')) as f:
+        parse = False
+        tmp = []
+        for line in f:
+            if parse:
+                tmp.append([float(x) for x in line.split()[5:8]])
+            if 'ITEM: ATOMS id type x y z fx fy fz' in line:
+                parse = True
+    gap_forces.append(tmp)
+
+    with open(os.path.join('lammps_gap', str(i), 'in.xyz')) as f:
+        parse = False
+        tmp = []
+        for i, line in enumerate(f):
+            if i > 1:
+                tmp.append([float(x) for x in line.split()[4:7]])
+    dft_forces.append(tmp)
 
 for i in range(len(gap_energy)):
     energy_gap[system[i]]['calc'].append(dft_energy[i] / n_atoms[i])
@@ -78,6 +103,10 @@ for i in range(len(gap_energy)):
             atoms = read(os.path.join(str(i), 'out.xyz'))
             AseAtomsAdaptor().get_structure(atoms).to(fmt='POSCAR', filename=os.path.join(str(i), 'POSCAR'))
 
+    df = 0
+    for fa, fb in zip(np.array(gap_forces[i]), np.array(dft_forces[i])):
+        df += np.linalg.norm(fa - fb) / 3
+    force_err.append(df/len(gap_forces))
 
 fcc_dft = -24.39050152/4
 fcc_gap = -24.404683/4
@@ -144,6 +173,8 @@ plt.text(-3, -4.4, r'Avg GAP step time: {}s'.format(round(sum(gap_time)/len(gap_
 plt.text(-4.5, -0.6, r'Max GAP error: {} meV/atom'.format(round(max(gap_per_atom_err)*1000, 3)), fontsize=8)
 plt.text(-4.5, -0.9, r'Mean GAP error: {} meV/atom'.format(
      round(sum(gap_per_atom_err)/len(gap_per_atom_err)*1000, 1)), fontsize=8)
+
+plt.text(-4.5, -1.3, r'Mean force GAP error: {} eV/\AA'.format(round(max(force_err), 3)), fontsize=8)
 
 plt.legend(loc='upper left')
 

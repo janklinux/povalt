@@ -18,10 +18,10 @@ for i, struct in enumerate(structures):
     os.chdir(str(i))
 
     dft_free_energy = None
-    with open('/tmp/stru', 'wt') as f:
+    with open('in.xyz', 'wt') as f:
         for line in struct:
             f.write(line)
-    with open('/tmp/stru', 'r') as f:
+    with open('in.xyz', 'r') as f:
         for line in f:
             if 'energy' in line:
                 for e in line.split():
@@ -34,7 +34,7 @@ for i, struct in enumerate(structures):
     if dft_free_energy is None:
         raise ValueError('Check inputs for correct values, vasp_free_energy is undefined...')
 
-    atoms = read(filename='/tmp/stru')
+    atoms = read(filename='in.xyz')
     write_lammps_data(fileobj='atom.pos', atoms=atoms, units='metal')
 
     for file in os.listdir(base_dir):
