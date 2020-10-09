@@ -53,7 +53,7 @@ class OptimizeFW(Firework):
                                   rerun_metadata=rerun_metadata))
 
         super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
-                                         format(' - '.join(structure.composition.reduced_formula), name), **kwargs)
+                                         format('{} - {}'.join(structure.composition.reduced_formula), name), **kwargs)
 
 
 class AimsJob(Job):
@@ -89,7 +89,7 @@ class AimsJob(Job):
         self.control = control
         self.structure = structure
         if basis_set.lower() not in ['light', 'tight']:
-            raise ValueError('absis set can be only light or tight for now...')
+            raise ValueError('basis set can be only light or tight for now...')
         self.basis_set = basis_set
         self.basis_dir = basis_dir
         self.rerun_metadata = rerun_metadata
@@ -140,7 +140,8 @@ class AimsJob(Job):
             tight_wf = Workflow(OptimizeFW(aims_cmd=self.aims_cmd, control=self.control,
                                            structure=Structure.from_file('geometry.in.next_step'),
                                            basis_set='tight', basis_dir=self.basis_dir,
-                                           name='tight rerun', aims_output='run.tight'),
+                                           name='tight rerun', aims_output='run.tight',
+                                           rerun_metadata=self.rerun_metadata),
                                 metadata=self.rerun_metadata)
             action = FWAction(additions=tight_wf)
 
