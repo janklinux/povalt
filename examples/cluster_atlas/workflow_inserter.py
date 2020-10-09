@@ -5,10 +5,11 @@ from monty.serialization import loadfn
 from povalt.firetasks.FHIaims import OptimizeFW
 
 
-def get_aims_wf(control, structure, basis_set, basis_dir, aims_cmd, metadata, name='FHIaims run', parents=None):
+def get_aims_wf(control, structure, basis_set, basis_dir, aims_cmd, metadata, rerun_metadata,
+                name='FHIaims run', parents=None):
 
     fw = [OptimizeFW(control=control, structure=structure, basis_set=basis_set, basis_dir=basis_dir,
-                     aims_cmd=aims_cmd, name=name, parents=parents)]
+                     aims_cmd=aims_cmd, name=name, rerun_metadata=rerun_metadata, parents=parents)]
     return Workflow(fw, name=name, metadata=metadata)
 
 
@@ -18,7 +19,7 @@ lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
 
-lpad.reset('2020-10-09')
+# lpad.reset('2020-10-09')
 
 all_clusters = loadfn(fn='all_clusters.json')
 
@@ -43,7 +44,7 @@ print('\n')
 with open('control.in', 'r') as f:
     ctrl = f.readlines()
 basis_s = 'light'
-basis_d = '/users/kloppej1/compile/jank/FHIaims/species_defaults'
+basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
 # basis_d = '/home/jank/compile/FHIaims/species_defaults'
 
 for c in all_clusters:
@@ -51,5 +52,6 @@ for c in all_clusters:
         if not d:
             wf = get_aims_wf(control=ctrl, structure=all_clusters[c]['structures'][i],
                              basis_set='light', basis_dir=basis_d,
-                             aims_cmd='srun aims', metadata={'cluster_atoms': c, 'structure_number': i})
+                             aims_cmd='srun aims', metadata={'cluster_atoms': c, 'structure_number': i},
+                             rerun_metadata={'cluster_atoms': c, 'structure_number': i})
             lpad.add_wf(wf)
