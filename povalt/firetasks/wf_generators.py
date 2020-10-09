@@ -20,8 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.training import Lammps
-from povalt.firetasks.training import PotentialTraining
+from povalt.firetasks.training import Lammps, PotentialTraining, Aims
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -115,6 +114,28 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     all_fws.extend(dep_fws)
 
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
+
+
+def aims_run(aims_cmd, control, structure, basis_set, basis_dir, metadata, name):
+    """
+
+    Args:
+        aims_cmd:
+        control:
+        structure:
+        basis_set:
+        basis_dir:
+        metadata:
+        name:
+
+    Returns:
+
+    """
+
+    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
+                            basis_dir=basis_dir, rerun_metadata=metadata)])
+
+    return Workflow([run_fw], name=name, metadata=metadata)
 
 
 def read_info(db_file, al_file):

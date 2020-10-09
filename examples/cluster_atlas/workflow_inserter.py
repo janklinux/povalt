@@ -1,16 +1,16 @@
 import os
 import numpy as np
-from fireworks import LaunchPad, Workflow
+from fireworks import LaunchPad, Workflow, Firework
 from monty.serialization import loadfn
-from povalt.firetasks.FHIaims import OptimizeFW
+from povalt.firetasks.wf_generators import aims_run
 
 
-def get_aims_wf(control, structure, basis_set, basis_dir, aims_cmd, metadata, rerun_metadata,
-                name='FHIaims run', parents=None):
-
-    fw = [OptimizeFW(control=control, structure=structure, basis_set=basis_set, basis_dir=basis_dir,
-                     aims_cmd=aims_cmd, name=name, rerun_metadata=rerun_metadata, parents=parents)]
-    return Workflow(fw, name=name, metadata=metadata)
+# def get_aims_wf(control, structure, basis_set, basis_dir, aims_cmd, metadata, rerun_metadata,
+#                 name='FHIaims run', parents=None):
+#
+#     fw = [OptimizeFW(control=control, structure=structure, basis_set=basis_set, basis_dir=basis_dir,
+#                      aims_cmd=aims_cmd, name=name, rerun_metadata=rerun_metadata, parents=parents)]
+#     return Workflow(fw, name=name, metadata=metadata)
 
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -19,7 +19,7 @@ lpad = LaunchPad(host='numphys.org', port=27017, name='fw_run', username='jank',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
 
-# lpad.reset('2020-10-09')
+lpad.reset('2020-10-09')
 
 all_clusters = loadfn(fn='all_clusters.json')
 
@@ -50,8 +50,7 @@ basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
 for c in all_clusters:
     for i, d in enumerate(all_clusters[c]['energies']['dft']):
         if not d:
-            wf = get_aims_wf(control=ctrl, structure=all_clusters[c]['structures'][i],
-                             basis_set='light', basis_dir=basis_d,
-                             aims_cmd='srun aims', metadata={'cluster_atoms': c, 'structure_number': i},
-                             rerun_metadata={'cluster_atoms': c, 'structure_number': i})
+            wf = aims_run(aims_cmd='srun aims', control=ctrl, structure=all_clusters[c]['structures'][i],
+                          basis_set=basis_s, basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
+                          name='initial light relax')
             lpad.add_wf(wf)

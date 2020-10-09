@@ -26,34 +26,7 @@ from custodian import Custodian
 from custodian.custodian import Job
 from custodian.fhi_aims.handlers import AimsRelaxHandler, FrozenJobErrorHandler
 from custodian.fhi_aims.validators import AimsConvergedValidator
-from fireworks import FWAction, FiretaskBase, Firework, Workflow, explicit_serialize
-
-
-class OptimizeFW(Firework):
-
-    def __init__(self, control, structure, basis_set, basis_dir, aims_cmd, rerun_metadata,
-                 name='FHIaims run', parents=None, aims_output='run', **kwargs):
-        """
-        Optimize the given structure.
-
-        Args:
-            control: control.in as list of lines
-            structure (Structure): pymatgen input structure
-            name (str): Name for the Firework.
-            aims_cmd (str): Command to run
-            aims_output (str): name of output filename
-            rerun_metadata: metadata for the tight rerun
-            parents ([Firework]): Parents of this particular Firework.
-            **kwargs: Other kwargs that are passed to Firework.__init__.
-        """
-
-        t = list()
-        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
-                                  basis_set=basis_set, basis_dir=basis_dir, aims_output=aims_output,
-                                  rerun_metadata=rerun_metadata))
-
-        super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
-                                         format('{} - {}'.join(structure.composition.reduced_formula), name), **kwargs)
+from fireworks import FiretaskBase, Firework, explicit_serialize
 
 
 class AimsJob(Job):
@@ -62,7 +35,7 @@ class AimsJob(Job):
     can be a complex processing of inputs etc. with initialization.
     """
 
-    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, rerun_metadata,
+    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata,
                  output_file='run', stderr_file='std_err.txt'):
         """
         This constructor is necessarily complex due to the need for
@@ -92,7 +65,7 @@ class AimsJob(Job):
             raise ValueError('basis set can be only light or tight for now...')
         self.basis_set = basis_set
         self.basis_dir = basis_dir
-        self.rerun_metadata = rerun_metadata
+        self.metadata = metadata
 
     def setup(self):
         """
@@ -134,26 +107,71 @@ class AimsJob(Job):
         """
         Postprocessing is adding tight run if previous was light and gzip for now
         """
-        action = []
-
-        if self.basis_set.lower() == 'light':
-            if os.path.isfile('geometry.in.next_step'):
-                structure = Structure.from_file('geometry.in.next_step')
-            else:
-                structure = Structure.from_file('geometry.in')
-            tight_wf = Workflow([OptimizeFW(aims_cmd=self.aims_cmd, control=self.control,
-                                           structure=structure, basis_set='tight', basis_dir=self.basis_dir,
-                                           name='tight rerun', aims_output='run.tight',
-                                           rerun_metadata=self.rerun_metadata)], metadata=self.rerun_metadata)
-            action = FWAction(additions=tight_wf)
-
         for file in os.listdir(self.run_dir):
-            with open(file, 'rb') as fin:
-                with gzip.open(file + '.gz', 'wb') as fout:
-                    fout.write(fin.read())
+            self.compress(file)
             os.unlink(file)
 
-        return action
+    def get_relaxed_structure(self):
+        """
+        Returns the relaxed structure for the tight run
+        Returns:
+            the relaxed structure object
+        """
+        os.chdir(self.run_dir)
+        if os.path.isfile('geometry.in.next_step.gz'):
+            self.decompress('geometry.in.next_step')
+            structure = Structure.from_file('geometry.in.next_step')
+            os.unlink('geometry.in.next_step')
+        else:
+            self.decompress('geometry.in')
+            structure = Structure.from_file('geometry.in')
+            os.unlink('geometry.in')
+
+        param_dict = {'aims_cmd': self.aims_cmd,
+                      'output_file': 'run.tight',
+                      'control': self.control,
+                      'basis_dir': self.basis_dir,
+                      'metadata': self.metadata}
+
+        return structure, param_dict
+
+    @staticmethod
+    def decompress(filename):
+        with open(filename, 'wb') as f_out:
+            with gzip.open(filename+'.gz', 'rb') as f_in:
+                f_out.write(f_in.read())
+
+    @staticmethod
+    def compress(filename):
+        with gzip.open(filename+'.gz', 'wb') as f_out:
+            with open(filename, 'rb') as f_in:
+                f_out.write(f_in.read())
+
+
+class OptimizeFW(Firework):
+    def __init__(self, control, structure, basis_set, basis_dir, aims_cmd, rerun_metadata,
+                 name='FHIaims run', parents=None, aims_output='run', **kwargs):
+        """
+        Optimize the given structure.
+
+        Args:
+            control: control.in as list of lines
+            structure (Structure): pymatgen input structure
+            name (str): Name for the Firework.
+            aims_cmd (str): Command to run
+            aims_output (str): name of output filename
+            rerun_metadata: metadata for the tight rerun
+            parents ([Firework]): Parents of this particular Firework.
+            **kwargs: Other kwargs that are passed to Firework.__init__.
+        """
+
+        t = list()
+        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
+                                  basis_set=basis_set, basis_dir=basis_dir, aims_output=aims_output,
+                                  rerun_metadata=rerun_metadata))
+
+        super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
+                                         format('{} - {}'.join(structure.composition.reduced_formula), name), **kwargs)
 
 
 @explicit_serialize
@@ -173,7 +191,7 @@ class RunAimsCustodian(FiretaskBase):
     def run_task(self, fw_spec):
         job = [AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
                        basis_set=self['basis_set'], basis_dir=self['basis_dir'], output_file=self['aims_output'],
-                       rerun_metadata=self['rerun_metadata'])]
+                       metadata=self['rerun_metadata'])]
         validators = [AimsConvergedValidator()]
         c = Custodian(handlers=[AimsRelaxHandler(), FrozenJobErrorHandler()],
                       jobs=job, validators=validators, max_errors=3)
