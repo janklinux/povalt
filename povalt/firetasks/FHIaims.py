@@ -137,12 +137,11 @@ class AimsJob(Job):
         action = []
 
         if self.basis_set.lower() == 'light':
-            tight_wf = Workflow(OptimizeFW(aims_cmd=self.aims_cmd, control=self.control,
+            tight_wf = Workflow([OptimizeFW(aims_cmd=self.aims_cmd, control=self.control,
                                            structure=Structure.from_file('geometry.in.next_step'),
                                            basis_set='tight', basis_dir=self.basis_dir,
                                            name='tight rerun', aims_output='run.tight',
-                                           rerun_metadata=self.rerun_metadata),
-                                metadata=self.rerun_metadata)
+                                           rerun_metadata=self.rerun_metadata)], metadata=self.rerun_metadata)
             action = FWAction(additions=tight_wf)
 
         for file in os.listdir(self.run_dir):
