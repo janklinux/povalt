@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.training import Lammps, PotentialTraining, Aims
+from povalt.firetasks.base import Lammps, PotentialTraining, Aims
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -116,23 +116,23 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
-def aims_run(aims_cmd, control, structure, basis_set, basis_dir, metadata, name):
+def aims_relax(aims_cmd, control, structure, basis_dir, metadata, name):
     """
+    Performs a light and tight relaxation for the given structure object
 
     Args:
-        aims_cmd:
-        control:
-        structure:
-        basis_set:
-        basis_dir:
-        metadata:
-        name:
+        aims_cmd: command to run aims i.e. srun aims
+        control: control.in as list of lines
+        structure: pymatgen structure to relax
+        basis_dir: directory where the basis is located (light / tight directories)
+        metadata: metadata to pass into both runs for identification
+        name: name of the workflow
 
     Returns:
-
+        Workflow to insert into LaunchPad
     """
 
-    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
+    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure,
                             basis_dir=basis_dir, rerun_metadata=metadata)])
 
     return Workflow([run_fw], name=name, metadata=metadata)
