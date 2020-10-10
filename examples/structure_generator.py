@@ -82,7 +82,8 @@ for ik, k in enumerate(unit_cell_kpts):
 
 kpt_set = Kpoints.gamma_automatic(kpts=cell_kpts, shift=(0, 0, 0)).as_dict()
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False'}
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
+             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
  
 if cell.num_sites < 100 or cell.num_sites > 128:
     print('Number of atoms in cell: {}'.format(cell.num_sites))
