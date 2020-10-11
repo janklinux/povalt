@@ -86,8 +86,8 @@ for n_atoms in range(5, 251):
 print('\n    Summay')
 print('=================')
 print('n_atoms   #clusters')
-for c in all_clusters:
-    print('  {}          {}'.format(c, len(all_clusters[c]['structures'])))
+for c in range(15, 251):
+    print('  {:d3.3}          {:d3.3}'.format(c, len(all_clusters[str(c)]['structures'])))
 
 
 with open('all_clusters.json', 'w') as f:

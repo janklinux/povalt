@@ -6,7 +6,7 @@ import numpy as np
 from fireworks import LaunchPad
 from ase.io import read as aseread
 from ase.io import write as asewrite
-from pymatgen.io.vasp import Vasprun, Outcar
+from pymatgen.io.vasp import Vasprun
 
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -23,22 +23,18 @@ for wfid in lpad.get_wf_ids({'state': 'COMPLETED'}):
     print('Processing WF {}...'.format(wfid))
     fw = lpad.get_fw_by_id(wfid)
     ldir = lpad.get_launchdir(fw_id=wfid)
-    vrun = os.path.join(ldir, 'vasprun.xml.gz')
-    orun = os.path.join(ldir, 'OUTCAR.gz')
 
     if not os.path.isdir(ldir):
         raise FileNotFoundError('Are you on the right machine? '
                                 'Workflow {} directory does not exist here...'.format(wfid))
 
-    run = Vasprun(vrun)
-    runo = Outcar(orun)
+    run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
 
     if not run.converged or not run.converged_electronic:
         raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
 
-    atoms = aseread(vrun)
+    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'))
 
-    xyz = ''
     file = io.StringIO()
     asewrite(filename=file, images=atoms, format='xyz')
     file.seek(0)

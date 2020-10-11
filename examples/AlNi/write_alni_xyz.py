@@ -6,7 +6,7 @@ from monty.serialization import loadfn
 
 np.random.seed(1410)  # fix for reproduction
 
-force_fraction = 0.1  # percentage of forces to EXCLUDE from training
+force_fraction = 0.0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 systems = ['bulk']
@@ -54,6 +54,14 @@ with open('MD/parsed.xyz', 'r') as fin:
     with open('train.xyz', 'a') as fout:
         for line in fin:
             fout.write(re.sub('cluster', 'moldyn', line))
+
+
+with open('no_dimers.xyz', 'w') as f:
+    for d in data:
+        f.write(d['xyz'])
+    with open('MD/parsed.xyz', 'r') as f_in:
+        for line in f_in:
+            f.write(re.sub('cluster', 'moldyn', line))
 
 
 if do_soap:
