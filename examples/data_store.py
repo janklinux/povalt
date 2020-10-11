@@ -61,10 +61,6 @@ for wfid in lpad.get_wf_ids({'state': 'COMPLETED'}):
     data_name = 'Aurum random structure  ||  ' + fw_dict['metadata']['name'] + \
                 '  ||  created ' + fw_dict['metadata']['date'] + '  ||  StaticFW'
 
-    print(dft_data)
-    print(data_name)
-    quit()
-
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     shutil.rmtree(ldir)
     lpad.delete_wf(wfid)
