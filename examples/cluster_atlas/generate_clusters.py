@@ -14,7 +14,7 @@ def get_surfaces_and_energies():
 
     surface_list = []
     while len(surface_list) < 6:
-        candidate = list(np.random.randint(low=1, high=7, size=3))
+        candidate = list(np.random.randint(low=1, high=6, size=3))
         if candidate not in surface_list:
             surface_list.append(candidate)
 
@@ -22,6 +22,8 @@ def get_surfaces_and_energies():
 
 
 np.random.seed(int(time.time()))
+
+new_clusters = 0
 
 if os.path.isfile('all_clusters.json'):
     with open('all_clusters.json') as f:
@@ -46,11 +48,14 @@ for n_atoms in range(5, 251):
         print(' {}'.format(reps), end='')
         sys.stdout.flush()
         faces, energies = get_surfaces_and_energies()
+        # fcc: 4.158
+        # bcc: 3.301
+        # sc: 2.749
         try:
             cluster = AseAtomsAdaptor().get_molecule(
-                wulff_construction(symbol='Pt', energies=energies, surfaces=faces,
-                                   structure='fcc', size=n_atoms, rounding='below', maxiter=100))
-        except RuntimeError or ValueError:
+                wulff_construction(symbol='Pt', energies=energies, surfaces=faces, latticeconstant=3.301,
+                                   structure='bcc', size=n_atoms, rounding='below', maxiter=100))
+        except (RuntimeError, ValueError, TypeError) as e:
             continue
 
         struct = Structure(lattice=pmg_lat, species=cluster.species, coords=cluster.cart_coords,
@@ -62,13 +67,12 @@ for n_atoms in range(5, 251):
             egap.append(False)
             print('+', end='')
             sys.stdout.flush()
+            new_clusters += 1
         else:
             equal = False
             for s in tmp:
                 if len(Structure.from_dict(s).cart_coords) == len(struct.cart_coords):
                     for ca, cb in zip(Structure.from_dict(s).cart_coords, struct.cart_coords):
-                        if len(ca) != len(cb):
-                            print('len misses in ', len(ca), len(cb))
                         if np.all(ca == cb):
                             equal = True
 
@@ -78,17 +82,18 @@ for n_atoms in range(5, 251):
                 egap.append(False)
                 print('+', end='')
                 sys.stdout.flush()
+                new_clusters += 1
 
     all_clusters[str(n_atoms)] = {'structures': tmp, 'energies': {'dft': edft, 'gap': egap}}
     print('')
 
+# print('\n    Summay')
+# print('=================')
+# print('n_atoms   #clusters')
+# for c in range(15, 251):
+#     print('  {:d3.3}          {:d3.3}'.format(c, len(all_clusters[str(c)]['structures'])))
 
-print('\n    Summay')
-print('=================')
-print('n_atoms   #clusters')
-for c in range(15, 251):
-    print('  {:d3.3}          {:d3.3}'.format(c, len(all_clusters[str(c)]['structures'])))
-
+print('Found {} new clusters this run.'.format(new_clusters))
 
 with open('all_clusters.json', 'w') as f:
     json.dump(obj=all_clusters, fp=f)

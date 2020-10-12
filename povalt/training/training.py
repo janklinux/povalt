@@ -179,8 +179,8 @@ class TrainJob(Job):
                 ' config_type_sigma=' + self.train_params['config_type_sigma'] + \
                 ' energy_parameter_name=' + self.train_params['energy_parameter_name'] + \
                 ' force_parameter_name=' + self.train_params['force_parameter_name'] + \
+                ' virial_parameter_name=' + self.train_params['virial_parameter_name'] + \
                 ' sparse_jitter=' + self.train_params['sparse_jitter'] + \
-                ' e0=' + self.train_params['e0'] + \
                 ' do_copy_at_file=' + self.train_params['do_copy_at_file'] + \
                 ' sparse_separate_file=' + self.train_params['sparse_separate_file'] + \
                 ' gp_file=' + self.train_params['gp_file']

@@ -60,7 +60,7 @@ class StaticFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(0.05), energy_thresh=25.0,
+        t.append(AddToDbTask(force_thresh=float(0.05), energy_thresh=10.0,
                              db_info=db_info, lammps_energy=lammps_energy))
         super(StaticFW, self).__init__(t, name=name)
 

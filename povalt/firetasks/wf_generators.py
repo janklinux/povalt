@@ -71,7 +71,8 @@ def run_lammps(lammps_params, structures, db_file, al_file):
 
 def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, is_slab, al_file=None):
     """
-    Trains a potential and then runs LAMMPS with it
+    Trains a potential and then runs LAMMPS with it, single machine workflow meaning training and validation runs
+    on the same cluster
 
     Args:
         train_params: parameters for the potential training
@@ -95,7 +96,6 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
 
     train_fw = Firework([PotentialTraining(train_params=train_params, for_validation=False,
                                            db_info=db_info, al_info=al_info)], parents=None, name='TrainTask')
-
     all_fws.append(train_fw)
 
     launch_fw = Firework([ScriptTask.from_str('cd {}; qlaunch -q {} rapidfire --nlaunches {}'

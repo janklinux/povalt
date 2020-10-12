@@ -242,13 +242,12 @@ class Dimer:
                             self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]) +
                                 ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
                                 ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
-                                ' free_energy={:6.6f} pbc="T T T"'
+                                ' free_energy={:6.6f} pbc="T T T" virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
                                 ' config_type=dimer\n'.format(run.final_energy))
                         f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
                             self.species[i], forces[0][0], forces[0][1], forces[0][2]))
                         f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
                             self.species[j], float(d), forces[1][0], forces[1][1], forces[1][2]))
-                        f.write('\n')
 
                     os.chdir(species_dir)
 

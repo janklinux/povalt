@@ -58,7 +58,7 @@ if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='train_fw', username='jank', password='b@sf_mongo',
+lpad = LaunchPad(host='numphys.org', port=27017, name='testdb', username='jank', password='b@sf_mongo',
                  ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
 if crystal == 'bcc':
@@ -92,7 +92,7 @@ if cell.num_sites < 100 or cell.num_sites > 128:
 print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
 
 random.seed(time.time())
-total_structures = 1250
+total_structures = 10
 
 # quit()
 
@@ -127,7 +127,8 @@ while i < total_structures:
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 
     static_wf = get_static_wf(structure=new_cell, struc_name=structure_name, vasp_input_set=incar_set,
-                              vasp_cmd='srun vasp_std', user_kpoints_settings=kpt_set, metadata=meta)
+                              vasp_cmd='srun --nodes=1 --ntasks-per-node=128 vasp_std',
+                              user_kpoints_settings=kpt_set, metadata=meta)
 
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)
