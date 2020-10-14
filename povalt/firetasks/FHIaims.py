@@ -117,6 +117,9 @@ class AimsJob(Job):
         Returns:
             the relaxed structure object
         """
+        if self.basis_set == 'tight':
+            return None, dict()
+
         os.chdir(self.run_dir)
         if os.path.isfile('geometry.in.next_step.gz'):
             self.decompress('geometry.in.next_step')

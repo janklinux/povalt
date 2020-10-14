@@ -138,11 +138,12 @@ class AimsBase(FiretaskBase):
         c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
         c.run()
         structure, params = job.get_relaxed_structure()
-        add_wf = Workflow([Firework(
-            [Aims(aims_cmd=params['aims_cmd'], control=params['control'], structure=structure,
-                  basis_set='tight', basis_dir=params['basis_dir'], rerun_metadata=params['metadata'])])],
-            metadata=params['metadata'], name='automatic tight run')
-        return FWAction(additions=add_wf)
+        if structure is not None:
+            add_wf = Workflow([Firework(
+                [Aims(aims_cmd=params['aims_cmd'], control=params['control'], structure=structure,
+                      basis_set='tight', basis_dir=params['basis_dir'], rerun_metadata=params['metadata'])])],
+                metadata=params['metadata'], name='automatic tight run')
+            return FWAction(additions=add_wf)
 
 
 @explicit_serialize

@@ -133,7 +133,7 @@ def aims_relax(aims_cmd, control, structure, basis_dir, metadata, name):
     """
 
     run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure,
-                            basis_dir=basis_dir, rerun_metadata=metadata)])
+                            basis_dir=basis_dir, basis_set='light', rerun_metadata=metadata)])
 
     return Workflow([run_fw], name=name, metadata=metadata)
 

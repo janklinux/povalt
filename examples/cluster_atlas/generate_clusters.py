@@ -48,13 +48,13 @@ for n_atoms in range(5, 251):
         print(' {}'.format(reps), end='')
         sys.stdout.flush()
         faces, energies = get_surfaces_and_energies()
-        # fcc: 4.158
-        # bcc: 3.301
-        # sc: 2.749
+        # fcc: 4.158 Au | 3.967 Pt
+        # bcc: 3.301 Au | 3.165 Pt
+        # sc: 2.749 Au | 2.625 Pt
         try:
             cluster = AseAtomsAdaptor().get_molecule(
-                wulff_construction(symbol='Pt', energies=energies, surfaces=faces, latticeconstant=3.301,
-                                   structure='bcc', size=n_atoms, rounding='below', maxiter=100))
+                wulff_construction(symbol='Pt', energies=energies, surfaces=faces, latticeconstant=2.625,
+                                   structure='sc', size=n_atoms, rounding='below', maxiter=100))
         except (RuntimeError, ValueError, TypeError) as e:
             continue
 
@@ -75,6 +75,7 @@ for n_atoms in range(5, 251):
                     for ca, cb in zip(Structure.from_dict(s).cart_coords, struct.cart_coords):
                         if np.all(ca == cb):
                             equal = True
+                            break
 
             if not equal:
                 tmp.append(struct.as_dict())

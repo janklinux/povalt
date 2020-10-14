@@ -222,11 +222,11 @@ print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
-print('This will need approximately {} GB of memory during training.'.format(np.round(
-    (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
-     system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
-     system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
-     system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
+# print('This will need approximately {} GB of memory during training.'.format(np.round(
+#     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
+#      system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
+#      system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
+#      system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
 # ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
 # |          dim1           | * |    dim2    | * numerics
 
@@ -311,15 +311,18 @@ for i, xyz in enumerate(complete_xyz):
 
 
 with open('train.xyz', 'a') as f:
-    with open('test.xyz', 'w') as t:
-        for sys in systems:
-            for i, xyz in enumerate(processed[sys]):
-                if train_selected[sys][i]:
-                    for line in xyz:
-                        f.write(line)
-                else:
-                    for line in xyz:
-                        t.write(line)
+    for sys in systems:
+        for i, xyz in enumerate(processed[sys]):
+            if train_selected[sys][i]:
+                for line in xyz:
+                    f.write(line)
+
+
+with open('test.xyz', 'w') as f:
+    for sys in systems:
+        for xyz in processed[sys]:
+            for line in xyz:
+                f.write(line)
 
 
 if do_soap:

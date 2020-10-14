@@ -58,6 +58,10 @@ class TrainJob(Job):
             distance_2b + angle3b + soap_turbo
             distance_Nb + soap_turbo
 
+        compress.dat: this fine is symlinked to the working directory to avoid md5sum problems when running
+        on different machines that do not have the same file structure
+                    (i.e. me training on puhti and validating at home)
+
         Returns:
              open subprocess to run
 
@@ -79,6 +83,8 @@ class TrainJob(Job):
                 self.train_params['mpi_procs'])
         else:
             cmd = ''
+
+        os.symlink(os.path.join(self.db_info['base_dir'], 'compress.dat'), 'compress.dat')
 
         if 'do_3_body' in self.train_params:
             arg_list = ' atoms_filename=' + self.train_params['atoms_filename'] + \
@@ -120,7 +126,7 @@ class TrainJob(Job):
                 ' n_species=' + self.train_params['soap_n_species'] + \
                 ' species_Z=' + self.train_params['soap_species_Z'] + \
                 ' radial_enhancement=' + self.train_params['soap_radial_enhancement'] + \
-                ' compress_file=' + self.train_params['soap_compress_file'] + \
+                ' compress_file=compress.dat' + \
                 ' central_weight=' + self.train_params['soap_central_weight'] + \
                 ' config_type_n_sparse=' + self.train_params['soap_config_type_n_sparse'] + \
                 ' delta=' + self.train_params['soap_delta'] + \

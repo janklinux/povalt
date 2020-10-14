@@ -8,8 +8,8 @@ import pymongo
 
 np.random.seed(1410)  # fix for reproduction
 
-read_from_db = True
-force_fraction = 0.0  # percentage of forces to EXCLUDE from training
+read_from_db = False
+force_fraction = 0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 
@@ -22,10 +22,10 @@ data_coll = data_db['aurum']
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.75,
-               'bcc': 0.75,
-               'hcp': 0.75,
-               'sc': 0.75,
+train_split = {'fcc': 0.3,
+               'bcc': 0.3,
+               'hcp': 0.3,
+               'sc': 0.3,
                'slab': 0.85,
                'cluster': 0.9,
                'addition': 0.9}
@@ -107,6 +107,7 @@ processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': [
 
 for i, xyz in enumerate(complete_xyz):
     xyz[1] = re.sub('bulk', crystal_system[i], xyz[1])
+    xyz[1] = re.sub('forces:R:3', 'forces:R:3:force_mask:L:1', xyz[1])
 
     force_flag = np.zeros(len(xyz[2:]))
     for j in range(int(force_fraction * len(force_flag))):
@@ -117,20 +118,23 @@ for i, xyz in enumerate(complete_xyz):
 
     processed[crystal_system[i]].append(xyz)
 
-with open('train.xyz', 'a') as f:
+
+with open('train.xyz', 'w') as f:
     with open('atom/parsed.xyz', 'r') as f_in:
         f.write(f_in.read())
     with open('dimer/AuAu/dimer.xyz', 'r') as f_in:
         f.write(f_in.read())
-    with open('test.xyz', 'w') as t:
-        for sys in systems:
-            for i, xyz in enumerate(processed[sys]):
-                if train_selected[sys][i]:
-                    for line in xyz:
-                        f.write(line)
-                else:
-                    for line in xyz:
-                        t.write(line)
+    for sys in systems:
+        for i, xyz in enumerate(processed[sys]):
+            if train_selected[sys][i]:
+                for line in xyz:
+                    f.write(line)
+
+with open('test.xyz', 'w') as f:
+    for sys in systems:
+        for xyz in processed[sys]:
+            for line in xyz:
+                f.write(line)
 
 
 if do_soap:
