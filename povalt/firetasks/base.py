@@ -140,8 +140,8 @@ class AimsBase(FiretaskBase):
         structure, params = job.get_relaxed_structure()
         if structure is not None:
             add_wf = Workflow([Firework(
-                [Aims(aims_cmd=params['aims_cmd'], control=params['control'], structure=structure,
-                      basis_set='tight', basis_dir=params['basis_dir'], rerun_metadata=params['metadata'])])],
+                [Aims(aims_cmd=params['aims_cmd'], control=params['control'], structure=structure, basis_set='tight',
+                      basis_dir=params['basis_dir'], single_point=False, rerun_metadata=params['metadata'])])],
                 metadata=params['metadata'], name='automatic tight run')
             return FWAction(additions=add_wf)
 
@@ -151,12 +151,13 @@ class Aims(AimsBase):
     """
     Class to run FHIaims
     """
-    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'rerun_metadata']
+    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'rerun_metadata', 'single_point']
     optional_params = ['output_file', 'stderr_file']
 
     def get_job(self, fw_spec):
         return AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
-                       basis_set=self['basis_set'], basis_dir=self['basis_dir'], metadata=self['rerun_metadata'])
+                       basis_set=self['basis_set'], basis_dir=self['basis_dir'], metadata=self['rerun_metadata'],
+                       single_point=self['single_point'])
 
     def get_validators(self):
         return [AimsConvergedValidator()]

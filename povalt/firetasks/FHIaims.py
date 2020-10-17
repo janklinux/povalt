@@ -35,7 +35,7 @@ class AimsJob(Job):
     can be a complex processing of inputs etc. with initialization.
     """
 
-    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata,
+    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, single_point,
                  output_file='run', stderr_file='std_err.txt'):
         """
         This constructor is necessarily complex due to the need for
@@ -50,6 +50,8 @@ class AimsJob(Job):
             structure: pymatgen structure object
             basis_set: light or tight
             basis_dir: directory containing the light/tight directory of basis files
+            metadata: metadata to add into wf
+            single_point: True for a single point run, False for light/tight relax
             output_file (str): Name of file to direct standard out to.
                 Defaults to "vasp.out".
             stderr_file (str): Name of file to direct standard error to.
@@ -66,6 +68,9 @@ class AimsJob(Job):
         self.basis_set = basis_set
         self.basis_dir = basis_dir
         self.metadata = metadata
+        if not isinstance(single_point, bool):
+            raise ValueError('single_point variable has to be boolean')
+        self.single_point = single_point
 
     def setup(self):
         """
@@ -118,6 +123,9 @@ class AimsJob(Job):
             the relaxed structure object
         """
         if self.basis_set == 'tight':
+            return None, dict()
+
+        if self.single_point:
             return None, dict()
 
         os.chdir(self.run_dir)

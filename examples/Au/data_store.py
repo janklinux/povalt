@@ -11,8 +11,7 @@ from pymatgen.io.vasp import Vasprun
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='train_fw', username='jank', password='b@sf_mongo',
-                 ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
 
 run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train

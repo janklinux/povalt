@@ -51,10 +51,7 @@ crystal = os.getcwd().split('/')[-1]
 if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
 
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='train_fw', username='jank', password='b@sf_mongo',
-                 ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
 
 if crystal == 'bcc':
     scale_mat = np.array([[4, 0, 0], [0, 4, 0], [0, 0, 4]])  # 128 atoms in bcc
@@ -76,7 +73,7 @@ for ik, k in enumerate(unit_cell_kpts):
     cell_kpts.append(int(np.ceil(k / np.sum(scale_mat[ik]))))
 
 kpt_set = Kpoints.gamma_automatic(kpts=cell_kpts, shift=(0, 0, 0)).as_dict()
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
  

@@ -116,7 +116,30 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
-def aims_relax(aims_cmd, control, structure, basis_dir, metadata, name):
+def aims_single_point(aims_cmd, control, structure, basis_set, basis_dir, metadata, name):
+    """
+    Performs a single point DFT run with the specified basis set
+
+    Args:
+        aims_cmd: command to run aims i.e. srun aims
+        control: control.in as list of lines
+        structure: pymatgen structure to relax
+        basis_set: basis set to use, directory name within basis_dir
+        basis_dir: directory where the basis is located (light / tight directories)
+        metadata: metadata to pass into both runs for identification
+        name: name of the workflow
+
+    Returns:
+        Workflow to insert into LaunchPad
+    """
+
+    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=True,
+                            basis_dir=basis_dir, basis_set=basis_set, rerun_metadata=metadata)])
+
+    return Workflow([run_fw], name=name, metadata=metadata)
+
+
+def aims_relax_light_tight(aims_cmd, control, structure, basis_dir, metadata, name):
     """
     Performs a light and tight relaxation for the given structure object
 
@@ -132,7 +155,7 @@ def aims_relax(aims_cmd, control, structure, basis_dir, metadata, name):
         Workflow to insert into LaunchPad
     """
 
-    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure,
+    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=False,
                             basis_dir=basis_dir, basis_set='light', rerun_metadata=metadata)])
 
     return Workflow([run_fw], name=name, metadata=metadata)

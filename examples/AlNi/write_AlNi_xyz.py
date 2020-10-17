@@ -9,8 +9,9 @@ np.random.seed(1410)  # fix for reproduction
 force_fraction = 0.0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
-systems = ['bulk']
-train_split = {'bulk': 0.8}
+systems = ['bulk', 'moldyn']
+train_split = {'bulk': 0.8,
+               'moldyn': 0.8}
 
 with open('train.xyz', 'w') as fout:
     for a in ['Al', 'Ni']:
@@ -23,13 +24,14 @@ with open('train.xyz', 'w') as fout:
 
     data = loadfn('AlNi_complete.json')
 
-    bulks = 0
-    for d in data:
-        if 'bulk' in d['xyz']:
-            bulks += 1
-
     system_count = dict()
-    system_count['bulk'] = bulks
+    for csys in systems:
+        system_count[csys] = data['xyz'].count(csys)
+
+    print(system_count)
+    quit()
+
+
     train_selected = dict()
     for sys in systems:
         tmp = []

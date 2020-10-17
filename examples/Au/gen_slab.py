@@ -1,4 +1,3 @@
-import os
 import time
 import datetime
 import numpy as np
@@ -9,12 +8,6 @@ from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
 from atomate.vasp.fireworks.core import StaticFW
 from atomate.vasp.powerups import add_modify_incar
-
-
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='train_fw', username='jank', password='b@sf_mongo',
-                 ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 
 
 def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=None,
@@ -41,9 +34,7 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
-def get_face():
-    return list(np.random.randint(low=1, high=5, size=3))
-
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
 
 np.random.seed(int(time.time()))
 
@@ -54,10 +45,10 @@ incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'I
 
 xdat = Xdatcar('/home/jank/work/Aalto/GAP_data/Au/training_data/liq/5000K_MD_2x1x2/XDATCAR')
 
-for s in xdat.structures[1000:3001]:
+for s in xdat.structures[2000:3001]:
     added = False
     while not added:
-        face = get_face()
+        face = list(np.random.randint(low=1, high=5, size=3))
         slab = SlabGenerator(s, miller_index=face, min_slab_size=s.lattice.matrix[2][2],
                              min_vacuum_size=15.0, center_slab=True).get_slab()
         if len(slab.sites) < 200:
@@ -68,7 +59,7 @@ for s in xdat.structures[1000:3001]:
                     'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 
             static_wf = get_static_wf(structure=slab, struc_name=structure_name, vasp_input_set=incar_set,
-                                      vasp_cmd='srun vasp_std',
+                                      vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
                                       user_kpoints_settings=kpt_set, metadata=meta)
 
             run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})

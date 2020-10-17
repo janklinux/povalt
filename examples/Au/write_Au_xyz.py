@@ -12,25 +12,23 @@ read_from_db = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
-
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
-data_db = run_con.pot_train
-data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['aurum']
-
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.3,
-               'bcc': 0.3,
-               'hcp': 0.3,
-               'sc': 0.3,
-               'slab': 0.85,
+train_split = {'fcc': 1,
+               'bcc': 1,
+               'hcp': 1,
+               'sc': 1,
+               'slab': 1,
                'cluster': 0.9,
                'addition': 0.9}
 
 if read_from_db:
+    ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
+    cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+    run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+    data_db = run_con.pot_train
+    data_db.authenticate('jank', 'b@sf_mongo')
+    data_coll = data_db['aurum']
     complete_xyz = []
     crystal_system = []
     print('Starting DB read of {} entries...'.format(data_coll.estimated_document_count()))

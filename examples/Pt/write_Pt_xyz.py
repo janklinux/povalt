@@ -16,23 +16,13 @@ do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.75,
-               'bcc': 0.75,
-               'hcp': 0.75,
-               'sc': 0.75,
-               'slab': 0.85,
-               'cluster': 0.9,
-               'addition': 0.9}
-
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-
-run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
-data_db = run_con.pot_train
-data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['platinum']
-add_coll = data_db['platinum_additions']
-
+train_split = {'fcc': 0.95,
+               'bcc': 0.95,
+               'hcp': 0.95,
+               'sc': 0.95,
+               'slab': 0.95,
+               'cluster': 0.95,
+               'addition': 0.95}
 
 with open('train.xyz', 'w') as f:
     f.write('1\n')
@@ -161,6 +151,14 @@ if show_dimer:
 
 
 if read_from_db:
+    ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
+    cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+    run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+    data_db = run_con.pot_train
+    data_db.authenticate('jank', 'b@sf_mongo')
+    data_coll = data_db['platinum']
+    add_coll = data_db['platinum_additions']
+
     complete_xyz = []
     crystal_system = []
     print('Starting DB read...')
