@@ -3,11 +3,16 @@ import io
 import shutil
 import pymongo
 import numpy as np
+from mpi4py import MPI
 from fireworks import LaunchPad
 from ase.io import read as aseread
 from ase.io import write as asewrite
 from pymatgen.io.vasp import Vasprun
 
+
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -17,9 +22,43 @@ data_db = run_con.pot_train
 data_db.authenticate('jank', 'b@sf_mongo')
 data_coll = data_db['aurum']
 
+all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
+offset = np.floor(len(all_jobs) / size)
 
-for wfid in lpad.get_wf_ids({'state': 'COMPLETED'}):
-    print('Processing WF {}...'.format(wfid))
+if rank == 0:
+    print('Processing {} jobs on {} processors...'.format(len(all_jobs), size))
+
+cpu = 0
+local_list = []
+for i, j in enumerate(all_jobs):
+    if rank == cpu:
+        local_list.append(all_jobs[i])
+    if cpu != size - 1:
+        if i % offset == 0 and i != 0:
+            cpu += 1
+
+# for cpu in range(size):
+#     if rank == cpu:
+#         print(len(local_list))
+#         fuck = float(len(local_list))
+
+# print('{} total: {}'.format(rank, size))
+
+all_len = len(local_list)
+# comm.Reduce([len(local_list), MPI.INT], [result, MPI.INT], op=MPI.SUM, root=0)
+# print('rank: {} with len: {}'.format(rank, all_len))
+store = comm.allreduce(all_len, op=MPI.SUM)
+
+# print(store)
+# print('rank: {} result: {}'.format(rank, all_len))
+
+if store != len(all_jobs):
+    raise ValueError('MPI job distribution not consistent')
+
+# print('rank {} has list: {}'.format(rank, local_list))
+
+for wfid in local_list:
+    print('Task {} processing WF {}...'.format(rank, wfid))
     fw = lpad.get_fw_by_id(wfid)
     ldir = lpad.get_launchdir(fw_id=wfid)
 
