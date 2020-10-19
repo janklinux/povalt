@@ -19,8 +19,8 @@ train_split = {'fcc': 1,
                'hcp': 1,
                'sc': 1,
                'slab': 1,
-               'cluster': 0.9,
-               'addition': 0.9}
+               'cluster': 1,
+               'addition': 1}
 
 if read_from_db:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')

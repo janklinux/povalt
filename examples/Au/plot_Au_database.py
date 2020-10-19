@@ -164,7 +164,7 @@ def get_differences(result_vals, reference_vals):
 
 
 def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
-                avg_energy_error, force_error, gap_name):
+                avg_energy_error, force_error, xml_label):
 
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
@@ -206,7 +206,7 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.ylim(-4, 1)
 
     plt.tight_layout()
-    plt.savefig('GAP_vs_DFT-'+gap_name+'.png', dpi=300)
+    plt.savefig('GAP_vs_DFT-' + xml_label + '.png', dpi=300)
     plt.close()
 
 
@@ -249,7 +249,7 @@ base_dir = os.getcwd()
 # os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
 
 xml_name = 'aurum.xml'
-xml_label = 'GAP_2020_10_16_180_19_33_32_519'
+xml_label = 'GAP_2020_10_19_180_15_46_15_740'
 # print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
 # os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
 
@@ -259,4 +259,4 @@ eref, epred, de, df = get_differences(result_vals=result, reference_vals=referen
 
 scatterplot(result_energy=epred, reference_energy=eref,
             quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
-            force_error=np.sum(df)/len(df), gap_name=xml_label)
+            force_error=np.sum(df)/len(df), xml_label=xml_label)
