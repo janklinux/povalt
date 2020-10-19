@@ -83,6 +83,10 @@ for wfid in local_list:
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
 
+    print(virial)
+
+    quit()
+
     xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type=bulk\n'.format(
         virial[0][0], virial[0][1], virial[0][2],
         virial[1][0], virial[1][1], virial[1][2],

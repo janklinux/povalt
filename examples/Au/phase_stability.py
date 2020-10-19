@@ -10,7 +10,8 @@ from pymatgen.io.vasp import Kpoints, Outcar
 from pymatgen.core.structure import Structure
 
 
-plot_only = True
+plot_only = False
+run_dft = False
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}
 
@@ -54,15 +55,16 @@ if not plot_only:
                         gap_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
                         gap_energy[csys]['energy'].append(float(line.split('=')[1]))
 
-            run_cell.to(fmt='POSCAR', filename='POSCAR')
-            Kpoints.gamma_automatic(kpts=[6, 6, 6], shift=(0, 0, 0)).write_file('KPOINTS')
-            os.symlink('../../POTCAR', 'POTCAR')
-            os.symlink('../../INCAR', 'INCAR')
+            if run_dft:
+                run_cell.to(fmt='POSCAR', filename='POSCAR')
+                Kpoints.gamma_automatic(kpts=[6, 6, 6], shift=(0, 0, 0)).write_file('KPOINTS')
+                os.symlink('../../POTCAR', 'POTCAR')
+                os.symlink('../../INCAR', 'INCAR')
 
-            os.system('nice -n 10 mpirun -n 4 vasp_std > run')
+                os.system('nice -n 10 mpirun -n 4 vasp_std > run')
 
-            dft_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
-            dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy))
+                dft_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
+                dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy))
 
             os.chdir(run_dir)
             shutil.rmtree(tmp_dir)
@@ -71,9 +73,12 @@ if not plot_only:
 
     with open('gap_data.json', 'w') as f:
         json.dump(obj=gap_energy, fp=f)
-    with open('dft_data.json', 'w') as f:
-        json.dump(obj=dft_energy, fp=f)
-
+    if run_dft:
+        with open('dft_data.json', 'w') as f:
+            json.dump(obj=dft_energy, fp=f)
+    else:
+        with open('dft_data.json', 'r') as f:
+            dft_energy = json.load(f)
 else:
     with open('gap_data.json', 'r') as f:
         gap_energy = json.load(f)

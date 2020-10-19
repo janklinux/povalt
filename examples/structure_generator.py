@@ -60,7 +60,7 @@ elif crystal == 'fcc':
 elif crystal == 'hcp':
     scale_mat = np.array([[3, 0, 0], [0, 3, 0], [0, 0, 4]])  # 108 atoms in hcp
 elif crystal == 'sc':
-    scale_mat = np.array([[5, 0, 0], [0, 5, 0], [0, 0, 5]])  # 108 atoms in hcp
+    scale_mat = np.array([[5, 0, 0], [0, 5, 0], [0, 0, 5]])  # 125 atoms in sc
 else:
     raise ValueError('No scaling implemented for the chosen cell...')
 
@@ -84,7 +84,7 @@ if cell.num_sites < 100 or cell.num_sites > 128:
 print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
 
 random.seed(time.time())
-total_structures = 1250
+total_structures = 500
 
 # quit()
 
