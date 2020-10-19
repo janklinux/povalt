@@ -57,7 +57,7 @@ if store != len(all_jobs):
 
 # print('rank {} has list: {}'.format(rank, local_list))
 
-tmp_name = '/tmp/delme_tmpio_' + str(rank)
+tmp_name = 'delme_tmpio_' + str(rank)
 
 for wfid in local_list:
     print('Task {} processing WF {}...'.format(rank, wfid))
@@ -75,7 +75,6 @@ for wfid in local_list:
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'))
 
-    print('RN: ', rank, tmp_name)
     asewrite(filename=tmp_name, images=atoms, format='xyz')
     with open(tmp_name, 'r') as f:
         for line in f:
