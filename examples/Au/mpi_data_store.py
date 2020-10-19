@@ -83,7 +83,7 @@ for wfid in local_list:
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
 
-    print(virial)
+    print('rv: ', rank, xyz[1])
 
     quit()
 
