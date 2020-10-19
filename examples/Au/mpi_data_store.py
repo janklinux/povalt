@@ -62,7 +62,8 @@ tmp_name = 'delme_tmpio_' + str(rank)
 for wfid in local_list:
     print('Task {} processing WF {}...'.format(rank, wfid))
     fw = lpad.get_fw_by_id(wfid)
-    ldir = lpad.get_launchdir(fw_id=wfid)
+
+    ldir = '/'.join(lpad.get_launchdir(fw_id=wfid).split('/')[-3:])
 
     if not os.path.isdir(ldir):
         raise FileNotFoundError('Are you on the right machine? '
@@ -73,22 +74,16 @@ for wfid in local_list:
     if not run.converged or not run.converged_electronic:
         raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
 
-    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'))
-
-    print('RN: ', rank, tmp_name)
-    asewrite(filename=tmp_name, images=atoms, format='xyz')
-    with open(tmp_name, 'r') as f:
-        for line in f:
-            xyz = f.readlines()
-    os.unlink(tmp_name)
+    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
+    file = io.StringIO()
+    asewrite(filename=file, images=atoms, format='xyz', parallel=False)
+    file.seek(0)
+    xyz = file.readlines()
+    file.close()
 
     stress = atoms.get_stress(voigt=False)
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
-
-    print('rv: ', rank, xyz[1])
-
-    quit()
 
     xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type=bulk\n'.format(
         virial[0][0], virial[0][1], virial[0][2],
@@ -109,3 +104,5 @@ for wfid in local_list:
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     shutil.rmtree(ldir)
     lpad.delete_wf(wfid)
+
+comm.Finalize()
