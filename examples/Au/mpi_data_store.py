@@ -75,6 +75,7 @@ for wfid in local_list:
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'))
 
+    print('RN: ', rank, tmp_name)
     asewrite(filename=tmp_name, images=atoms, format='xyz')
     with open(tmp_name, 'r') as f:
         for line in f:
