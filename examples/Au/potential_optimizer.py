@@ -23,11 +23,6 @@ zeta = np.arange(start=3, stop=8, step=1)
 with open('db.json', 'r') as f:
     db_info = json.load(f)
 TrainJob(train_params={}, for_validation=True, db_info=db_info).clear_validation_database()
-#lpad.add_wf(clear_fw)
-
-
-quit()
-
 
 if do_delta:
     for d in delta:
