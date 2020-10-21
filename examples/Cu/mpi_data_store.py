@@ -1,7 +1,7 @@
 import os
 import io
 import sys
-import shutil
+import gzip
 import pymongo
 import numpy as np
 from mpi4py import MPI
@@ -52,12 +52,17 @@ for wfid in local_list:
     ldir = '/'.join(lpad.get_launchdir(fw_id=wfid).split('/')[-3:])
     if not os.path.isdir(ldir):
         raise FileNotFoundError('Are you on the right machine? This script only work in the root of block-?????????\n'
-                                'Workflow {} directory does not exist here...'.format(wfid))
+                                'Workflow {} directory does not exist here...'.format(ldir))
 
     run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
 
     if not run.converged or not run.converged_electronic:
         raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
+
+    with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
+        for line in f:
+            if 'Total CPU time used (sec):' in line:
+                runtime = float(line.split()[5])
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
     file = io.StringIO()
@@ -78,6 +83,7 @@ for wfid in local_list:
     dft_data = dict()
     dft_data['xyz'] = xyz
     dft_data['PBE_54'] = run.potcar_symbols
+    dft_data['runtime'] = runtime
     dft_data['parameters'] = run.parameters.as_dict()
     dft_data['free_energy'] = atoms.get_potential_energy(force_consistent=True)
     dft_data['final_structure'] = run.final_structure.as_dict()
