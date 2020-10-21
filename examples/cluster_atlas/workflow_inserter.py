@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 from fireworks import LaunchPad
-from povalt.firetasks.wf_generators import aims_relax
+from povalt.firetasks.wf_generators import AimsRelaxLightTight
 
 
 if os.path.isfile('all_clusters.json'):
@@ -41,8 +41,8 @@ basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
 for c in all_clusters:
     for i, d in enumerate(all_clusters[c]['energies']['dft']):
         if not d:
-            wf = aims_relax(aims_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 aims',
-                            control=ctrl, structure=all_clusters[c]['structures'][i],
-                            basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
-                            name='initial light relax')
+            wf = AimsRelaxLightTight(aims_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 aims',
+                                     control=ctrl, structure=all_clusters[c]['structures'][i],
+                                     basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
+                                     name='initial light relax')
             lpad.add_wf(wf)

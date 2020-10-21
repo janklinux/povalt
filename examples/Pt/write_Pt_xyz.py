@@ -5,11 +5,22 @@ import pymongo
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import read, write
+from pymatgen import Structure
+
+
+def check_vacuum_direction(input_data):
+    structure = Structure.from_dict(input_data)
+    a = structure.lattice.matrix[0] / 2
+    b = structure.lattice.matrix[1] / 2
+    for c in structure.cart_coords:
+        if np.linalg.norm(c - np.array([a + b])) < 6:
+            return False
+    return True
 
 
 np.random.seed(1410)  # fix for reproduction
 
-read_from_db = False
+read_from_db = True
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 show_dimer = False
 do_soap = False
@@ -163,17 +174,28 @@ if read_from_db:
     crystal_system = []
     print('Starting DB read...')
     ik = 0
-    for doc in data_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
+    total_slabs = 0
+    added_slabs = 0
+    for doc in data_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1, 'data.final_structure': 1}):
         if ik % 1000 == 0:
             print('busy on src: {:d}'.format(ik))
         ik += 1
-        complete_xyz.append(doc['data']['xyz'])
+
+        valid = True
         if 'Slab' in doc['name']:
-            crystal_system.append('slab')
-        elif 'Cluster' in doc['name']:
-            crystal_system.append('cluster')
-        else:
-            crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
+            total_slabs += 1
+            valid = check_vacuum_direction(doc['data']['final_structure'])
+
+        if valid:
+            complete_xyz.append(doc['data']['xyz'])
+            if 'Slab' in doc['name']:
+                added_slabs += 1
+                crystal_system.append('slab')
+            elif 'Cluster' in doc['name']:
+                crystal_system.append('cluster')
+            else:
+                crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
+
     ik = 0
     for doc in add_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
         if ik % 100 == 0:
@@ -185,6 +207,7 @@ if read_from_db:
         json.dump(complete_xyz, f)
     with open('systems.json', 'w') as f:
         json.dump(crystal_system, f)
+    print('Slabs, total: {} -- added: {}'.format(total_slabs, added_slabs))
 else:
     with open('structures.json', 'r') as f:
         complete_xyz = json.load(f)

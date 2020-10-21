@@ -2,8 +2,19 @@ import os
 import re
 import sys
 import json
-import numpy as np
 import pymongo
+import numpy as np
+from pymatgen import Structure
+
+
+def check_vacuum_direction(input_data):
+    structure = Structure.from_dict(input_data)
+    a = structure.lattice.matrix[0] / 2
+    b = structure.lattice.matrix[1] / 2
+    for c in structure.cart_coords:
+        if np.linalg.norm(c - np.array([a + b])) < 6:
+            return False
+    return True
 
 
 np.random.seed(1410)  # fix for reproduction
@@ -35,25 +46,26 @@ if read_from_db:
     print('busy on: ', end='')
     sys.stdout.flush()
     ik = 0
-    for doc in data_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
+    for doc in data_coll.find({}):
         if ik % 500 == 0:
             print(' {:d}'.format(ik), end='')
             sys.stdout.flush()
         ik += 1
-        complete_xyz.append(doc['data']['xyz'])
+
+        valid = True
+
         if 'Slab' in doc['name']:
-            crystal_system.append('slab')
-        elif 'Cluster' in doc['name']:
-            crystal_system.append('cluster')
-        else:
-            crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
-    # ik = 0
-    # for doc in add_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
-    #     if ik % 100 == 0:
-    #         print('busy on add: {:d}'.format(ik))
-    #     ik += 1
-    #     complete_xyz.append(doc['data']['xyz'])
-    #     crystal_system.append('addition')
+            valid = check_vacuum_direction(doc['data']['final_structure'])
+
+        if valid:
+            complete_xyz.append(doc['data']['xyz'])
+            if 'Slab' in doc['name']:
+                crystal_system.append('slab')
+            elif 'Cluster' in doc['name']:
+                crystal_system.append('cluster')
+            else:
+                crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
+
     with open('structures.json', 'w') as f:
         json.dump(complete_xyz, f)
     with open('systems.json', 'w') as f:

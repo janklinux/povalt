@@ -84,15 +84,15 @@ if cell.num_sites < 100 or cell.num_sites > 128:
 print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
 
 random.seed(time.time())
-total_structures = 500
+total_structures = 2500
 
 # quit()
 
 i = 0
 while i < total_structures:
-    de = np.array([[(random.random() - 0.5) * 2.25, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45],
-                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.25, (random.random() - 0.5) * 0.45],
-                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.25]])
+    de = np.array([[(random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45],
+                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45],
+                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35]])
 
     new_lat = np.add(cell.lattice.matrix, de)
 

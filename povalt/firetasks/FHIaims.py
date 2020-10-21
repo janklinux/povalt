@@ -26,7 +26,7 @@ from custodian import Custodian
 from custodian.custodian import Job
 from custodian.fhi_aims.handlers import AimsRelaxHandler, FrozenJobErrorHandler
 from custodian.fhi_aims.validators import AimsConvergedValidator
-from fireworks import FiretaskBase, Firework, explicit_serialize
+from fireworks import FiretaskBase, explicit_serialize
 
 
 class AimsJob(Job):
@@ -35,7 +35,7 @@ class AimsJob(Job):
     can be a complex processing of inputs etc. with initialization.
     """
 
-    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, single_point,
+    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, single_basis,
                  output_file='run', stderr_file='std_err.txt'):
         """
         This constructor is necessarily complex due to the need for
@@ -51,7 +51,7 @@ class AimsJob(Job):
             basis_set: light or tight
             basis_dir: directory containing the light/tight directory of basis files
             metadata: metadata to add into wf
-            single_point: True for a single point run, False for light/tight relax
+            single_basis: True for a single basis set run (no auto-add), False for light/tight relax
             output_file (str): Name of file to direct standard out to.
                 Defaults to "vasp.out".
             stderr_file (str): Name of file to direct standard error to.
@@ -68,9 +68,9 @@ class AimsJob(Job):
         self.basis_set = basis_set
         self.basis_dir = basis_dir
         self.metadata = metadata
-        if not isinstance(single_point, bool):
+        if not isinstance(single_basis, bool):
             raise ValueError('single_point variable has to be boolean')
-        self.single_point = single_point
+        self.single_basis = single_basis
 
     def setup(self):
         """
@@ -125,7 +125,7 @@ class AimsJob(Job):
         if self.basis_set == 'tight':
             return None, dict()
 
-        if self.single_point:
+        if self.single_basis:
             return None, dict()
 
         os.chdir(self.run_dir)
@@ -159,50 +159,24 @@ class AimsJob(Job):
                 f_out.write(f_in.read())
 
 
-class OptimizeFW(Firework):
-    def __init__(self, control, structure, basis_set, basis_dir, aims_cmd, rerun_metadata,
-                 name='FHIaims run', parents=None, aims_output='run', **kwargs):
-        """
-        Optimize the given structure.
-
-        Args:
-            control: control.in as list of lines
-            structure (Structure): pymatgen input structure
-            name (str): Name for the Firework.
-            aims_cmd (str): Command to run
-            aims_output (str): name of output filename
-            rerun_metadata: metadata for the tight rerun
-            parents ([Firework]): Parents of this particular Firework.
-            **kwargs: Other kwargs that are passed to Firework.__init__.
-        """
-
-        t = list()
-        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
-                                  basis_set=basis_set, basis_dir=basis_dir, aims_output=aims_output,
-                                  rerun_metadata=rerun_metadata))
-
-        super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
-                                         format('{} - {}'.join(structure.composition.reduced_formula), name), **kwargs)
-
-
 @explicit_serialize
 class RunAimsCustodian(FiretaskBase):
     """
     Run FHIaims
 
     Required params:
-        aims_cmd (str): the name of the full executable for running VASP. Supports env_chk.
+        aims_cmd (str): the name of the full executable for running FHIaims
 
     Optional params:
-        none for now
+
     """
-    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir']
+    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'single_basis']
     optional_params = ['aims_output', 'rerun_metadata']
 
     def run_task(self, fw_spec):
         job = [AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
-                       basis_set=self['basis_set'], basis_dir=self['basis_dir'], output_file=self['aims_output'],
-                       metadata=self['rerun_metadata'])]
+                       basis_set=self['basis_set'], single_basis=self['single_basis'], basis_dir=self['basis_dir'],
+                       output_file=self['aims_output'], metadata=self['rerun_metadata'])]
         validators = [AimsConvergedValidator()]
         c = Custodian(handlers=[AimsRelaxHandler(), FrozenJobErrorHandler()],
                       jobs=job, validators=validators, max_errors=3)

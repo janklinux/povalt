@@ -1,15 +1,12 @@
-import io
 import re
 import os
-import json
 import lzma
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+from mpi4py import MPI
 from pymongo import MongoClient
 from datetime import datetime
-from ase.io import read as aseread
-from pymatgen.io.ase import AseAtomsAdaptor
 
 
 def get_command_line(filename):
@@ -20,8 +17,8 @@ def get_command_line(filename):
                 complete_line += line.strip() + ' '
 
     return_line = ''
-    for ib, ch in enumerate(re.sub('_', '-', complete_line[24:-19])):
-        return_line += ch
+    for ib, char in enumerate(re.sub('_', '-', complete_line[24:-19])):
+        return_line += char
         if ib % 115 == 0 and ib != 0:
             return_line += '\n'
     return_line = re.sub('{', '', return_line)
@@ -67,8 +64,8 @@ def parse_xyz(filename):
                 n_atoms = int(line)
             if line_count == 2:
                 info = line
-                bits = line.split()
-                for ii, bit in enumerate(bits):
+                lbits = line.split()
+                for ii, bit in enumerate(lbits):
                     if 'free_energy' in bit:
                         reference_energies.append(float(bit.split('=')[1]))
             if 2 < line_count <= n_atoms + 2:
@@ -85,12 +82,13 @@ def parse_xyz(filename):
     return dict({'data': data, 'reference_energies': reference_energies})
 
 
-def get_differences(result_vals, reference_vals):
+def get_differences(in_result, in_reference):
     result_data = []
     reference_data = []
 
-    for ip, res in enumerate(result_vals['data']):
+    for ida, res in enumerate(in_result['data']):
         coord = []
+        virial = []
         forces = []
         n_atoms = 0
         line_count = 0
@@ -98,22 +96,31 @@ def get_differences(result_vals, reference_vals):
             line_count += 1
             if line_count == 1:
                 n_atoms = int(line)
+            if line_count == 2:
+                lbits = line.split()
+                virial.append(float(lbits[0].split('=')[1][1:]))
+                for v in lbits[1:8]:
+                    virial.append(float(v))
+                virial.append(float(lbits[8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[13:17]])
             if line_count == n_atoms + 2:
                 line_count = 0
                 tmp = dict()
-                tmp['free_energy'] = result['predicted_energies'][ip]
+                tmp['free_energy'] = in_result['predicted_energies'][ida]
+                tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
                 result_data.append(tmp)
+                virial = []
                 coord = []
                 forces = []
 
-    for ref in reference_vals['data']:
+    for ref in in_reference['data']:
         energy = 0
         coord = []
+        virial = []
         forces = []
         n_atoms = 0
         line_count = 0
@@ -122,10 +129,15 @@ def get_differences(result_vals, reference_vals):
             if line_count == 1:
                 n_atoms = int(line)
             if line_count == 2:
-                bits = line.split()
-                for ii, bit in enumerate(bits):
+                lbits = line.split()
+                for ii, bit in enumerate(lbits):
                     if 'free_energy' in bit:
                         energy = float(bit.split('=')[1])
+                    if 'virial' in bit:
+                        virial.append(float(lbits[ii].split('=')[1][1:]))
+                        for v in lbits[ii+1:ii+8]:
+                            virial.append(float(v))
+                        virial.append(float(lbits[ii+8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[4:7]])
@@ -133,10 +145,12 @@ def get_differences(result_vals, reference_vals):
                 line_count = 0
                 tmp = dict()
                 tmp['free_energy'] = energy
+                tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
                 reference_data.append(tmp)
                 energy = 0
+                virial = []
                 coord = []
                 forces = []
 
@@ -153,22 +167,22 @@ def get_differences(result_vals, reference_vals):
                 print('not the same: ', fa, fb)
                 quit()
 
-        reference_per_atom.append(reference_data[i]['free_energy'] / len(reference_data[i]['coords']))
+        reference_per_atom.append(reference_data[i]['free_energy'] / len(result_data[i]['coords']))
         prediction_per_atom.append(result_data[i]['free_energy'] / len(result_data[i]['coords']))
 
-        energy_diff.append(np.abs(np.abs(reference_data[i]['free_energy'] / len(reference_data[i]['coords'])) -
+        energy_diff.append(np.abs(np.abs(reference_data[i]['free_energy'] / len(result_data[i]['coords'])) -
                                   np.abs(result_data[i]['free_energy'] / len(result_data[i]['coords']))))
 
-        adf = 0
+        df = 0
         for fa, fb in zip(np.array(result_data[i]['forces']), np.array(reference_data[i]['forces'])):
-            adf += np.linalg.norm(fa - fb) / 3
-        force_diff.append(adf/len(result_data[i]['forces']))
+            df += np.linalg.norm(fa - fb) / 3
+        force_diff.append(df/len(result_data[i]['forces']))
 
     return reference_per_atom, prediction_per_atom, energy_diff, force_diff
 
 
 def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
-                avg_energy_error, force_error, xml_label):
+                avg_energy_error, force_error, gap_name):
 
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
@@ -193,104 +207,110 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
 
     plt.scatter(5, 5, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
 
-    plt.plot([-3.5, 0.5], [-3.5, 0.5], '-', color='k', linewidth=0.25)
+    plt.plot([-6.5, 0.5], [-6.5, 0.5], '-', color='k', linewidth=0.25)
 
-    plt.text(-3.5, -0.6, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
-    plt.text(-3.5, -0.9, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    plt.text(-4.5, -0.6, r'Max error: {} eV/atom'.format(round(max_energy_error, 3)), fontsize=8)
+    plt.text(-4.5, -0.9, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
 
-    plt.text(-3.5, -1.3, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
+    plt.text(-4.5, -1.3, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
 
-    plt.text(-1.0, -2.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
+    plt.text(-3.0, -4.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
 
-    plt.text(-2.3, -3.5, get_command_line('aurum.xml'), fontsize=4)
+    plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
 
     plt.legend(loc='upper left')
 
-    plt.xlim(-4, 1)
-    plt.ylim(-4, 1)
+    plt.xlim(-7, 1)
+    plt.ylim(-7, 1)
 
     plt.tight_layout()
-    plt.savefig('GAP_vs_DFT-' + xml_label + '.png', dpi=300)
+    plt.savefig('../GAP_vs_DFT-' + gap_name + '.png', dpi=600)
     plt.close()
 
 
-def check_deviations(result, reference, result_dict, write_fails):
-    fails = []
-    for i in range(np.min([len(result), len(reference)])):
-        ref_per_atom = np.abs(reference[i])
-        pred_per_atom = np.abs(result[i])
+mpi_comm = MPI.COMM_WORLD
+mpi_size = mpi_comm.Get_size()
+mpi_rank = mpi_comm.Get_rank()
 
-        if np.abs(ref_per_atom - pred_per_atom) > 0.5:
-            with open('fuckthis', 'wb') as file:
-                for line in result_dict['data'][i]:
-                    file.write(line.encode())
-                    if 'Properties' in line:
-                        fails.append(line)
-            atoms = aseread('fuckthis')
-            os.unlink('fuckthis')
-            if write_fails:
-                structure = AseAtomsAdaptor.get_structure(atoms=atoms)
-                structure.to(fmt='POSCAR', filename=str(i)+'.vasp')
-
-    if write_fails:
-        if os.path.isfile('dft_fails.json'):
-            with open('dft_fails.json', 'r') as f:
-                prev_fails = json.load(f)
-            fails.extend(prev_fails)
-        with open('dft_fails.json', 'w') as f:
-            json.dump(obj=fails, fp=f)
-        quit()
-
-
-# ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-# cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-# conn = MongoClient(host='numphys.org', port=27017, ssl=True, tlsCAFile=ca_file, ssl_certfile=cl_file)
-# data_db = conn.pot_train
-# data_db.authenticate('jank', 'b@sf_mongo')
-# data_coll = data_db['validate_potentials']
+ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
+cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+conn = MongoClient(host='numphys.org', port=27017, ssl=True, tlsCAFile=ca_file, ssl_certfile=cl_file)
+data_db = conn.pot_train
+data_db.authenticate('jank', 'b@sf_mongo')
+data_coll = data_db['validate_potentials']
 
 reference = parse_xyz('test.xyz')
 
-# print('DB Content: {} potentials'.format(data_coll.estimated_document_count()))
+num_pots = data_coll.estimated_document_count()
+offset = np.int(num_pots / mpi_size)
 
 base_dir = os.getcwd()
-# xml_name = None
-# xml_label = None
-# for pot in data_coll.find():
-#     os.chdir(base_dir)
-#     for p in pot:
-#         if p != '_id':
-#             bits = p.split(':')
-#             if len(bits) == 2:
-#                 xml_name = bits[0] + '.' + bits[1]
-#             if len(bits) == 4:
-#                 xml_label = p.split(':')[3][:-1]
-#
-#     if os.path.isdir(xml_label):
-#         shutil.rmtree(xml_label)
-#     os.mkdir(xml_label)
-#     os.chdir(xml_label)
-#
-#     for p in pot:
-#         if p != '_id':
-#             with open(re.sub(':', '.', p), 'wb') as f:
-#                 f.write(lzma.decompress(pot[p]))
+all_names = []
+all_labels = []
+if mpi_rank == 0:
+    print('DB Content: {} potentials'.format(num_pots))
+    xml_name = None
+    xml_label = None
+    for pot in data_coll.find():
+        os.chdir(base_dir)
+        for p in pot:
+            if p != '_id':
+                bits = p.split(':')
+                if len(bits) == 2:
+                    xml_name = bits[0] + '.' + bits[1]
+                if len(bits) == 4:
+                    xml_label = p.split(':')[3][:-1]
 
-# os.symlink('../compress.dat', 'compress.dat')
-# os.symlink('../test.xyz', 'test.xyz')
-# os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
+        if os.path.isdir(xml_label):
+            shutil.rmtree(xml_label)
+        os.mkdir(xml_label)
+        os.chdir(xml_label)
 
-xml_name = 'aurum.xml'
-xml_label = 'GAP_2020_10_19_180_15_46_15_740'
-# print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
-# os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
+        for p in pot:
+            if p != '_id':
+                with open(re.sub(':', '.', p), 'wb') as fp:
+                    fp.write(lzma.decompress(pot[p]))
 
-result, runtime = parse_quip('quip.result')
-# os.system('nice -n 10 xz -z9e quip.result &')
-eref, epred, de, df = get_differences(result_vals=result, reference_vals=reference)
+        all_names.append(xml_name)
+        all_labels.append(xml_label)
 
-# check_deviations(result=epred, reference=eref, result_dict=result, write_fails=True)
+    cpu = 0
+    name = [[] for _ in range(mpi_size)]
+    label = [[] for _ in range(mpi_size)]
+    for ip, (aname, alabel) in enumerate(zip(all_names, all_labels)):
+        name[cpu].append(aname)
+        label[cpu].append(alabel)
+        if cpu != mpi_size - 1:
+            if ip % offset == 0 and ip != 0:
+                cpu += 1
+else:
+    name = None
+    label = None
 
-scatterplot(result_energy=epred, reference_energy=eref,
-            quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
-            force_error=np.sum(df)/len(df), xml_label=xml_label)
+name = mpi_comm.scatter(name, root=0)
+label = mpi_comm.scatter(label, root=0)
+
+all_len = len(label)
+summed_num = mpi_comm.allreduce(all_len, op=MPI.SUM)
+if summed_num != num_pots:
+    raise ValueError('MPI job distribution not consistent')
+
+assert(len(name) == len(label))
+
+for name, label in zip(name, label):
+    os.chdir(os.path.join(base_dir, label))
+    os.symlink('../compress.dat', 'compress.dat')
+    os.symlink('../test.xyz', 'test.xyz')
+    os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(name))
+    print('CPU {} running: quip atoms_filename=test.xyz param_filename={} for {}'.format(mpi_rank, name, label))
+    os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(name))
+
+    result, runtime = parse_quip('quip.result')
+    os.system('nice -n 15 xz -z9e quip.result &')
+    eref, epred, de, dforce = get_differences(in_result=result, in_reference=reference)
+
+    scatterplot(result_energy=epred, reference_energy=eref,
+                quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
+                force_error=np.sum(dforce)/len(dforce), gap_name=label)
+
+MPI.Finalize()

@@ -8,7 +8,7 @@ from povalt.firetasks.wf_generators import train_potential
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='potential_fw', username='jank', password='mongo', ssl=False)
 
 do_delta = True
-exponents = np.arange(start=-3, stop=-0.5, step=0.1)
+exponents = np.arange(start=-3, stop=-0.5, step=0.2)
 delta = [np.round(float(10**x), 5) for x in exponents]
 
 do_cutoff = False
@@ -28,11 +28,11 @@ if do_delta:
     for d in delta:
         train_params_nbody = {
             'do_n_body': True,
-            'atoms_filename': '/users/kloppej1/scratch/jank/pot_fit/Pt/train.xyz',
+            'atoms_filename': '/users/kloppej1/scratch/jank/pot_fit/Au/train.xyz',
             'nb_order': 2,
             'nb_compact_clusters': 'T',
             'nb_cutoff': 4.7,
-            'nb_n_sparse': 35,
+            'nb_n_sparse': 25,
             'nb_covariance_type': 'ard_se',
             'nb_delta': 0.5,
             'nb_theta_uniform': 1.0,
@@ -52,7 +52,7 @@ if do_delta:
             'soap_n_species': 1,
             'soap_species_Z': '{79}',
             'soap_radial_enhancement': '{{1}}',
-            'soap_compress_file': '/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat',
+            'soap_compress_file': '/users/kloppej1/scratch/jank/pot_fit/Au/compress.dat',
             'soap_central_weight': 1.0,
             'soap_config_type_n_sparse': '{bcc:150:fcc:150:hcp:150:sc:150:slab:150:dimer:10}',
             'soap_delta': d,

@@ -20,7 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.base import Lammps, PotentialTraining, Aims
+from povalt.firetasks.base import Lammps, PotentialTraining
+from povalt.firetasks.FHIaims import RunAimsCustodian
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -116,49 +117,69 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
-def aims_single_point(aims_cmd, control, structure, basis_set, basis_dir, metadata, name):
-    """
-    Performs a single point DFT run with the specified basis set
+class AimsSingleBasis:
+    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, name, parents=None):
 
-    Args:
-        aims_cmd: command to run aims i.e. srun aims
-        control: control.in as list of lines
-        structure: pymatgen structure to relax
-        basis_set: basis set to use, directory name within basis_dir
-        basis_dir: directory where the basis is located (light / tight directories)
-        metadata: metadata to pass into both runs for identification
-        name: name of the workflow
+        """
+        Performs a single basis DFT run with the specified basis set (no auto additions)
 
-    Returns:
-        Workflow to insert into LaunchPad
-    """
+        Args:
+            aims_cmd: command to run aims i.e. srun aims
+            control: control.in as list of lines
+            structure: pymatgen structure to relax
+            basis_set: basis set to use, directory name within basis_dir
+            basis_dir: directory where the basis is located (light / tight directories)
+            metadata: metadata to pass into both runs for identification
+            name: name of the workflow
+            parents: parents of this WF
 
-    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=True,
-                            basis_dir=basis_dir, basis_set=basis_set, rerun_metadata=metadata)])
+        Returns:
+            Workflow to insert into LaunchPad
+        """
+        t = list()
+        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
+                                  basis_set=basis_set, basis_dir=basis_dir, single_basis=True,
+                                  aims_output='run', rerun_metadata=metadata))
 
-    return Workflow([run_fw], name=name, metadata=metadata)
+        super(AimsSingleBasis, self).__init__(t, parents=parents, name="{}-{}".
+                                              format('{} - {}'.join(structure.composition.reduced_formula), name))
+
+    # run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_basis=True,
+    #                         basis_dir=basis_dir, basis_set=basis_set, rerun_metadata=metadata)])
+    #
+    # return Workflow([run_fw], name=name, metadata=metadata)
 
 
-def aims_relax_light_tight(aims_cmd, control, structure, basis_dir, metadata, name):
-    """
-    Performs a light and tight relaxation for the given structure object
+class AimsRelaxLightTight:
+    def __init__(self, aims_cmd, control, structure, basis_dir, metadata, name, parents=None):
+        """
+        Performs a light and tight relaxation for the given structure object
 
-    Args:
-        aims_cmd: command to run aims i.e. srun aims
-        control: control.in as list of lines
-        structure: pymatgen structure to relax
-        basis_dir: directory where the basis is located (light / tight directories)
-        metadata: metadata to pass into both runs for identification
-        name: name of the workflow
+        Args:
+            aims_cmd: command to run aims i.e. srun aims
+            control: control.in as list of lines
+            structure: pymatgen structure to relax
+            basis_dir: directory where the basis is located (light / tight directories)
+            metadata: metadata to pass into both runs for identification
+            name: name of the workflow
+            parents: parents of the WF
 
-    Returns:
-        Workflow to insert into LaunchPad
-    """
+        Returns:
+            Workflow to insert into LaunchPad
+        """
 
-    run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=False,
-                            basis_dir=basis_dir, basis_set='light', rerun_metadata=metadata)])
+        t = list()
+        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
+                                  basis_set='light', basis_dir=basis_dir, single_basis=True,
+                                  aims_output='run', rerun_metadata=metadata))
 
-    return Workflow([run_fw], name=name, metadata=metadata)
+        super(AimsRelaxLightTight, self).__init__(t, parents=parents, metadata=metadata, name="{}-{}".
+                                                  format('{} - {}'.join(structure.composition.reduced_formula), name))
+
+        # run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=False,
+        #                         basis_dir=basis_dir, basis_set='light', rerun_metadata=metadata)])
+        #
+        # return Workflow([run_fw], name=name, metadata=metadata)
 
 
 def read_info(db_file, al_file):

@@ -187,23 +187,23 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.xlabel(r'Computed Energy [eV/atom]', fontsize=16, color='k')
     plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
 
-    plt.scatter(500, 500, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
+    # plt.scatter(500, 500, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
 
-    plt.plot([-42000, 300], [-42000, 300], '-', color='k', linewidth=0.25)
+    # plt.plot([-42000, 300], [-42000, 300], '-', color='k', linewidth=0.25)
 
-    plt.text(-35000, -6000, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
-    plt.text(-35000, -9000, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
-
-    plt.text(-35000, -13000, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
-
-    plt.text(-20000, -25000, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
-
-    plt.text(-29000, -41000, get_command_line('AlNi.xml'), fontsize=4)
+    # plt.text(-35000, -6000, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
+    # plt.text(-35000, -9000, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    #
+    # plt.text(-35000, -13000, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
+    #
+    # plt.text(-20000, -25000, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
+    #
+    # plt.text(-29000, -41000, get_command_line('AlNi.xml'), fontsize=4)
 
     plt.legend(loc='upper left')
 
-    plt.xlim(np.amin(reference_energy)-1000, 10)
-    plt.ylim(np.amin(reference_energy)-1000, 10)
+    # plt.xlim(np.amin(reference_energy)-1000, 10)
+    # plt.ylim(np.amin(reference_energy)-1000, 10)
 
     plt.tight_layout()
     plt.savefig('GAP_vs_DFT-'+gap_name+'.png', dpi=300)
