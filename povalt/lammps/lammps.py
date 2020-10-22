@@ -21,6 +21,7 @@ import re
 import os
 import lzma
 import time
+import json
 import tempfile
 import subprocess
 from pymongo import MongoClient
@@ -37,6 +38,124 @@ from pymatgen.io.vasp import Kpoints
 from pymatgen.io.vasp.sets import MPStaticSet
 from atomate.vasp.powerups import add_modify_incar
 from fireworks import Workflow
+
+
+class LammpsCGJob(Job):
+    """
+    Class to run LAMMPS as firework
+    """
+
+    def __init__(self, lammps_params, db_info, fw_spec):
+        """
+        Init class, sets parameters and does checks
+
+        Args:
+            lammps_params: all LAMMPS parameters
+            db_info: database info
+            fw_spec: fireworks specs
+        """
+
+        self.lammps_params = lammps_params
+        self.fw_spec = fw_spec
+        self.structure = AseAtomsAdaptor().get_atoms(lammps_params['structure'])
+        self.db_info = db_info
+        self.run_dir = os.getcwd()
+
+    def postprocess(self):
+        """
+        Parses output and dumps into json for later processing
+
+        Returns:
+            nothing
+        """
+        with open('log.lammps', 'rt') as f:
+            parse = False
+            for fline in f:
+                if parse:
+                    lammps_energy = float(fline.split()[2])
+                    parse = False
+                if 'Energy initial, next-to-last, final' in fline:
+                    parse = True
+                if 'Loop time of' in fline:
+                    loop_time = float(fline.split()[3])
+                    n_atoms = int(fline.split()[11])
+                    n_steps = int(fline.split()[8])
+
+        dump = {'n_atoms': n_atoms, 'n_steps': n_steps, 'time': loop_time, 'lammps': lammps_energy}
+        with open('parsed.json', 'w') as f:
+            json.dump(obj=dump, fp=f)
+
+    def setup(self):
+        """
+        Prepare for LAMMPS run, downloads the potential, writes and parses input files
+
+        Returns:
+            nothing
+
+        """
+
+        os.chdir(self.run_dir)
+        xml_name, xml_label = self.link_potential()
+        if xml_name is None:
+            raise ValueError('Potential download seems to have failed, check internal routines...')
+        write_lammps_data(fileobj=self.lammps_params['atoms_filename'],
+                          atoms=self.structure,
+                          units=self.lammps_params['units'])
+        with open('lammps.in', 'w') as f:
+            for line in self.lammps_params['lammps_settings']:
+                f.write(re.sub('POT_FW_LABEL', xml_label,
+                               re.sub('POT_FW_NAME', xml_name, line.strip())) + '\n')
+
+    def run(self):
+        """
+        Runs the job
+
+        Returns:
+            open subprocess
+        """
+
+        os.chdir(self.run_dir)
+        for item in self.lammps_params:
+            if self.lammps_params[item] is not None:
+                self.lammps_params[item] = str(self.lammps_params[item])
+
+        os.environ['OMP_NUM_THREADS'] = self.lammps_params['omp_threads']
+
+        if self.lammps_params['mpi_cmd'] is not None:
+            if self.lammps_params['mpi_procs'] is None:
+                raise ValueError('Running in MPI you have to define mpi_procs')
+            cmd = str(find_binary(self.lammps_params['mpi_cmd']).strip()) + ' -n ' + \
+                  str(self.lammps_params['mpi_procs']) + ' '
+        else:
+            cmd = ''
+
+        cmd += find_binary(self.lammps_params['lmp_bin']).strip() + str(' -in lammps.in ') + \
+               str(self.lammps_params['lmp_params'])
+
+        try:
+            with open('std_err', 'w') as serr, open('std_out', 'w') as sout:
+                p = subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+        except FileNotFoundError:
+            raise FileNotFoundError('Command execution failed, check std_err.')
+        finally:
+            os.environ['OMP_NUM_THREADS'] = str(1)
+        return p
+
+    def link_potential(self):
+        xml_name = None
+        xml_label = None
+        for file in os.listdir(self.db_info['potential_location']):
+            if '.xml' in file:
+                os.symlink(os.path.join(self.db_info['potential_location'], file), file)
+                bits = file.split('.')
+                if len(bits) == 2:
+                    xml_name = bits[0] + '.' + bits[1]
+                if len(bits) == 4:
+                    xml_label = file.split('.')[3][:-1]
+            if 'compress' in file:
+                os.symlink(os.path.join(self.db_info['potential_location'], file), file)
+
+        return xml_name, xml_label
 
 
 class LammpsJob(Job):

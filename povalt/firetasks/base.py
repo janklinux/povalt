@@ -24,7 +24,7 @@ from custodian import Custodian
 from custodian.fhi_aims.handlers import AimsRelaxHandler, FrozenJobErrorHandler
 from custodian.fhi_aims.validators import AimsConvergedValidator
 from povalt.training.training import TrainJob
-from povalt.lammps.lammps import LammpsJob
+from povalt.lammps.lammps import LammpsJob, LammpsCGJob
 from povalt.firetasks.FHIaims import AimsJob
 
 
@@ -117,6 +117,49 @@ class Lammps(LammpsBase):
         return super().run_task(fw_spec=fw_spec)
 
 
+class LammpsCGBase(FiretaskBase):
+    """
+    Base class to run LAMMPS, for inheritance
+    """
+    @abc.abstractmethod
+    def get_job(self, fw_spec):
+        pass
+
+    @abc.abstractmethod
+    def get_handlers(self):
+        pass
+
+    @abc.abstractmethod
+    def get_validators(self):
+        pass
+
+    def run_task(self, fw_spec):
+        job = self.get_job(fw_spec)
+        c = Custodian(handlers=self.get_handlers(), jobs=[job], validators=self.get_validators(), max_errors=3)
+        c.run()
+
+
+@explicit_serialize
+class LammpsCG(LammpsCGBase):
+    """
+    Class to run LAMMPS
+    """
+    required_params = ['lammps_params', 'db_info']
+    optional_params = []
+
+    def get_job(self, fw_spec):
+        return LammpsCGJob(lammps_params=self['lammps_params'], db_info=self['db_info'], fw_spec=fw_spec)
+
+    def get_validators(self):
+        pass
+
+    def get_handlers(self):
+        return []
+
+    def run_task(self, fw_spec):
+        return super().run_task(fw_spec=fw_spec)
+
+
 class AimsBase(FiretaskBase):
     """
     Base class to run FHIaims, for inheritance
@@ -157,7 +200,7 @@ class Aims(AimsBase):
     def get_job(self, fw_spec):
         return AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
                        basis_set=self['basis_set'], basis_dir=self['basis_dir'], metadata=self['rerun_metadata'],
-                       single_point=self['single_point'])
+                       single_basis=self['single_basis'])
 
     def get_validators(self):
         return [AimsConvergedValidator()]

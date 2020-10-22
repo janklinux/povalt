@@ -3,8 +3,37 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import read
+from datetime import datetime
 from pymatgen.io.ase import AseAtomsAdaptor
 
+
+def parse_quip(filename):
+    start_parse = False
+    with open(filename, 'r') as ff:
+        data = []
+        predicted_energies = []
+        first_line_parsed = False
+        for line in ff:
+            if not first_line_parsed:
+                start_time = line.split()[3]
+                first_line_parsed = True
+            if line.startswith('libAtoms::Finalise:'):
+                if len(line.split()) == 3:
+                    end_time = line.split()[2]
+            if line.startswith('Energy='):
+                if start_parse:
+                    data.append(tmp)
+                start_parse = True
+                tmp = list()
+                predicted_energies.append(float(line.split('=')[1]))
+            if start_parse:
+                if line.startswith('AT'):
+                    tmp.append(line[3:])
+    dt = datetime.strptime(end_time, '%H:%M:%S') - datetime.strptime(start_time, '%H:%M:%S')
+    return dict({'data': data, 'predicted_energies': predicted_energies}), dt
+
+
+# parsed_data, runtime = parse_quip('pure_gap/quip.result')
 
 dft_energy = []
 gap_energy = []
@@ -108,7 +137,9 @@ for i in range(len(gap_energy)):
         df += np.linalg.norm(fa - fb) / 3
     force_err.append(df/len(gap_forces))
 
+
 quit()
+
 
 fcc_dft = -24.39050152/4
 fcc_gap = -24.404683/4

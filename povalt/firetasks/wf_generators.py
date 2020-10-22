@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.base import Lammps, PotentialTraining
+from povalt.firetasks.base import Lammps, LammpsCG, PotentialTraining
 from povalt.firetasks.FHIaims import RunAimsCustodian
 
 
@@ -44,7 +44,7 @@ def train_potential(train_params, for_validation, db_file):
     return Workflow([fw_train], name='TrainFlow')
 
 
-def run_lammps(lammps_params, structures, db_file, al_file):
+def run_lammps_auto_DFT(lammps_params, structures, db_file, al_file):
     """
     Runs LAMMPS with the supplied structures
     Use when a trained potential exists and we need more LAMMPS runs with it
@@ -68,6 +68,29 @@ def run_lammps(lammps_params, structures, db_file, al_file):
         lmp_fws.append(Firework([Lammps(lammps_params=params, db_info=db_info)], name='LAMMPS CG'))
 
     return Workflow(lmp_fws, name='multi_LAMMPS')
+
+
+def run_lammps(lammps_params, structure, db_file, al_file):
+    """
+    Runs LAMMPS with the supplied structures
+    Use when a trained potential exists and we need more LAMMPS runs with it
+
+    Args:
+        lammps_params:  parameters for the MD in LAMMPS
+        structure: pymatgen structure
+        db_file: file containing the db information
+        al_file: auto-launcher settings
+
+    Returns:
+        the workflow for Launchpad
+    """
+
+    db_info, al_info = read_info(db_file=db_file, al_file=al_file)
+
+    params = lammps_params.copy()
+    params['structure'] = structure.as_dict()
+
+    return Workflow([Firework([LammpsCG(lammps_params=params, db_info=db_info)], name='LAMMPS CG')], name='CG_LAMMPS')
 
 
 def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_file, is_slab, al_file=None):

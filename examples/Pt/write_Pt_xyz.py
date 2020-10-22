@@ -27,13 +27,13 @@ do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.95,
-               'bcc': 0.95,
-               'hcp': 0.95,
-               'sc': 0.95,
-               'slab': 0.95,
-               'cluster': 0.95,
-               'addition': 0.95}
+train_split = {'fcc': 0.65,
+               'bcc': 0.65,
+               'hcp': 0.65,
+               'sc': 0.65,
+               'slab': 0.85,
+               'cluster': 0.85,
+               'addition': 0.85}
 
 with open('train.xyz', 'w') as f:
     f.write('1\n')

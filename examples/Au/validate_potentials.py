@@ -88,7 +88,6 @@ def get_differences(in_result, in_reference):
 
     for ida, res in enumerate(in_result['data']):
         coord = []
-        virial = []
         forces = []
         n_atoms = 0
         line_count = 0
@@ -96,12 +95,6 @@ def get_differences(in_result, in_reference):
             line_count += 1
             if line_count == 1:
                 n_atoms = int(line)
-            if line_count == 2:
-                lbits = line.split()
-                virial.append(float(lbits[0].split('=')[1][1:]))
-                for v in lbits[1:8]:
-                    virial.append(float(v))
-                virial.append(float(lbits[8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[13:17]])
@@ -109,18 +102,15 @@ def get_differences(in_result, in_reference):
                 line_count = 0
                 tmp = dict()
                 tmp['free_energy'] = in_result['predicted_energies'][ida]
-                tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
                 result_data.append(tmp)
-                virial = []
                 coord = []
                 forces = []
 
     for ref in in_reference['data']:
         energy = 0
         coord = []
-        virial = []
         forces = []
         n_atoms = 0
         line_count = 0
@@ -133,11 +123,6 @@ def get_differences(in_result, in_reference):
                 for ii, bit in enumerate(lbits):
                     if 'free_energy' in bit:
                         energy = float(bit.split('=')[1])
-                    if 'virial' in bit:
-                        virial.append(float(lbits[ii].split('=')[1][1:]))
-                        for v in lbits[ii+1:ii+8]:
-                            virial.append(float(v))
-                        virial.append(float(lbits[ii+8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[4:7]])
@@ -145,12 +130,10 @@ def get_differences(in_result, in_reference):
                 line_count = 0
                 tmp = dict()
                 tmp['free_energy'] = energy
-                tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
                 reference_data.append(tmp)
                 energy = 0
-                virial = []
                 coord = []
                 forces = []
 
@@ -182,8 +165,7 @@ def get_differences(in_result, in_reference):
 
 
 def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
-                avg_energy_error, force_error, gap_name):
-
+                avg_energy_error, force_error, gap_name, gap_file):
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
     plt.rcParams['font.family'] = 'DejaVu Sans'
@@ -199,30 +181,19 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.rcParams['ytick.minor.width'] = 3
     plt.rcParams['ytick.labelsize'] = 18
     plt.rcParams['axes.linewidth'] = 3
-
     plt.scatter(result_energy, reference_energy, marker='.', color='navy', label=None, s=0.5)
-
     plt.xlabel(r'Computed Energy [eV/atom]', fontsize=16, color='k')
     plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
-
     plt.scatter(5, 5, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
-
     plt.plot([-6.5, 0.5], [-6.5, 0.5], '-', color='k', linewidth=0.25)
-
-    plt.text(-4.5, -0.6, r'Max error: {} eV/atom'.format(round(max_energy_error, 3)), fontsize=8)
-    plt.text(-4.5, -0.9, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
-
-    plt.text(-4.5, -1.3, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
-
-    plt.text(-3.0, -4.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
-
-    plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
-
+    plt.text(-3.0, -0.6, r'Max error: {} eV/atom'.format(round(max_energy_error, 3)), fontsize=8)
+    plt.text(-3.0, -0.9, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    plt.text(-3.0, -1.3, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
+    plt.text(-1.0, -2.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
+    plt.text(-1.0, -3.1, get_command_line(gap_file), fontsize=4)
     plt.legend(loc='upper left')
-
-    plt.xlim(-7, 1)
-    plt.ylim(-7, 1)
-
+    plt.xlim(-3.75, 1)
+    plt.ylim(-3.75, 1)
     plt.tight_layout()
     plt.savefig('../GAP_vs_DFT-' + gap_name + '.png', dpi=600)
     plt.close()
@@ -301,7 +272,7 @@ for name, label in zip(name, label):
     os.chdir(os.path.join(base_dir, label))
     os.symlink('../compress.dat', 'compress.dat')
     os.symlink('../test.xyz', 'test.xyz')
-    os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(name))
+    os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Au/compress.dat@compress.dat@g {}'.format(name))
     print('CPU {} running: quip atoms_filename=test.xyz param_filename={} for {}'.format(mpi_rank, name, label))
     os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(name))
 
@@ -311,6 +282,6 @@ for name, label in zip(name, label):
 
     scatterplot(result_energy=epred, reference_energy=eref,
                 quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
-                force_error=np.sum(dforce)/len(dforce), gap_name=label)
+                force_error=np.sum(dforce)/len(dforce), gap_name=label, gap_file=name)
 
 MPI.Finalize()

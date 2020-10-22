@@ -61,7 +61,7 @@ for wfid in local_list:
 
     with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
         for line in f:
-            if 'Total CPU time used (sec):' in line:
+            if b'Total CPU time used (sec):' in line:
                 runtime = float(line.split()[5])
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
