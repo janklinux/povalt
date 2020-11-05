@@ -9,3 +9,5 @@ fireworks
 pymatgen
 ase
 mpi4py
+quippy
+tensorflow

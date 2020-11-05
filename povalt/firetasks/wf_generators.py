@@ -19,9 +19,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import json
+import datetime
 from fireworks import Firework, Workflow, ScriptTask
 from povalt.firetasks.base import Lammps, LammpsCG, PotentialTraining
-from povalt.firetasks.FHIaims import RunAimsCustodian
+from povalt.firetasks.FHIaims import AimsSingleBasis, AimsRelaxLightTight
+from atomate.vasp.fireworks.core import StaticFW
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -44,7 +46,7 @@ def train_potential(train_params, for_validation, db_file):
     return Workflow([fw_train], name='TrainFlow')
 
 
-def run_lammps_auto_DFT(lammps_params, structures, db_file, al_file):
+def run_lammps_auto_dft(lammps_params, structures, db_file, al_file):
     """
     Runs LAMMPS with the supplied structures
     Use when a trained potential exists and we need more LAMMPS runs with it
@@ -140,69 +142,89 @@ def train_and_run_multiple_lammps(train_params, lammps_params, structures, db_fi
     return Workflow(all_fws, {train_fw: dep_fws}, name='train_multiLammps_autolaunch')
 
 
-class AimsSingleBasis:
-    def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, name, parents=None):
+def vasp_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=None,
+                   vasp_cmd=None, db_file=None, user_kpoints_settings=None, tag=None, metadata=None):
+    """
+    Static VASP workflow, to generate single point DFT training data
+    Args:
+        structure: pymatgen structure object
+        struc_name: name of the structure
+        name: name of the workflow
+        vasp_input_set: materials project input set
+        vasp_cmd: command to run
+        db_file: file containing db related infos
+        user_kpoints_settings: kpoints object for k-grid
+        tag: tag for the wokflow
+        metadata: additional data for the workflow
 
-        """
-        Performs a single basis DFT run with the specified basis set (no auto additions)
+    Returns:
+        the workflow add into LaunchPad
+    """
+    if vasp_input_set is None:
+        raise ValueError('INPUTSET needs to be defined...')
+    if user_kpoints_settings is None:
+        raise ValueError('You have to specify the K-grid...')
+    if vasp_cmd is None:
+        raise ValueError('vasp_cmd needs to be set by user...')
+    if tag is None:
+        tag = datetime.datetime.now().strftime('%Y/%m/%d-%T')
 
-        Args:
-            aims_cmd: command to run aims i.e. srun aims
-            control: control.in as list of lines
-            structure: pymatgen structure to relax
-            basis_set: basis set to use, directory name within basis_dir
-            basis_dir: directory where the basis is located (light / tight directories)
-            metadata: metadata to pass into both runs for identification
-            name: name of the workflow
-            parents: parents of this WF
+    vis = vasp_input_set
+    v = vis.as_dict()
+    v.update({"user_kpoints_settings": user_kpoints_settings})
+    vis_static = vis.__class__.from_dict(v)
 
-        Returns:
-            Workflow to insert into LaunchPad
-        """
-        t = list()
-        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
-                                  basis_set=basis_set, basis_dir=basis_dir, single_basis=True,
-                                  aims_output='run', rerun_metadata=metadata))
+    fws = [StaticFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
+                    db_file=db_file, name="{} -- static".format(tag))]
 
-        super(AimsSingleBasis, self).__init__(t, parents=parents, name="{}-{}".
-                                              format('{} - {}'.join(structure.composition.reduced_formula), name))
-
-    # run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_basis=True,
-    #                         basis_dir=basis_dir, basis_set=basis_set, rerun_metadata=metadata)])
-    #
-    # return Workflow([run_fw], name=name, metadata=metadata)
+    wfname = "{}: {}".format(struc_name, name)
+    return Workflow(fws, name=wfname, metadata=metadata)
 
 
-class AimsRelaxLightTight:
-    def __init__(self, aims_cmd, control, structure, basis_dir, metadata, name, parents=None):
-        """
-        Performs a light and tight relaxation for the given structure object
+def aims_single_basis(aims_cmd, control, structure, basis_set, basis_dir, metadata, name, parents=None):
+    """
+    Workflow to run FHIaims with the specified basis set
+    Args:
+        aims_cmd: command to run FHIaims
+        control: control.in file
+        structure: pymatgen structure object
+        basis_set: light or tight
+        basis_dir: directory where folder for basis_set is located
+        metadata: additional data
+        name: name of the WF
+        parents: do we have some?
 
-        Args:
-            aims_cmd: command to run aims i.e. srun aims
-            control: control.in as list of lines
-            structure: pymatgen structure to relax
-            basis_dir: directory where the basis is located (light / tight directories)
-            metadata: metadata to pass into both runs for identification
-            name: name of the workflow
-            parents: parents of the WF
+    Returns:
+        The workflow for LaunchPad
+    """
+    fws = [AimsSingleBasis(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
+                           basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)]
 
-        Returns:
-            Workflow to insert into LaunchPad
-        """
+    wfname = "{}: {}".format('Aims single basis ', name)
+    return Workflow(fws, name=wfname, metadata=metadata)
 
-        t = list()
-        t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
-                                  basis_set='light', basis_dir=basis_dir, single_basis=True,
-                                  aims_output='run', rerun_metadata=metadata))
 
-        super(AimsRelaxLightTight, self).__init__(t, parents=parents, metadata=metadata, name="{}-{}".
-                                                  format('{} - {}'.join(structure.composition.reduced_formula), name))
+def aims_double_basis(aims_cmd, control, structure, basis_dir, metadata, name, parents=None):
+    """
+    Workflow to run FHIaims first light then tight basis sets automatically
+    Args:
+        aims_cmd: command to run FHIaims
+        control: control.in file
+        structure: pymatgen structure object
+        basis_dir: directory where folder for basis_set is located
+        metadata: additional data
+        name: name of the WF
+        parents: do we have some?
 
-        # run_fw = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, single_point=False,
-        #                         basis_dir=basis_dir, basis_set='light', rerun_metadata=metadata)])
-        #
-        # return Workflow([run_fw], name=name, metadata=metadata)
+    Returns:
+        The workflow for LaunchPad
+
+    """
+    fws = [AimsRelaxLightTight(aims_cmd=aims_cmd, control=control, structure=structure,
+                               basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)]
+
+    wfname = "{}: {}".format('Aims auto-basis ', name)
+    return Workflow(fws, name=wfname, metadata=metadata)
 
 
 def read_info(db_file, al_file):

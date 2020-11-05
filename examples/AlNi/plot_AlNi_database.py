@@ -1,10 +1,7 @@
 import re
 import os
-import lzma
-import shutil
 import numpy as np
 import matplotlib.pyplot as plt
-from pymongo import MongoClient
 from datetime import datetime
 
 
@@ -169,18 +166,18 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
     plt.rcParams['font.family'] = 'DejaVu Sans'
-    plt.rcParams['font.sans-serif'] = 'cm'
-    plt.rcParams['xtick.major.size'] = 8
-    plt.rcParams['xtick.major.width'] = 3
-    plt.rcParams['xtick.minor.size'] = 4
-    plt.rcParams['xtick.minor.width'] = 3
-    plt.rcParams['xtick.labelsize'] = 18
-    plt.rcParams['ytick.major.size'] = 8
-    plt.rcParams['ytick.major.width'] = 3
-    plt.rcParams['ytick.minor.size'] = 4
-    plt.rcParams['ytick.minor.width'] = 3
-    plt.rcParams['ytick.labelsize'] = 18
-    plt.rcParams['axes.linewidth'] = 3
+    # plt.rcParams['font.sans-serif'] = 'cm'
+    # plt.rcParams['xtick.major.size'] = 8
+    # plt.rcParams['xtick.major.width'] = 3
+    # plt.rcParams['xtick.minor.size'] = 4
+    # plt.rcParams['xtick.minor.width'] = 3
+    # plt.rcParams['xtick.labelsize'] = 18
+    # plt.rcParams['ytick.major.size'] = 8
+    # plt.rcParams['ytick.major.width'] = 3
+    # plt.rcParams['ytick.minor.size'] = 4
+    # plt.rcParams['ytick.minor.width'] = 3
+    # plt.rcParams['ytick.labelsize'] = 18
+    # plt.rcParams['axes.linewidth'] = 3
 
     plt.scatter(result_energy, reference_energy, marker='.', color='navy', label=None, s=0.5)
 
@@ -191,14 +188,14 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
 
     # plt.plot([-42000, 300], [-42000, 300], '-', color='k', linewidth=0.25)
 
-    # plt.text(-35000, -6000, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
-    # plt.text(-35000, -9000, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    plt.text(-35000, -6000, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
+    plt.text(-35000, -9000, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
     #
     # plt.text(-35000, -13000, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
     #
     # plt.text(-20000, -25000, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
     #
-    # plt.text(-29000, -41000, get_command_line('AlNi.xml'), fontsize=4)
+    plt.text(-29000, -41000, get_command_line('AlNi.xml'), fontsize=4)
 
     plt.legend(loc='upper left')
 

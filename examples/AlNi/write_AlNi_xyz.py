@@ -1,17 +1,29 @@
 import os
 import re
+import glob
+import gzip
 import numpy as np
 from monty.serialization import loadfn
+
+
+def get_parsed_data(base_dir):
+    tmp_data = []
+    current_dir = os.getcwd()
+    os.chdir(base_dir)
+    for file in glob.glob('**/parsed.xyz.gz', recursive=True):
+        wtmp = []
+        with gzip.open(file, 'rt') as in_file:
+            for wline in in_file:
+                wtmp.append(wline)
+        tmp_data.append(wtmp)
+    os.chdir(current_dir)
+    return tmp_data
 
 
 np.random.seed(1410)  # fix for reproduction
 
 force_fraction = 0.0  # percentage of forces to EXCLUDE from training
 do_soap = False
-
-systems = ['bulk', 'moldyn']
-train_split = {'bulk': 0.8,
-               'moldyn': 0.8}
 
 with open('train.xyz', 'w') as fout:
     for a in ['Al', 'Ni']:
@@ -23,47 +35,27 @@ with open('train.xyz', 'w') as fout:
             fout.write(fin.read())
 
     data = loadfn('AlNi_complete.json')
+    for d in data:
+        fout.write(d['xyz'])
 
-    system_count = dict()
-    for csys in systems:
-        system_count[csys] = data['xyz'].count(csys)
+    # with open('MD/parsed.xyz', 'r') as fin:  # MD has no stresses computed -> no virials
+    #     for line in fin:
+    #         fout.write(re.sub('cluster', 'moldyn', line))
 
-    print(system_count)
-    quit()
+    ce_data = get_parsed_data('/home/jank/work/Aalto/GAP_data/AlNi/training_data/run_dir')
+    for xyz in ce_data:
+        for line in xyz:
+            fout.write(re.sub('CEbulk', 'random', line))
 
-
-    train_selected = dict()
-    for sys in systems:
-        tmp = []
-        for i in range(system_count[sys]):
-            if i < system_count[sys] * train_split[sys]:
-                tmp.append(True)
-            else:
-                tmp.append(False)
-            train_selected[sys] = tmp
-        np.random.shuffle(train_selected[sys])
-
-    with open('test.xyz', 'w') as ftest:
-        for sys in systems:
-            for i, t in enumerate(train_selected[sys]):
-                if t:
-                    fout.write(data[i]['xyz'])
-                else:
-                    ftest.write(data[i]['xyz'])
-
-
-with open('MD/parsed.xyz', 'r') as fin:
-    with open('train.xyz', 'a') as fout:
-        for line in fin:
-            fout.write(re.sub('cluster', 'moldyn', line))
-
-
-with open('no_dimers.xyz', 'w') as f:
+with open('validation.xyz', 'w') as f:
     for d in data:
         f.write(d['xyz'])
-    with open('MD/parsed.xyz', 'r') as f_in:
-        for line in f_in:
-            f.write(re.sub('cluster', 'moldyn', line))
+    # with open('MD/parsed.xyz', 'r') as f_in:  # MD has no stresses computed -> no virials
+    #     for line in f_in:
+    #         f.write(re.sub('cluster', 'moldyn', line))
+    for xyz in ce_data:
+        for line in xyz:
+            f.write(re.sub('CEbulk', 'random', line))
 
 
 if do_soap:

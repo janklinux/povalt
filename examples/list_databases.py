@@ -1,12 +1,12 @@
 import pymongo
 
-# db_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True,
-#                              ssl_ca_certs='/home/jank/ssl/numphys/ca.crt',
-#                              ssl_certfile='/home/jank/ssl/numphys/client.pem')
+db_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True,
+                             ssl_ca_certs='/home/jank/ssl/numphys/ca.crt',
+                             ssl_certfile='/home/jank/ssl/numphys/client.pem')
+db_con.admin.authenticate('jank', 'b@sf_mongo')
 
-db_con = pymongo.MongoClient(host='195.148.22.179', port=27017, ssl=False)
-
-db_con.admin.authenticate('jank', 'mongo')
+# db_con = pymongo.MongoClient(host='195.148.22.179', port=27017, ssl=False)
+# db_con.admin.authenticate('jank', 'mongo')
 
 print(db_con.list_database_names())
 

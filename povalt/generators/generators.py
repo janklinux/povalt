@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import re
 import os
-import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from povalt.firetasks.vasp import VaspTasks
@@ -30,7 +30,7 @@ class Dimer:
     Class for dimer related generators
     """
 
-    def __init__(self, species, lattice, min_dist, max_dist, show_curve):
+    def __init__(self, species, lattice, min_dist, max_dist, show_curve, cores):
         """
         Checks parameters and sets up the grid
 
@@ -48,10 +48,9 @@ class Dimer:
         self.min_dist = min_dist
         self.max_dist = max_dist
         self.show_curve = show_curve
+        self.cores = cores
         self.base_dir = os.getcwd()
-        self.grid = np.linspace(start=min_dist, stop=1, num=5, endpoint=False)
-        self.grid = np.append(self.grid, np.linspace(start=1, stop=3.5, num=30, endpoint=False))
-        self.grid = np.append(self.grid, np.linspace(start=3.5, stop=max_dist, num=15, endpoint=True))
+        self.grid = np.linspace(start=min_dist, stop=max_dist, num=100, endpoint=True)
 
     def run_dimer_aims(self):
         """
@@ -74,55 +73,67 @@ class Dimer:
 
                 species_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j]))
 
-                if os.path.isdir(species_dir):
-                    shutil.rmtree(species_dir)
-                os.mkdir(species_dir)
+                if not os.path.isdir(species_dir):
+                    os.mkdir(species_dir)
                 os.chdir(species_dir)
 
                 for d in self.grid:
                     if os.path.isdir(str(np.round(d, 2))):
-                        shutil.rmtree(str(np.round(d, 2)))
-
-                for d in self.grid:
+                        continue
                     os.mkdir(str(np.round(d, 2)))
-                    with open(os.path.join(str(np.round(d, 2)), 'geometry.in'), 'w') as f:
+                    os.chdir(str(np.round(d, 2)))
+
+                    with open('geometry.in', 'w') as f:
                         f.write('atom 0.0 0.0 0.0 {}\n'.format(self.species[i]))
                         f.write('  initial_moment 0.81\n')
                         f.write('atom 0.0 0.0 {} {}\n'.format(d, self.species[j]))
                         f.write('  initial_moment -0.81\n')
 
-                    with open(os.path.join(str(np.round(d, 2)), 'control.in'), 'w') as f:
-                        with open(os.path.join(self.base_dir, 'control.in'), 'r') as fin:
-                            f.write(fin.read())
-
-                    os.chdir(str(np.round(d, 2)))
-                    os.system('mpirun -n 1 /home/jank/bin/aims | tee run.light')
-
-                    energy = None
                     forces = []
-                    parse_forces = False
+                    converged = False
+                    while not converged:
+                        for mix in [0.01, 0.05, 0.1]:
+                            for smear in [0.05, 0.001, 0.1]:
+                                converged = False
+                                with open('control.in', 'w') as f:
+                                    with open(os.path.join(self.base_dir, 'control.in'), 'r') as fin:
+                                        for line in fin:
+                                            f.write(re.sub('MIXING', str(mix),
+                                                           re.sub('SMEAR', str(smear), line)))
 
-                    with open('run.light', 'r') as f:
-                        for line in f:
-                            if '| Total energy of the DFT / Hartree-Fock s.c.f. calculation      :' in line:
-                                energy = float(line.split()[11])
-                            if parse_forces:
-                                forces.append([float(x) for x in line.split()[2:5]])
-                                if i_force == 1:
-                                    parse_forces = False
-                                i_force += 1
-                            if 'Total atomic forces (unitary forces cleaned) [eV/Ang]:' in line:
-                                forces = []
-                                i_force = 0
-                                parse_forces = True
+                                os.system('nice -n 10 mpirun -n {} /home/jank/bin/aims > run.light'.format(self.cores))
+
+                                forces = None
+                                parse_forces = False
+                                with open('run.light', 'r') as f:
+                                    for line in f:
+                                        if '| Total energy of the DFT / Hartree-Fock s.c.f. calculation      :' in line:
+                                            energy = float(line.split()[11])
+                                        if parse_forces:
+                                            forces.append([float(x) for x in line.split()[2:5]])
+                                            if i_force == 1:
+                                                parse_forces = False
+                                            i_force += 1
+                                        if 'Total atomic forces (unitary forces cleaned) [eV/Ang]:' in line:
+                                            forces = []
+                                            i_force = 0
+                                            parse_forces = True
+                                        if 'Have a nice day.' in line:
+                                            converged = True
+                                if converged:
+                                    break
+                            print('Distance: {} Mix: {} Smear: {} Converged.'.format(np.round(d, 2), mix, smear))
+                            if converged:
+                                break
+                        if mix == 0.1 and smear == 0.001 and not converged:
+                            raise RuntimeError('DFT non-convergent with internal settings')
+
+                    os.chdir('..')
 
                     if energy is None:
-                        raise ValueError('Computational Error, no total energy found. Check what happened.')
+                        raise ValueError('DFT not converged, check settings...')
 
-                    dists.append(d)
-                    energies.append(energy)
-
-                    with open('../dimer.xyz', 'a') as f:
+                    with open('dimer.xyz', 'a') as f:
                         f.write('2\n')
                         f.write('Lattice="20.0 0.0 0.0 0.0 20.0 0.0 0.0 0.0 20.0"'
                                 ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
@@ -138,26 +149,21 @@ class Dimer:
                     os.chdir(species_dir)
 
                 if self.show_curve:
+                    for d in self.grid:
+                        dists.append(d)
+                        with open(str(np.round(d, 2)) + 'run', 'r') as f:
+                            for line in f:
+                                if '| Total energy of the DFT / Hartree-Fock s.c.f. calculation      :' in line:
+                                    energies.append(float(line.split()[11]))
+
                     plt.rc('text', usetex=True)
                     plt.rc('font', family='sans-serif', serif='Palatino')
                     plt.rcParams['font.family'] = 'DejaVu Sans'
                     plt.rcParams['font.sans-serif'] = 'cm'
-                    plt.rcParams['xtick.major.size'] = 8
-                    plt.rcParams['xtick.major.width'] = 3
-                    plt.rcParams['xtick.minor.size'] = 4
-                    plt.rcParams['xtick.minor.width'] = 3
-                    plt.rcParams['xtick.labelsize'] = 18
-                    plt.rcParams['ytick.major.size'] = 8
-                    plt.rcParams['ytick.major.width'] = 3
-                    plt.rcParams['ytick.minor.size'] = 4
-                    plt.rcParams['ytick.minor.width'] = 3
-                    plt.rcParams['ytick.labelsize'] = 18
-                    plt.rcParams['axes.linewidth'] = 3
                     plt.plot(dists, energies, '.-', color='navy')
                     plt.xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
                     plt.ylabel(r'Free Energy [eV]', fontsize=22, color='k')
-                    plt.title(r'{} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
-                    plt.tight_layout()
+                    plt.title(r'FHIaims: {} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
                     plt.show()
                     plt.close()
 
@@ -177,62 +183,56 @@ class Dimer:
 
         for i in range(len(self.species)):
             for j in range(i, len(self.species)):
-                dists = []
-                energies = []
-
                 print('Running {} <--> {}'.format(self.species[i], self.species[j]))
 
                 species_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j]))
 
-                if os.path.isdir(species_dir):
-                    shutil.rmtree(species_dir)
-                os.mkdir(species_dir)
+                if not os.path.isdir(species_dir):
+                    os.mkdir(species_dir)
                 os.chdir(species_dir)
 
                 for d in self.grid:
                     if os.path.isdir(str(np.round(d, 2))):
-                        shutil.rmtree(str(np.round(d, 2)))
-
-                for d in self.grid:
+                        continue
                     os.mkdir(str(np.round(d, 2)))
-                    with open(os.path.join(str(np.round(d, 2)), 'POSCAR'), 'w') as f:
+                    os.chdir(str(np.round(d, 2)))
+
+                    with open('POSCAR', 'w') as f:
                         f.write('autogen by PoValT\n')
                         f.write('1.0\n')
                         f.write('{} {} {}\n'.format(self.lattice[0][0], self.lattice[0][1], self.lattice[0][2]))
                         f.write('{} {} {}\n'.format(self.lattice[1][0], self.lattice[1][1], self.lattice[1][2]))
                         f.write('{} {} {}\n'.format(self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]))
-                        f.write(' {} {}\n'.format(self.species[i], self.species[j]))
-                        f.write(' 1 1\n')
+                        if self.species[i] == self.species[j]:
+                            f.write(' {}\n'.format(self.species[i]))
+                            f.write(' 2\n')
+                        else:
+                            f.write(' {} {}\n'.format(self.species[i], self.species[j]))
+                            f.write(' 1 1\n')
                         f.write('cartesian\n')
                         f.write('0.0 0.0 0.0\n')
-                        f.write('0.0 0.0 {}\n'.format(d))
+                        f.write('0.0 0.0 {}\n'.format(np.round(d, 3)))
 
-                    with open(os.path.join(str(np.round(d, 2)), 'INCAR'), 'w') as f:
+                    with open('INCAR', 'w') as f:
                         with open(os.path.join(self.base_dir, 'INCAR'), 'r') as fin:
                             f.write(fin.read())
-                        f.write('   DIPOL = 0.0 0.0 {}'.format(d/2))
+                        # f.write('   DIPOL = 0.0 0.0 {}'.format(np.round(d/2, 2)))
 
-                    with open(os.path.join(str(np.round(d, 2)), 'KPOINTS'), 'w') as f:
+                    with open('KPOINTS', 'w') as f:
                         with open(os.path.join(self.base_dir, 'KPOINTS'), 'r') as fin:
                             f.write(fin.read())
 
                     pots = Potcar([self.species[i], self.species[j]])
-                    pots.write_file(os.path.join(str(np.round(d, 2)), 'POTCAR'))
+                    pots.write_file('POTCAR')
 
-                    os.chdir(str(np.round(d, 2)))
-                    os.system('mpirun -n 6 /home/jank/bin/vasp_std | tee run')
+                    os.system('nice -n 10 mpirun -n {} /home/jank/bin/vasp_gpu | tee run'.format(self.cores))
 
                     run = Outcar('OUTCAR')
                     forces = run.read_table_pattern(
                         header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
                         row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s'
                                     '+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
-                        footer_pattern=r'\s--+',
-                        postprocess=lambda x: float(x),
-                        last_one_only=True)
-
-                    dists.append(d)
-                    energies.append(run.final_energy)
+                        footer_pattern=r'\s--+', postprocess=lambda x: float(x), last_one_only=True)
 
                     with open('../dimer.xyz', 'a') as f:
                         f.write('2\n')
@@ -252,26 +252,20 @@ class Dimer:
                     os.chdir(species_dir)
 
                 if self.show_curve:
+                    dists = []
+                    energies = []
+                    for d in self.grid:
+                        dists.append(d)
+                        energies.append(Outcar(os.path.join(str(np.round(d, 2)), 'OUTCAR')).final_energy)
+
                     plt.rc('text', usetex=True)
                     plt.rc('font', family='sans-serif', serif='Palatino')
                     plt.rcParams['font.family'] = 'DejaVu Sans'
                     plt.rcParams['font.sans-serif'] = 'cm'
-                    plt.rcParams['xtick.major.size'] = 8
-                    plt.rcParams['xtick.major.width'] = 3
-                    plt.rcParams['xtick.minor.size'] = 4
-                    plt.rcParams['xtick.minor.width'] = 3
-                    plt.rcParams['xtick.labelsize'] = 18
-                    plt.rcParams['ytick.major.size'] = 8
-                    plt.rcParams['ytick.major.width'] = 3
-                    plt.rcParams['ytick.minor.size'] = 4
-                    plt.rcParams['ytick.minor.width'] = 3
-                    plt.rcParams['ytick.labelsize'] = 18
-                    plt.rcParams['axes.linewidth'] = 3
                     plt.plot(dists, energies, '.-', color='navy')
                     plt.xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
                     plt.ylabel(r'Free Energy [eV]', fontsize=22, color='k')
-                    plt.title(r'{} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
-                    plt.tight_layout()
+                    plt.title(r'VASP: {} -- {}'.format(self.species[i], self.species[j]), fontsize=16)
                     plt.show()
                     plt.close()
 
