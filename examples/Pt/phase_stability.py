@@ -10,7 +10,9 @@ from pymatgen.io.vasp import Kpoints, Outcar
 from pymatgen.core.structure import Structure
 
 
+run_dft = False
 plot_only = True
+
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}
 
@@ -18,10 +20,10 @@ base_dir = os.getcwd()
 run_dir = os.path.join(os.getcwd(), 'run_dir')
 
 if not plot_only:
-    gap_energy = {'fcc': {'lat_const': [], 'energy': []}, 'bcc': {'lat_const': [], 'energy': []},
-                  'sc': {'lat_const': [], 'energy': []}, 'hcp': {'lat_const': [], 'energy': []}}
-    dft_energy = {'fcc': {'lat_const': [], 'energy': []}, 'bcc': {'lat_const': [], 'energy': []},
-                  'sc': {'lat_const': [], 'energy': []}, 'hcp': {'lat_const': [], 'energy': []}}
+    gap_energy = {'fcc': {'atom_vol': [], 'energy': []}, 'bcc': {'atom_vol': [], 'energy': []},
+                  'sc': {'atom_vol': [], 'energy': []}, 'hcp': {'atom_vol': [], 'energy': []}}
+    dft_energy = {'fcc': {'atom_vol': [], 'energy': []}, 'bcc': {'atom_vol': [], 'energy': []},
+                  'sc': {'atom_vol': [], 'energy': []}, 'hcp': {'atom_vol': [], 'energy': []}}
     for csys in ['fcc', 'bcc', 'sc', 'hcp']:
         print('Running: {:3.3s}'.format(csys), end='')
         sys.stdout.flush()
@@ -51,28 +53,34 @@ if not plot_only:
             with open('quip.result', 'r') as f:
                 for line in f:
                     if 'Energy' in line:
-                        gap_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
+                        gap_energy[csys]['atom_vol'].append(float(run_cell.volume/cell.num_sites))
                         gap_energy[csys]['energy'].append(float(line.split('=')[1]))
 
-            run_cell.to(fmt='POSCAR', filename='POSCAR')
-            Kpoints.gamma_automatic(kpts=[6, 6, 6], shift=(0, 0, 0)).write_file('KPOINTS')
-            os.symlink('../../POTCAR', 'POTCAR')
-            os.symlink('../../INCAR', 'INCAR')
+            if run_dft:
+                run_cell.to(fmt='POSCAR', filename='POSCAR')
+                Kpoints.gamma_automatic(kpts=[6, 6, 6], shift=(0, 0, 0)).write_file('KPOINTS')
+                os.symlink('../../POTCAR', 'POTCAR')
+                os.symlink('../../INCAR', 'INCAR')
 
-            os.system('nice -n 10 mpirun -n 4 vasp_std > run')
+                os.system('nice -n 10 mpirun -n 4 vasp_std | tee run')
 
-            dft_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
-            dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy))
+                dft_energy[csys]['atom_vol'].append(float(run_cell.volume/cell.num_sites))
+                dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy))
 
             os.chdir(run_dir)
             shutil.rmtree(tmp_dir)
+
         print('')
         sys.stdout.flush()
 
     with open('gap_data.json', 'w') as f:
         json.dump(obj=gap_energy, fp=f)
-    with open('dft_data.json', 'w') as f:
-        json.dump(obj=dft_energy, fp=f)
+    if run_dft:
+        with open('dft_data.json', 'w') as f:
+            json.dump(obj=dft_energy, fp=f)
+    else:
+        with open('dft_data.json', 'r') as f:
+            dft_energy = json.load(f)
 
 else:
     with open('gap_data.json', 'r') as f:
@@ -100,13 +108,13 @@ plt.rcParams['ytick.labelsize'] = 18
 plt.rcParams['axes.linewidth'] = 3
 
 for csys in ['fcc', 'bcc', 'sc', 'hcp']:
-    plt.plot(gap_energy[csys]['lat_const'], gap_energy[csys]['energy'], '-',
+    plt.plot(gap_energy[csys]['atom_vol'], gap_energy[csys]['energy'], '-',
              linewidth=1, color=color[csys], label=csys+'-GAP')
-    plt.plot(dft_energy[csys]['lat_const'], dft_energy[csys]['energy'], '.',
+    plt.plot(dft_energy[csys]['atom_vol'], dft_energy[csys]['energy'], '.',
              linewidth=1, color=color[csys], label=csys+'-DFT')
 
-plt.xlabel(r'Lattice Constant [\AA]', fontsize=16, color='k')
-plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
+plt.xlabel(r'Volume per atom [\AA$^3$]', fontsize=16, color='k')
+plt.ylabel(r'Energy [eV/atom]', fontsize=16, color='k')
 
 plt.legend(loc='upper right', fontsize=8)
 

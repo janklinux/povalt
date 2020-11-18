@@ -47,11 +47,12 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
+
+
 crystal = os.getcwd().split('/')[-1]
 if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
-
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
 
 if crystal == 'bcc':
     scale_mat = np.array([[4, 0, 0], [0, 4, 0], [0, 0, 4]])  # 128 atoms in bcc
@@ -77,44 +78,44 @@ incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'I
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
  
-if cell.num_sites < 100 or cell.num_sites > 128:
+if 100 > cell.num_sites > 128:
     print('Number of atoms in cell: {}'.format(cell.num_sites))
     raise ValueError('Atoms in supercell not in the range 100 > sites > 128, adjust transformation matrix...')
 
 print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
 
 random.seed(time.time())
-total_structures = 2500
+total_structures = 125
 
 # quit()
 
 i = 0
 while i < total_structures:
-    de = np.array([[(random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45],
-                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45],
-                   [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35]])
-
-    new_lat = np.add(cell.lattice.matrix, de)
-
-    eps = get_strain_and_stress(old=cell.lattice.matrix, new=new_lat)
-    if np.any(eps > 0.15):
-        print('Component > 0.15 -> too much strain, omitting structure...')
-        continue
-
+    # de = np.array([[(random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45],
+    #                [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45],
+    #                [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35]])
+    #
+    # new_lat = np.add(cell.lattice.matrix, de)
+    #
+    # eps = get_strain_and_stress(old=cell.lattice.matrix, new=new_lat)
+    # if np.any(eps > 0.15):
+    #     print('Component > 0.15 -> too much strain, omitting structure...')
+    #     continue
+    new_lat =  cell.lattice.matrix
     new_crds = []
     new_species = []
     for s in cell.sites:
         new_species.append(s.specie)
-        new_crds.append(np.array([(random.random() - 0.5) * 0.25 + s.coords[0],
-                                  (random.random() - 0.5) * 0.25 + s.coords[1],
-                                  (random.random() - 0.5) * 0.25 + s.coords[2]]))
+        new_crds.append(np.array([(random.random() - 0.5) * 0.05 + s.coords[0],
+                                  (random.random() - 0.5) * 0.05 + s.coords[1],
+                                  (random.random() - 0.5) * 0.05 + s.coords[2]]))
 
     new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
                          charge=None, validate_proximity=True, to_unit_cell=False,
                          coords_are_cartesian=True, site_properties=None)
 
     incar_set = MPStaticSet(new_cell)
-    structure_name = '{} {} in '.format(len(new_cell.sites), str(new_cell.symbol_set[0])) + crystal
+    structure_name = '{} {} for phonons'.format(len(new_cell.sites), str(new_cell.symbol_set[0]))  # + crystal
     meta = {'name': structure_name,
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 

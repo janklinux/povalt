@@ -1,5 +1,5 @@
 import re
-import os
+import lzma
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -24,7 +24,7 @@ def get_command_line(filename):
 
 def parse_quip(filename):
     start_parse = False
-    with open(filename, 'r') as ff:
+    with lzma.open(filename, 'rt') as ff:
         data = []
         predicted_energies = []
         first_line_parsed = False
@@ -155,7 +155,7 @@ def get_differences(result_vals, reference_vals):
         adf = 0
         for fa, fb in zip(np.array(result_data[i]['forces']), np.array(reference_data[i]['forces'])):
             adf += np.linalg.norm(fa - fb) / 3
-        force_diff.append(adf/len(result_data[i]['forces']))
+        force_diff.append(adf / len(result_data[i]['forces']))
 
     return reference_per_atom, prediction_per_atom, energy_diff, force_diff
 
@@ -166,38 +166,20 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
     plt.rcParams['font.family'] = 'DejaVu Sans'
-    # plt.rcParams['font.sans-serif'] = 'cm'
-    # plt.rcParams['xtick.major.size'] = 8
-    # plt.rcParams['xtick.major.width'] = 3
-    # plt.rcParams['xtick.minor.size'] = 4
-    # plt.rcParams['xtick.minor.width'] = 3
-    # plt.rcParams['xtick.labelsize'] = 18
-    # plt.rcParams['ytick.major.size'] = 8
-    # plt.rcParams['ytick.major.width'] = 3
-    # plt.rcParams['ytick.minor.size'] = 4
-    # plt.rcParams['ytick.minor.width'] = 3
-    # plt.rcParams['ytick.labelsize'] = 18
-    # plt.rcParams['axes.linewidth'] = 3
 
     plt.scatter(result_energy, reference_energy, marker='.', color='navy', label=None, s=0.5)
 
     plt.xlabel(r'Computed Energy [eV/atom]', fontsize=16, color='k')
     plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
-
     # plt.scatter(500, 500, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
-
-    # plt.plot([-42000, 300], [-42000, 300], '-', color='k', linewidth=0.25)
-
+    plt.plot([-42000, 300], [-42000, 300], '-', color='k', linewidth=0.25)
     plt.text(-35000, -6000, r'Max error: {} meV/atom'.format(round(max_energy_error*1000, 1)), fontsize=8)
     plt.text(-35000, -9000, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
-    #
-    # plt.text(-35000, -13000, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
-    #
-    # plt.text(-20000, -25000, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
-    #
-    plt.text(-29000, -41000, get_command_line('AlNi.xml'), fontsize=4)
+    plt.text(-35000, -13000, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
+    plt.text(-20000, -25000, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
+    plt.text(-27000, -41000, get_command_line('AlNi.xml'), fontsize=4)
 
-    plt.legend(loc='upper left')
+    # plt.legend(loc='upper left')
 
     # plt.xlim(np.amin(reference_energy)-1000, 10)
     # plt.ylim(np.amin(reference_energy)-1000, 10)
@@ -207,52 +189,39 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.close()
 
 
-# ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-# cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-# conn = MongoClient(host='numphys.org', port=27017, ssl=True, tlsCAFile=ca_file, ssl_certfile=cl_file)
-# data_db = conn.pot_train
-# data_db.authenticate('jank', 'b@sf_mongo')
-# data_coll = data_db['validate_potentials']
-
-reference = parse_xyz('no_dimers.xyz')
-
-# print('DB Content: {} potentials'.format(data_coll.estimated_document_count()))
-
-base_dir = os.getcwd()
-# xml_name = None
-# xml_label = None
-# for pot in data_coll.find():
-#     os.chdir(base_dir)
-#     for p in pot:
-#         if p != '_id':
-#             bits = p.split(':')
-#             if len(bits) == 2:
-#                 xml_name = bits[0] + '.' + bits[1]
-#             if len(bits) == 4:
-#                 xml_label = p.split(':')[3][:-1]
-#
-#     if os.path.isdir(xml_label):
-#         shutil.rmtree(xml_label)
-#     os.mkdir(xml_label)
-#     os.chdir(xml_label)
-#
-#     for p in pot:
-#         if p != '_id':
-#             with open(re.sub(':', '.', p), 'wb') as f:
-#                 f.write(lzma.decompress(pot[p]))
-
-# os.symlink('../compress.dat', 'compress.dat')
-# os.symlink('../test.xyz', 'test.xyz')
-# os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
+reference = parse_xyz('validation.xyz')
 
 xml_name = 'AlNi.xml'
-xml_label = 'GAP_2020_10_10_180_17_43_6_350'
-# print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
-# os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
+xml_label = 'GP_2020_11_11_120_4_9_28_544'
 
-result, runtime = parse_quip('quip.result')
-# os.system('nice -n 10 xz -z9e quip.result &')
+result, runtime = parse_quip('quip.result.xz')
 eref, epred, de, df = get_differences(result_vals=result, reference_vals=reference)
+
+
+# max_de = max(de)
+# idx = de.index(max_de)
+# print(reference['data'][idx])
+
+weed_out = False
+if weed_out:
+    dirty = True
+    while dirty:
+        for ie, e in enumerate(de):
+            if e > 1.0:
+                epred.pop(ie)
+                eref.pop(ie)
+                de.pop(ie)
+                df.pop(ie)
+                break
+        if np.amax(de) < 1.0:
+            dirty = False
+        else:
+            print('still dirty...')
+
+    print('clean now...')
+
+# print('greater than 1: {}'.format(cnt))  # , max_de, idx)
+
 
 scatterplot(result_energy=epred, reference_energy=eref,
             quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),

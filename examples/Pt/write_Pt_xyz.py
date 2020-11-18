@@ -20,20 +20,21 @@ def check_vacuum_direction(input_data):
 
 np.random.seed(1410)  # fix for reproduction
 
-read_from_db = True
+read_from_db = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 show_dimer = False
 do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
 
-train_split = {'fcc': 0.65,
-               'bcc': 0.65,
-               'hcp': 0.65,
-               'sc': 0.65,
-               'slab': 0.85,
-               'cluster': 0.85,
-               'addition': 0.85}
+train_split = {'fcc': 0.8,
+               'bcc': 0.8,
+               'hcp': 0.8,
+               'sc': 0.8,
+               'slab': 0.8,
+               'cluster': 0.8,
+               'phonons': 0.8,
+               'addition': 1.0}
 
 with open('train.xyz', 'w') as f:
     f.write('1\n')
@@ -134,17 +135,6 @@ if show_dimer:
     plt.rc('font', family='sans-serif', serif='Palatino')
     plt.rcParams['font.family'] = 'DejaVu Sans'
     plt.rcParams['font.sans-serif'] = 'cm'
-    plt.rcParams['xtick.major.size'] = 8
-    plt.rcParams['xtick.major.width'] = 3
-    plt.rcParams['xtick.minor.size'] = 4
-    plt.rcParams['xtick.minor.width'] = 3
-    plt.rcParams['xtick.labelsize'] = 18
-    plt.rcParams['ytick.major.size'] = 8
-    plt.rcParams['ytick.major.width'] = 3
-    plt.rcParams['ytick.minor.size'] = 4
-    plt.rcParams['ytick.minor.width'] = 3
-    plt.rcParams['ytick.labelsize'] = 18
-    plt.rcParams['axes.linewidth'] = 3
     fig, ax1 = plt.subplots()
     color = 'red'
     ax1.plot(zcrds, dimer_curve, '.-', color=color)
@@ -193,6 +183,8 @@ if read_from_db:
                 crystal_system.append('slab')
             elif 'Cluster' in doc['name']:
                 crystal_system.append('cluster')
+            elif 'phonons' in doc['name']:
+                crystal_system.append('phonons')
             else:
                 crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
 
@@ -235,6 +227,7 @@ print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
       '                          hcp     : {:5d} [{:3.1f}%]\n'
       '                          slab    : {:5d} [{:3.1f}%]\n'
       '                          cluster : {:5d} [{:3.1f}%]\n'
+      '                          phonons : {:5d} [{:3.1f}%]\n'
       '                          addition: {:5d} [{:3.1f}%]'.
       format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
              int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
@@ -242,6 +235,7 @@ print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
              int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
+             int(system_count['phonons'] * train_split['phonons']), train_split['phonons']*100,
              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
 # print('This will need approximately {} GB of memory during training.'.format(np.round(
 #     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
@@ -257,6 +251,7 @@ processed = {'fcc': [],
              'sc': [],
              'slab': [],
              'cluster': [],
+             'phonons': [],
              'addition': []}
 
 skips = 0
@@ -305,7 +300,7 @@ for i, xyz in enumerate(complete_xyz):
     stress = np.array([stress[0:3], stress[3:6], stress[6:9]])
     lattice = np.array([lattice[0:3], lattice[3:6], lattice[6:9]])
     vol = np.abs(np.dot(lattice[2], np.cross(lattice[0], lattice[1])))
-    virial = - np.dot(vol, stress)
+    virial = -np.dot(vol, stress)
 
     tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
     wtmp = ''
