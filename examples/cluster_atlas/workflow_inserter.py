@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+from pymatgen import Structure
 from fireworks import LaunchPad
 from povalt.firetasks.wf_generators import AimsRelaxLightTight
 
@@ -41,8 +42,17 @@ basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
 for c in all_clusters:
     for i, d in enumerate(all_clusters[c]['energies']['dft']):
         if not d:
+            non_spin_structure = Structure.from_dict(all_clusters[c]['structures'][i])
+            site_properties = dict({'initial_moment': []})
+            for si, s in enumerate(non_spin_structure.sites):
+                site_properties['initial_moment'].append((-1.0)**si)
+            structure_with_spin = Structure(lattice=non_spin_structure.lattice,
+                                            species=non_spin_structure.species,
+                                            coords=non_spin_structure.cart_coords,
+                                            charge=None, validate_proximity=False, to_unit_cell=False,
+                                            coords_are_cartesian=True, site_properties=site_properties)
             wf = AimsRelaxLightTight(aims_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 aims',
-                                     control=ctrl, structure=all_clusters[c]['structures'][i],
+                                     control=ctrl, structure=structure_with_spin,
                                      basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
                                      name='initial light relax')
             lpad.add_wf(wf)
