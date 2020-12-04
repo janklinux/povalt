@@ -184,7 +184,7 @@ class AimsBase(FiretaskBase):
         if structure is not None:
             add_wf = Workflow([Firework(
                 [Aims(aims_cmd=params['aims_cmd'], control=params['control'], structure=structure, basis_set='tight',
-                      basis_dir=params['basis_dir'], single_point=False, rerun_metadata=params['metadata'])])],
+                      basis_dir=params['basis_dir'], single_basis=True, rerun_metadata=params['metadata'])])],
                 metadata=params['metadata'], name='automatic tight run')
             return FWAction(additions=add_wf)
 
@@ -194,7 +194,7 @@ class Aims(AimsBase):
     """
     Class to run FHIaims
     """
-    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'rerun_metadata', 'single_point']
+    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'rerun_metadata', 'single_basis']
     optional_params = ['output_file', 'stderr_file']
 
     def get_job(self, fw_spec):

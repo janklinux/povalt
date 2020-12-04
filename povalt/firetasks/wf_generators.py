@@ -21,9 +21,9 @@ import os
 import json
 import datetime
 from fireworks import Firework, Workflow, ScriptTask
-from povalt.firetasks.base import Lammps, LammpsCG, PotentialTraining
-from povalt.firetasks.FHIaims import AimsSingleBasis, AimsRelaxLightTight
+from povalt.firetasks.base import Lammps, LammpsCG, PotentialTraining, Aims
 from atomate.vasp.fireworks.core import StaticFW
+from fireworks.utilities.fw_utilities import explicit_serialize
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -197,14 +197,14 @@ def aims_single_basis(aims_cmd, control, structure, basis_set, basis_dir, metada
     Returns:
         The workflow for LaunchPad
     """
-    fws = [AimsSingleBasis(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
-                           basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)]
+    fws = Firework([AimsSingleBasis(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
+                                    basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)])
 
     wfname = "{}: {}".format('Aims single basis ', name)
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
-def aims_double_basis(aims_cmd, control, structure, basis_dir, metadata, name, parents=None):
+def aims_double_basis(aims_cmd, control, structure, basis_dir, metadata, name):
     """
     Workflow to run FHIaims first light then tight basis sets automatically
     Args:
@@ -214,17 +214,15 @@ def aims_double_basis(aims_cmd, control, structure, basis_dir, metadata, name, p
         basis_dir: directory where folder for basis_set is located
         metadata: additional data
         name: name of the WF
-        parents: do we have some?
 
     Returns:
         The workflow for LaunchPad
 
     """
-    fws = [AimsRelaxLightTight(aims_cmd=aims_cmd, control=control, structure=structure,
-                               basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)]
-
-    wfname = "{}: {}".format('Aims auto-basis ', name)
-    return Workflow(fws, name=wfname, metadata=metadata)
+    fws = Firework([Aims(aims_cmd=aims_cmd, control=control, structure=structure, basis_set='light',
+                   basis_dir=basis_dir, single_basis=False, rerun_metadata=metadata)])
+    wfname = "{}: {}".format('Aims light start for final tight ', name)
+    return Workflow([fws], name=wfname, metadata=metadata)
 
 
 def read_info(db_file, al_file):

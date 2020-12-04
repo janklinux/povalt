@@ -70,7 +70,7 @@ class AimsJob(Job):
         self.basis_dir = basis_dir
         self.metadata = metadata
         if not isinstance(single_basis, bool):
-            raise ValueError('single_point variable has to be boolean')
+            raise ValueError('single_basis variable has to be boolean')
         self.single_basis = single_basis
 
     def setup(self):
@@ -331,6 +331,9 @@ class AimsJob(Job):
         Returns:
             the relaxed structure object
         """
+
+        print('GETTING REL STRU')
+
         if self.basis_set == 'tight':
             return None, dict()
 
@@ -383,12 +386,12 @@ class RunAimsCustodian(FiretaskBase):
     optional_params = ['aims_output', 'rerun_metadata']
 
     def run_task(self, fw_spec):
-        job = [AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
-                       basis_set=self['basis_set'], single_basis=self['single_basis'], basis_dir=self['basis_dir'],
-                       output_file=self['aims_output'], metadata=self['rerun_metadata'])]
+        job = AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
+                      basis_set=self['basis_set'], single_basis=self['single_basis'], basis_dir=self['basis_dir'],
+                      output_file=self['aims_output'], metadata=self['rerun_metadata'])
         validators = [AimsConvergedValidator()]
-        c = Custodian(handlers=[AimsRelaxHandler(), FrozenJobErrorHandler()],
-                      jobs=job, validators=validators, max_errors=3)
+        handlers = [AimsRelaxHandler(), FrozenJobErrorHandler()]
+        c = Custodian(handlers=handlers, jobs=[job], validators=validators, max_errors=3)
         c.run()
 
 
@@ -437,7 +440,6 @@ class AimsRelaxLightTight(Firework):
         Returns:
             Workflow to insert into LaunchPad
         """
-
         t = list()
         t.append(RunAimsCustodian(aims_cmd=aims_cmd, control=control, structure=structure,
                                   basis_set='light', basis_dir=basis_dir, single_basis=False,
