@@ -379,10 +379,12 @@ class RunAimsCustodian(FiretaskBase):
     Optional params:
 
     """
-    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir', 'single_basis']
-    optional_params = ['aims_output', 'rerun_metadata']
+    required_params = ['aims_cmd', 'control', 'structure', 'basis_set', 'basis_dir']
+    optional_params = ['aims_output', 'rerun_metadata', 'single_basis']
 
     def run_task(self, fw_spec):
+        if not self['single_basis']:
+            self['single_basis'] = False
         job = [AimsJob(aims_cmd=self['aims_cmd'], control=self['control'], structure=self['structure'],
                        basis_set=self['basis_set'], single_basis=self['single_basis'], basis_dir=self['basis_dir'],
                        output_file=self['aims_output'], metadata=self['rerun_metadata'])]

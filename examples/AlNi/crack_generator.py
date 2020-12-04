@@ -19,14 +19,14 @@ def check_vacuum_direction(input_structure):
 
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='test_fw', username='jank', password='mongo', ssl=False)
-lpad.reset('2020-12-03')
+# lpad.reset('2020-12-03')
 
 with open('control.in', 'r') as f:
     control = f.readlines()
 
 np.random.seed(int(time.time()))
 
-inputs = glob.glob('training_data/SCEL9_*/**/geometry.in', recursive=True)
+inputs = glob.glob('training_data/SCEL8_*/**/geometry.in', recursive=True)  # 9 und 10 noch offen
 np.random.shuffle(inputs)
 
 for inp in inputs:

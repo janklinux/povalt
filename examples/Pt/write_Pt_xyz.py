@@ -20,20 +20,20 @@ def check_vacuum_direction(input_data):
 
 np.random.seed(1410)  # fix for reproduction
 
-read_from_db = False
+read_from_db = True
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 show_dimer = False
 do_soap = False
 
-systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition']
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons']
 
-train_split = {'fcc': 0.8,
-               'bcc': 0.8,
-               'hcp': 0.8,
-               'sc': 0.8,
-               'slab': 0.8,
-               'cluster': 0.8,
-               'phonons': 0.8,
+train_split = {'fcc': 0.5,
+               'bcc': 0.5,
+               'hcp': 0.5,
+               'sc': 0.5,
+               'slab': 0.9,
+               'cluster': 0.9,
+               'phonons': 0.9,
                'addition': 1.0}
 
 with open('train.xyz', 'w') as f:
@@ -209,16 +209,16 @@ else:
 
 system_count = dict()
 train_selected = dict()
-for sys in systems:
-    system_count[sys] = crystal_system.count(sys)
+for csys in systems:
+    system_count[csys] = crystal_system.count(csys)
     tmp = []
-    for i in range(system_count[sys]):
-        if i < system_count[sys] * train_split[sys]:
+    for i in range(system_count[csys]):
+        if i < system_count[csys] * train_split[csys]:
             tmp.append(True)
         else:
             tmp.append(False)
-        train_selected[sys] = tmp
-    np.random.shuffle(train_selected[sys])
+        train_selected[csys] = tmp
+    np.random.shuffle(train_selected[csys])
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
 print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
