@@ -11,3 +11,5 @@ ase
 mpi4py
 quippy
 tensorflow
+scikit-nano
+phonopy

@@ -15,15 +15,12 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='demo_fw', username='jank', password='mongo', ssl=False)
 all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
 offset = np.floor(len(all_jobs) / size)
 
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train
-data_db.authenticate('jank', 'b@sf_mongo')
 data_coll = data_db['cuprum']
 
 if rank == 0:

@@ -36,8 +36,8 @@ print('total number of clusters: {}'. format(total_number))
 
 with open('control.in', 'r') as f:
     ctrl = f.readlines()
-# basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
-basis_d = '/home/jank/compile/FHIaims/species_defaults'
+basis_d = '/users/kloppej1/compile/FHIaims/species_defaults'
+# basis_d = '/home/jank/compile/FHIaims/species_defaults'
 
 for c in all_clusters:
     for i, d in enumerate(all_clusters[c]['energies']['dft']):
@@ -51,14 +51,7 @@ for c in all_clusters:
                                             coords=non_spin_structure.cart_coords,
                                             charge=None, validate_proximity=False, to_unit_cell=False,
                                             coords_are_cartesian=True, site_properties=site_properties)
-            wf = aims_double_basis(aims_cmd='mpirun -n 4 aims',
-                                   control=ctrl, structure=structure_with_spin,
-                                   basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
-                                   name='initial light relax')
-
-            # wf = aims_double_basis(aims_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 aims',
-            #                        control=ctrl, structure=structure_with_spin,
-            #                        basis_dir=basis_d, metadata={'cluster_atoms': c, 'structure_number': i},
-            #                        name='initial light relax')
+            wf = aims_double_basis(aims_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 aims',
+                                   control=ctrl, structure=structure_with_spin, basis_dir=basis_d,
+                                   metadata={'cluster_atoms': c, 'structure_number': i}, name='initial light relax')
             lpad.add_wf(wf)
-            quit()
