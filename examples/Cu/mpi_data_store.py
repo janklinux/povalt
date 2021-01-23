@@ -76,17 +76,12 @@ for wfid in local_list:
     virial = -np.dot(vol, stress)
 
     fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
-    print('CRYSTAL TYPE: ', fw_dict['metadata']['name'].split()[3])
 
     xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type={}\n'.format(
         virial[0][0], virial[0][1], virial[0][2],
         virial[1][0], virial[1][1], virial[1][2],
         virial[2][0], virial[2][1], virial[2][2],
         fw_dict['metadata']['name'].split()[3])
-
-    print(xyz)
-
-    quit()
 
     dft_data = dict()
     dft_data['xyz'] = xyz
