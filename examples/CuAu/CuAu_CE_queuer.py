@@ -32,10 +32,11 @@ def get_optimize_wf(structure, struc_name='', name='Relax', vasp_input_set=None,
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='demo_fw', username='jank', password='mongo', ssl=False)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
+lpad.reset('2021-01-20')
 
-incar_mod = {'EDIFF': 1E-5, 'EDIFFG': 1E-3, 'NSW': 101, 'ISMEAR': 0, 'ISPIN': 1, 'ISYM': 0,
-             'ENCUT': 520, 'NCORE': 2, 'ALGO': 'Normal', 'AMIN': 0.1, 'LREAL': '.FALSE.'}
+incar_mod = {'EDIFF': 1E-5, 'EDIFFG': 1E-3, 'NSW': 101, 'ISMEAR': 0, 'ISPIN': 1, 'ISYM': 0, 'NELM': 100,
+             'ENCUT': 520, 'NCORE': 8, 'ALGO': 'Normal', 'AMIN': 0.1, 'LREAL': '.FALSE.'}
 
 all_files = glob.glob('training_data/SCEL*/**/POSCAR', recursive=True)
 
@@ -52,11 +53,11 @@ for file in all_files:
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 
     # vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe -n 2 vasp_std',
-    # vasp_cmd='srun --ntasks=8 vasp_std',
+    # vasp_cmd='srun --ntasks=8 --mem-per-cpu=1800 --exclusive vasp_std',
 
     relax_wf = get_optimize_wf(structure=s, struc_name=structure_name, vasp_input_set=incar_set,
-                               vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe '
-                                        '-n 2 vasp_std',
+                               vasp_cmd='srun --nodes=1 --ntasks=16 --ntasks-per-node=16 '
+                                        '--mem-per-cpu=1800 --exclusive vasp_std',
                                user_kpoints_settings=kpt_set, metadata=meta)
     run_wf = add_modify_incar(relax_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)

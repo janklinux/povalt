@@ -22,7 +22,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from povalt.firetasks.vasp import VaspTasks
-from pymatgen.io.vasp import Potcar, Outcar
+from pymatgen.io.vasp import Potcar, Outcar, Vasprun
 
 
 class Dimer:
@@ -293,75 +293,79 @@ class Dimer:
 
         for i in range(len(self.species)):
             for j in range(i, len(self.species)):
-                print('Running {} <--> {}'.format(self.species[i], self.species[j]))
+                for fixed_spin in [0, 1, 2, 3, 4]:
+                    print('Running {} <--> {} Spin: {}'.format(self.species[i], self.species[j], fixed_spin))
 
-                species_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j]))
+                    run_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j] +
+                                                            '_spin_{:d}'.format(fixed_spin)))
 
-                if not os.path.isdir(species_dir):
-                    os.mkdir(species_dir)
-                os.chdir(species_dir)
+                    if not os.path.isdir(run_dir):
+                        os.mkdir(run_dir)
+                    os.chdir(run_dir)
 
-                for d in self.grid:
-                    if os.path.isdir(str(np.round(d, 2))):
-                        continue
-                    os.mkdir(str(np.round(d, 2)))
-                    os.chdir(str(np.round(d, 2)))
+                    for d in self.grid:
+                        if os.path.isdir(str(np.round(d, 2))):
+                            continue
+                        os.mkdir(str(np.round(d, 2)))
+                        os.chdir(str(np.round(d, 2)))
 
-                    with open('POSCAR', 'w') as f:
-                        f.write('autogen by PoValT\n')
-                        f.write('1.0\n')
-                        f.write('{} {} {}\n'.format(self.lattice[0][0], self.lattice[0][1], self.lattice[0][2]))
-                        f.write('{} {} {}\n'.format(self.lattice[1][0], self.lattice[1][1], self.lattice[1][2]))
-                        f.write('{} {} {}\n'.format(self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]))
-                        if self.species[i] == self.species[j]:
-                            f.write(' {}\n'.format(self.species[i]))
-                            f.write(' 2\n')
-                        else:
-                            f.write(' {} {}\n'.format(self.species[i], self.species[j]))
-                            f.write(' 1 1\n')
-                        f.write('cartesian\n')
-                        f.write('0.0 0.0 0.0\n')
-                        f.write('0.0 0.0 {}\n'.format(np.round(d, 3)))
+                        with open('POSCAR', 'w') as f:
+                            f.write('autogen by PoValT\n')
+                            f.write('1.0\n')
+                            f.write('{} {} {}\n'.format(self.lattice[0][0], self.lattice[0][1], self.lattice[0][2]))
+                            f.write('{} {} {}\n'.format(self.lattice[1][0], self.lattice[1][1], self.lattice[1][2]))
+                            f.write('{} {} {}\n'.format(self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]))
+                            if self.species[i] == self.species[j]:
+                                f.write(' {}\n'.format(self.species[i]))
+                                f.write(' 2\n')
+                            else:
+                                f.write(' {} {}\n'.format(self.species[i], self.species[j]))
+                                f.write(' 1 1\n')
+                            f.write('cartesian\n')
+                            f.write('0.0 0.0 0.0\n')
+                            f.write('0.0 0.0 {}\n'.format(np.round(d, 3)))
 
-                    with open('INCAR', 'w') as f:
-                        with open(os.path.join(self.base_dir, 'INCAR'), 'r') as fin:
-                            f.write(fin.read())
-                        # f.write('   DIPOL = 0.0 0.0 {}'.format(np.round(d/2, 2)))
+                        with open('INCAR', 'w') as f:
+                            with open(os.path.join(self.base_dir, 'INCAR'), 'r') as fin:
+                                f.write(fin.read())
+                            f.write('   NUPDOWN = {}\n'.format(fixed_spin))
 
-                    with open('KPOINTS', 'w') as f:
-                        with open(os.path.join(self.base_dir, 'KPOINTS'), 'r') as fin:
-                            f.write(fin.read())
+                        with open('KPOINTS', 'w') as f:
+                            with open(os.path.join(self.base_dir, 'KPOINTS'), 'r') as fin:
+                                f.write(fin.read())
 
-                    pots = Potcar([self.species[i], self.species[j]])
-                    pots.write_file('POTCAR')
+                        pots = Potcar([self.species[i], self.species[j]])
+                        pots.write_file('POTCAR')
 
-                    os.system('nice -n 10 mpirun -n {} /home/jank/bin/vasp_gpu | tee run'.format(self.cores))
+                        os.system('nice -n 10 mpirun -n {} /home/jank/bin/vasp_std | tee run'.format(self.cores))
 
-                    run = Outcar('OUTCAR')
-                    forces = run.read_table_pattern(
-                        header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
-                        row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s'
-                                    '+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
-                        footer_pattern=r'\s--+', postprocess=lambda x: float(x), last_one_only=True)
+                        run = Outcar('OUTCAR')
+                        forces = run.read_table_pattern(
+                            header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
+                            row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s'
+                                        '+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
+                            footer_pattern=r'\s--+', postprocess=lambda x: float(x), last_one_only=True)
 
-                    with open('../dimer.xyz', 'a') as f:
-                        f.write('2\n')
-                        f.write('Lattice="{} {} {} {} {} {} {} {} {}"'.format(
-                            self.lattice[0][0], self.lattice[0][1], self.lattice[0][2],
-                            self.lattice[1][0], self.lattice[1][1], self.lattice[1][2],
-                            self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]) +
-                                ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
-                                ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
-                                ' free_energy={:6.6f} pbc="T T T" virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
-                                ' config_type=dimer\n'.format(run.final_energy))
-                        f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
-                            self.species[i], forces[0][0], forces[0][1], forces[0][2]))
-                        f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
-                            self.species[j], float(d), forces[1][0], forces[1][1], forces[1][2]))
+                        os.chdir('..')
 
-                    os.chdir(species_dir)
+                        with open('dimer.xyz', 'a') as f:
+                            f.write('2\n')
+                            f.write('Lattice="{} {} {} {} {} {} {} {} {}"'.format(
+                                self.lattice[0][0], self.lattice[0][1], self.lattice[0][2],
+                                self.lattice[1][0], self.lattice[1][1], self.lattice[1][2],
+                                self.lattice[2][0], self.lattice[2][1], self.lattice[2][2]) +
+                                    ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
+                                    ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
+                                    ' free_energy={:6.6f} pbc="T T T" virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
+                                    ' config_type=dimer\n'.format(run.final_energy))
+                            f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
+                                self.species[i], forces[0][0], forces[0][1], forces[0][2]))
+                            f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
+                                self.species[j], float(d), forces[1][0], forces[1][1], forces[1][2]))
 
-                if self.show_result:
+                    os.chdir('..')
+
+                if self.show_spin_curves:
                     dists = []
                     energies = []
                     for d in self.grid:
@@ -380,6 +384,92 @@ class Dimer:
                     plt.close()
 
                 os.chdir(self.base_dir)
+
+        data = dict()
+        for i in range(len(self.species)):
+            for j in range(i, len(self.species)):
+                for fixed_spin in [0, 1, 2, 3, 4]:
+                    dists = []
+                    energies = []
+
+                    # print('Collecting {:2s} <--> {:2s} || Spin: {:d}'
+                    #       .format(self.species[i], self.species[j], fixed_spin))
+
+                    run_dir = os.path.join(self.base_dir, str(self.species[i] + self.species[j] +
+                                           '_spin_{:d}'.format(fixed_spin)))
+
+                    os.chdir(run_dir)
+
+                    ftmp = []
+                    for d in self.grid:
+                        if not os.path.isdir(str(np.round(d, 2))):
+                            raise FileNotFoundError('Directory {} not found, check computations...'
+                                                    .format(np.round(d, 2)))
+
+                        dists.append(float(d))
+
+                        vrun = Vasprun(os.path.join(str(np.round(d, 2)), 'vasprun.xml'))
+                        energies.append(vrun.final_energy)
+                        ftmp.append(vrun.forces)
+
+                    data[str(self.species[i]+self.species[j])+str(fixed_spin)] = {'dist': dists, 'energy': energies,
+                                                                                  'forces': ftmp}
+
+                    os.chdir('..')
+
+        lowest = dict()
+        for i in range(len(self.species)):
+            for j in range(i, len(self.species)):
+                dtmp = []
+                etmp = []
+                itmp = []
+                ftmp = []
+
+                for ik, d in enumerate(self.grid):
+                    dtmp.append(d)
+
+                    all_ens = []
+                    all_frc = []
+                    for fixed_spin in [0, 1, 2, 3, 4]:
+                        all_ens.append(data[str(self.species[i] + self.species[j]) + str(fixed_spin)]['energy'][ik])
+                        all_frc.append(data[str(self.species[i] + self.species[j]) + str(fixed_spin)]['forces'][ik])
+
+                    min_idx = np.where(all_ens == np.amin(all_ens))
+
+                    if len(min_idx[0]) != 1:
+                        raise ValueError('Index error, only one minimum shall be allowed...')
+
+                    # print(self.species[i], self.species[j], min_idx, all_ens)
+
+                    etmp.append(all_ens[min_idx[0][0]])
+                    ftmp.append(all_frc[min_idx[0][0]])
+                    itmp.append(min_idx[0][0])
+
+                lowest[str(self.species[i]+self.species[j])] = {'dist': dtmp,
+                                                                'energy': etmp,
+                                                                'forces': ftmp,
+                                                                'spin_idx': itmp}
+
+        if self.show_result:
+            plt.rc('text', usetex=True)
+            plt.rc('font', family='sans-serif', serif='Palatino')
+            plt.rcParams['font.family'] = 'DejaVu Sans'
+            plt.rcParams['font.sans-serif'] = 'cm'
+
+            for i in range(len(self.species)):
+                for j in range(i, len(self.species)):
+                    plt.plot(lowest[str(self.species[i] + self.species[j])]['dist'],
+                             lowest[str(self.species[i] + self.species[j])]['energy'],
+                             '-', label=str(self.species[i] + self.species[j]))
+
+            plt.xlabel(r'Radial Distance [\AA]', fontsize=22, color='k')
+            plt.ylabel(r'Free Energy [eV]', fontsize=22, color='k')
+            plt.title(r'VASP: || Spin compare', fontsize=16)
+            plt.legend(loc='best')
+            plt.show()
+            plt.close()
+
+        os.chdir(self.base_dir)
 
 
 class Bulk:

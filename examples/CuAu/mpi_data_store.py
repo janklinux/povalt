@@ -15,7 +15,7 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='cu_fw', username='jank', password='mongo', ssl=False)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='demo_fw', username='jank', password='mongo', ssl=False)
 all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
 offset = np.floor(len(all_jobs) / size)
 
@@ -24,7 +24,8 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train
 data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['cuprum']
+data_coll = data_db['CuAu']
+
 
 if rank == 0:
     print('Processing {} jobs on {} processors...'.format(len(all_jobs), size))
@@ -49,9 +50,9 @@ for wfid in local_list:
     sys.stdout.flush()
 
     fw = lpad.get_fw_by_id(wfid)
-    ldir = lpad.get_launchdir(fw_id=wfid)
+    ldir = '/'.join(lpad.get_launchdir(fw_id=wfid).split('/')[-3:])
     if not os.path.isdir(ldir):
-        raise FileNotFoundError('Are you on the right machine?\n'
+        raise FileNotFoundError('Are you on the right machine? This script only work in the root of block-?????????\n'
                                 'Workflow {} directory does not exist here...'.format(ldir))
 
     run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
@@ -75,18 +76,10 @@ for wfid in local_list:
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
 
-    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
-    print('CRYSTAL TYPE: ', fw_dict['metadata']['name'].split()[3])
-
-    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type={}\n'.format(
+    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type=bulk\n'.format(
         virial[0][0], virial[0][1], virial[0][2],
         virial[1][0], virial[1][1], virial[1][2],
-        virial[2][0], virial[2][1], virial[2][2],
-        fw_dict['metadata']['name'].split()[3])
-
-    print(xyz)
-
-    quit()
+        virial[2][0], virial[2][1], virial[2][2])
 
     dft_data = dict()
     dft_data['xyz'] = xyz
@@ -96,6 +89,7 @@ for wfid in local_list:
     dft_data['free_energy'] = atoms.get_potential_energy(force_consistent=True)
     dft_data['final_structure'] = run.final_structure.as_dict()
 
+    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
     data_name = 'Cuprum random structure  ||  ' + fw_dict['metadata']['name'] + \
                 '  ||  created ' + fw_dict['metadata']['date'] + '  ||  StaticFW'
 

@@ -5,10 +5,27 @@ db_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True,
                              ssl_certfile='/home/jank/ssl/numphys/client.pem')
 db_con.admin.authenticate('jank', 'b@sf_mongo')
 
-# db_con = pymongo.MongoClient(host='195.148.22.179', port=27017, ssl=False)
-# db_con.admin.authenticate('jank', 'mongo')
+print('NumPhys: ', db_con.list_database_names())
 
-print(db_con.list_database_names())
+data_db = db_con.pot_train
+data_db.authenticate('jank', 'b@sf_mongo')
+data_coll = data_db['cuprum']
+
+print(data_coll.estimated_document_count())
+
+for doc in data_coll.find({}):
+    print(doc)
+    quit()
+
+quit()
+
+
+db_con = pymongo.MongoClient(host='195.148.22.179', port=27017, ssl=False)
+db_con.admin.authenticate('jank', 'mongo')
+
+print('Mongo VM: ', db_con.list_database_names())
+
+
 
 quit()
 

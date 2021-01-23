@@ -51,7 +51,8 @@ incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'I
 
 for fw in lpad.get_fw_ids({'state': 'COMPLETED'}):
     run = Vasprun(os.path.join(lpad.get_launchdir(fw),
-        sorted([file for file in os.listdir(lpad.get_launchdir(fw)) if file.startswith('vasprun')])[-1]))
+                               sorted([file for file in os.listdir(lpad.get_launchdir(fw))
+                                       if file.startswith('vasprun')])[-1]))
     cell = None
     kpt_set = None
     for i in range(1, 19):
