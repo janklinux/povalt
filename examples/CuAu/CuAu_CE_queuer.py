@@ -1,3 +1,4 @@
+import os
 import glob
 import datetime
 from pymatgen import Structure
@@ -33,12 +34,20 @@ def get_optimize_wf(structure, struc_name='', name='Relax', vasp_input_set=None,
 
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
-lpad.reset('2021-01-20')
 
 incar_mod = {'EDIFF': 1E-5, 'EDIFFG': 1E-3, 'NSW': 101, 'ISMEAR': 0, 'ISPIN': 1, 'ISYM': 0, 'NELM': 100,
              'ENCUT': 520, 'NCORE': 8, 'ALGO': 'Normal', 'AMIN': 0.1, 'LREAL': '.FALSE.'}
 
-all_files = glob.glob('training_data/SCEL*/**/POSCAR', recursive=True)
+
+crystal = os.getcwd().split('/')[-1].split('_')[-1]
+if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
+    raise ValueError('This directory is not conform with generator settings, please correct internals...')
+
+all_files = []
+for i in [2, 3]:  # , 4, 5, 6]:
+    tmp = glob.glob('training_data/SCEL{:d}*/**/POSCAR'.format(i), recursive=True)
+    all_files.extend(tmp)
+
 
 for file in all_files:
     s = Structure.from_file(file)
@@ -47,13 +56,18 @@ for file in all_files:
           .format(s.num_sites, s.composition.element_composition))
 
     incar_set = MPRelaxSet(s)
-    structure_name = str(s.composition.element_composition)
+
+    bin_name = crystal + '_'
+    for ts in s.composition.element_composition:
+        bin_name += ts.name
+
+    structure_name = 'CASM {} {} {}'.format(s.composition.reduced_formula, s.num_sites, bin_name)
 
     meta = {'name': structure_name,
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 
     # vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe -n 2 vasp_std',
-    # vasp_cmd='srun --ntasks=8 --mem-per-cpu=1800 --exclusive vasp_std',
+    # vasp_cmd='srun --nodes=1 --ntasks=16 --ntasks-per-node=16 --mem-per-cpu=1800 --exclusive vasp_std',
 
     relax_wf = get_optimize_wf(structure=s, struc_name=structure_name, vasp_input_set=incar_set,
                                vasp_cmd='srun --nodes=1 --ntasks=16 --ntasks-per-node=16 '

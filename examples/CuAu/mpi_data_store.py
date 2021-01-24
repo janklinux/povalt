@@ -72,14 +72,24 @@ for wfid in local_list:
     xyz = file.readlines()
     file.close()
 
+    print(xyz)
+
+
+
+    quit()
+
+
     stress = atoms.get_stress(voigt=False)
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
 
-    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type=bulk\n'.format(
+    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
+
+    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type={}\n'.format(
         virial[0][0], virial[0][1], virial[0][2],
         virial[1][0], virial[1][1], virial[1][2],
-        virial[2][0], virial[2][1], virial[2][2])
+        virial[2][0], virial[2][1], virial[2][2],
+        fw_dict['metadata']['name'].split()[3])
 
     dft_data = dict()
     dft_data['xyz'] = xyz
@@ -89,9 +99,8 @@ for wfid in local_list:
     dft_data['free_energy'] = atoms.get_potential_energy(force_consistent=True)
     dft_data['final_structure'] = run.final_structure.as_dict()
 
-    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
-    data_name = 'Cuprum random structure  ||  ' + fw_dict['metadata']['name'] + \
-                '  ||  created ' + fw_dict['metadata']['date'] + '  ||  StaticFW'
+    data_name = 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion  ||  ' + \
+                fw_dict['metadata']['name'] + '  ||  created ' + fw_dict['metadata']['date'] + '  ||  OptimizeFW'
 
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     lpad.delete_wf(wfid, delete_launch_dirs=True)
