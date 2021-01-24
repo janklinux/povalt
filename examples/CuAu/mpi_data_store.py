@@ -75,13 +75,6 @@ for wfid in local_list:
     xyz = file.readlines()
     file.close()
 
-    print(xyz)
-
-
-
-    quit()
-
-
     stress = atoms.get_stress(voigt=False)
     vol = atoms.get_volume()
     virial = -np.dot(vol, stress)
