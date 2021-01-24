@@ -50,22 +50,24 @@ for wfid in local_list:
     sys.stdout.flush()
 
     fw = lpad.get_fw_by_id(wfid)
-    ldir = '/'.join(lpad.get_launchdir(fw_id=wfid).split('/')[-3:])
+    ldir = lpad.get_launchdir(fw_id=wfid)
     if not os.path.isdir(ldir):
-        raise FileNotFoundError('Are you on the right machine? This script only work in the root of block-?????????\n'
-                                'Workflow {} directory does not exist here...'.format(ldir))
+        raise FileNotFoundError('Are you on the right machine?\n'
+                                'Workflow directory [{}] does not exist here...'.format(ldir))
 
-    run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
+    vrun = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('vasprun')])[-1])
+    ocar = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('OUTCAR')])[-1])
 
+    run = Vasprun(vrun)
     if not run.converged or not run.converged_electronic:
         raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
 
-    with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
+    with gzip.open(ocar, 'r') as f:
         for line in f:
             if b'Total CPU time used (sec):' in line:
                 runtime = float(line.split()[5])
 
-    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
+    atoms = aseread(os.path.join(ldir, vrun), parallel=False)
     file = io.StringIO()
     asewrite(filename=file, images=atoms, format='xyz', parallel=False)
     file.seek(0)
