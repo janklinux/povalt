@@ -67,7 +67,9 @@ for wfid in local_list:
             if b'Total CPU time used (sec):' in line:
                 runtime = float(line.split()[5])
 
-    os.link(os.path.join(ldir, vrun), os.path.join(ldir, 'vasprun.xml.gz'))  # ase workaround
+    if not os.path.isfile(os.path.join(ldir, 'vasprun.xml.gz')):
+        os.link(os.path.join(ldir, vrun), os.path.join(ldir, 'vasprun.xml.gz'))  # ase workaround
+
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
     file = io.StringIO()
     asewrite(filename=file, images=atoms, format='xyz', parallel=False)
