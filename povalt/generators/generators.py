@@ -17,12 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import io
 import re
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from povalt.firetasks.vasp import VaspTasks
-from pymatgen.io.vasp import Potcar, Outcar, Vasprun
+from ase.io import read, write
+from pymatgen.io.vasp import Potcar
 
 
 class Dimer:
@@ -30,15 +31,19 @@ class Dimer:
     Class for dimer related generators
     """
 
-    def __init__(self, species, lattice, min_dist, max_dist, show_spin_curves, show_result, cores):
+    def __init__(self, species, lattice, min_dist, max_dist, show_spin_curves,
+                 show_result, cores, non_collinear=False):
         """
         Checks parameters and sets up the grid
 
         Args:
-            species: list of species to generate dimer curves for
-            lattice: for VASP only, the box we live in
-            min_dist: minimal atom distance
-            max_dist: maximal atom distance
+            species (list): list of species to generate dimer curves for
+            lattice (3x3 array): for VASP only, the box we live in
+            min_dist (float): minimal atom distance
+            max_dist (float): maximal atom distance
+            show_spin_curves (bool): show the individual spin curves?
+            show_result (bool): show the total result stitched curve?
+            non_collinear (bool): run vasp in ncl mode?
         """
 
         if not isinstance(species, list):
@@ -52,6 +57,7 @@ class Dimer:
         self.cores = cores
         self.base_dir = os.getcwd()
         self.grid = np.linspace(start=min_dist, stop=max_dist, num=100, endpoint=True)
+        self.ncl = non_collinear
 
     def run_dimer_aims(self):
         """
@@ -329,22 +335,27 @@ class Dimer:
                             with open(os.path.join(self.base_dir, 'INCAR'), 'r') as fin:
                                 f.write(fin.read())
                             f.write('   NUPDOWN = {}\n'.format(fixed_spin))
+                            if self.ncl:
+                                f.write('  MAGMOM = 0.74 -0.38 0.51 -0.12 0.83 -0.62\n')
+                                f.write('  SAXIS  = 0 0 1\n')
+                                f.write('  LSORBIT = .TRUE.\n')
+                                f.write('  LMAXMIX = 6\n')
+                                f.write('  NBANDS  = 30\n')
+                            else:
+                                f.write('  MAGMOM = 0.74 -0.83\n')
 
-                        with open('KPOINTS', 'w') as f:
-                            with open(os.path.join(self.base_dir, 'KPOINTS'), 'r') as fin:
-                                f.write(fin.read())
-
+                        os.link(os.path.join(self.base_dir, 'KPOINTS'), 'KPOINTS')
                         pots = Potcar([self.species[i], self.species[j]])
                         pots.write_file('POTCAR')
 
-                        os.system('nice -n 10 mpirun -n {} /home/jank/bin/vasp_std | tee run'.format(self.cores))
+                        if self.ncl:
+                            # os.environ['CUDA_VISIBLE_DEVICES'] = '3,4'
+                            os.system('nice -n 15 mpirun -n {} vasp_ncl | tee run'.format(self.cores))
+                        else:
+                            os.system('nice -n 15 mpirun -n {} vasp_std | tee run'.format(self.cores))
 
-                        run = Outcar('OUTCAR')
-                        forces = run.read_table_pattern(
-                            header_pattern=r'\sPOSITION\s+TOTAL-FORCE \(eV/Angst\)\n\s-+',
-                            row_pattern=r'\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+([+-]?\d+\.\d+)\s'
-                                        '+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)',
-                            footer_pattern=r'\s--+', postprocess=lambda x: float(x), last_one_only=True)
+                        run = read('vasprun.xml')
+                        forces = run.get_forces()
 
                         os.chdir('..')
 
@@ -357,7 +368,7 @@ class Dimer:
                                     ' Properties=species:S:1:pos:R:3:forces:R:3:force_mask:L:1'
                                     ' stress="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" '
                                     ' free_energy={:6.6f} pbc="T T T" virial="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"'
-                                    ' config_type=dimer\n'.format(run.final_energy))
+                                    ' config_type=dimer\n'.format(run.get_potential_energy(force_consistent=True)))
                             f.write('{} 0.000000 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
                                 self.species[i], forces[0][0], forces[0][1], forces[0][2]))
                             f.write('{} 0.000000 0.000000 {:6.6f} {:6.6f} {:6.6f} {:6.6f} 0\n'.format(
@@ -370,7 +381,8 @@ class Dimer:
                     energies = []
                     for d in self.grid:
                         dists.append(d)
-                        energies.append(Outcar(os.path.join(str(np.round(d, 2)), 'OUTCAR')).final_energy)
+                        energies.append(read(os.path.join(str(np.round(d, 2)), 'vasprun.xml')).
+                                        get_potential_energy(force_consistent=True))
 
                     plt.rc('text', usetex=True)
                     plt.rc('font', family='sans-serif', serif='Palatino')
@@ -408,9 +420,10 @@ class Dimer:
 
                         dists.append(float(d))
 
-                        vrun = Vasprun(os.path.join(str(np.round(d, 2)), 'vasprun.xml'))
-                        energies.append(vrun.final_energy)
-                        ftmp.append(vrun.forces)
+                        run = read(os.path.join(str(np.round(d, 2)), 'vasprun.xml'))
+
+                        energies.append(run.get_potential_energy(force_consistent=True))
+                        ftmp.append(run.get_forces())
 
                     data[str(self.species[i]+self.species[j])+str(fixed_spin)] = {'dist': dists, 'energy': energies,
                                                                                   'forces': ftmp}
@@ -424,6 +437,7 @@ class Dimer:
                 etmp = []
                 itmp = []
                 ftmp = []
+                atmp = []
 
                 for ik, d in enumerate(self.grid):
                     dtmp.append(d)
@@ -445,10 +459,43 @@ class Dimer:
                     ftmp.append(all_frc[min_idx[0][0]])
                     itmp.append(min_idx[0][0])
 
+                    at = read(self.species[i] + self.species[j] + '_spin_' + str(itmp[-1]) +
+                              '/' + str(np.round(d, 2)) + '/vasprun.xml')
+
+                    at.new_array('force_mask', np.array([False for _ in range(len(at))]))
+
+                    stress = at.get_stress(voigt=False)
+                    vol = at.get_volume()
+                    virial = -np.dot(vol, stress)
+
+                    file = io.StringIO()
+                    write(filename=file, images=at, format='xyz', parallel=False)
+                    file.seek(0)
+                    xyz = file.readlines()
+                    file.close()
+
+                    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" ' \
+                                              'config_type={}\n'.format(
+                        virial[0][0], virial[0][1], virial[0][2],
+                        virial[1][0], virial[1][1], virial[1][2],
+                        virial[2][0], virial[2][1], virial[2][2],
+                        self.species[i]+self.species[j]+'_dimer')
+
+                    with open('/tmp/delmetmp', 'wt') as f:
+                        for line in xyz:
+                            f.write(line)
+                    atmp.append(read('/tmp/delmetmp'))
+
                 lowest[str(self.species[i]+self.species[j])] = {'dist': dtmp,
                                                                 'energy': etmp,
                                                                 'forces': ftmp,
                                                                 'spin_idx': itmp}
+
+                filename = ''.join([self.species[i], self.species[j]])+'_dimer.xyz'
+                write(filename=filename, format='xyz', images=atmp)
+
+                print(os.getcwd())
+                print('written: ', self.species[i], self.species[j])
 
         if self.show_result:
             plt.rc('text', usetex=True)
@@ -499,12 +546,12 @@ class Bulk:
 
         """
 
-        metadata = {'name': 'cell generation',
-                    'task': 'relaxation',
-                    'cell': self.cell_type}
+        # metadata = {'name': 'cell generation',
+        #             'task': 'relaxation',
+        #             'cell': self.cell_type}
 
-        return VaspTasks.get_relax_wf(structure='fcc', structure_name='FCC input cell', atom_type=self.atom_type,
-                                      vasp_cmd='srun --nodes 1 vasp_std', ncore=self.ncore, metadata=metadata)
+        # return VaspTasks.get_relax_wf(structure='fcc', structure_name='FCC input cell', atom_type=self.atom_type,
+        #                               vasp_cmd='srun --nodes 1 vasp_std', ncore=self.ncore, metadata=metadata)
 
     def generate_bcc_cell(self, atom_type):
         """

@@ -97,8 +97,8 @@ for wfid in local_list:
     dft_data['free_energy'] = atoms.get_potential_energy(force_consistent=True)
     dft_data['final_structure'] = run.final_structure.as_dict()
 
-    data_name = 'CuAu random structure and distortion  ||  ' + \
-                fw_dict['metadata']['name'] + '  ||  created ' + fw_dict['metadata']['date'] + '  ||  StaticFW'
+    data_name = 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion  ||  ' + \
+                fw_dict['metadata']['name'] + '  ||  created ' + fw_dict['metadata']['date'] + '  ||  OptimizeFW'
 
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     lpad.delete_wf(wfid, delete_launch_dirs=True)

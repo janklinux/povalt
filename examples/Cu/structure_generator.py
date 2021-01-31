@@ -4,7 +4,7 @@ import random
 import datetime
 import numpy as np
 from fireworks import Workflow, LaunchPad
-from pymatgen.core.structure import Structure
+from pymatgen.core.structure import Structure, Lattice
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
 from pymatgen.transformations.standard_transformations import SupercellTransformation
@@ -54,36 +54,33 @@ else:
     raise ValueError('No scaling implemented for the chosen cell...')
 
 prim = Structure.from_file('POSCAR')
-cell = SupercellTransformation(scaling_matrix=scale_mat).apply_transformation(prim)
-
-# unit_cell_kpts = [8, 8, 8]  # unit cells have ALL been run at 8 8 8 Gamma
-kpt_set = Kpoints.automatic_gamma_density(structure=cell, kppa=1000)
 
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': '.FALSE.',
-             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
  
-if 100 > cell.num_sites > 128:
-    print('Number of atoms in cell: {}'.format(cell.num_sites))
-    raise ValueError('Atoms in supercell not in the range 100 > sites > 128, adjust transformation matrix...')
-
-random.seed(time.time())
-total_structures = 1250
+np.random.seed(int(time.time()))
+total_structures = 500
 
 ik = 0
 while ik < total_structures:
+    # fixed 29.Jan 2021 -- date noted here for excluding previous training data
+    cell = SupercellTransformation(scaling_matrix=scale_mat).apply_transformation(prim)
+    kpt_set = Kpoints.automatic_gamma_density(structure=cell, kppa=1000)
+
     new_lat = np.empty((3, 3))
     for i in range(3):
         for j in range(3):
-            new_lat[i, j] = (1 + (np.random.random() - 0.5) * 0.1) * cell.lattice.matrix[i, j]
+            new_lat[i, j] = (1 + (np.random.random() - 0.5) * 0.5) * cell.lattice.matrix[i, j]
+
+    cell.lattice = Lattice(new_lat)
 
     new_crds = []
     new_species = []
     for s in cell.sites:
         new_species.append(s.specie)
-        new_crds.append(np.array([(random.random() - 0.5) * 0.3 + s.coords[0],
-                                  (random.random() - 0.5) * 0.3 + s.coords[1],
-                                  (random.random() - 0.5) * 0.3 + s.coords[2]]))
+        new_crds.append(np.array([(random.random() - 0.5) * 0.4 + s.coords[0],
+                                  (random.random() - 0.5) * 0.4 + s.coords[1],
+                                  (random.random() - 0.5) * 0.4 + s.coords[2]]))
 
     new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
                          charge=None, validate_proximity=True, to_unit_cell=False,

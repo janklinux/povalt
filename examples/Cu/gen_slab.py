@@ -29,9 +29,7 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
 
     fws = [StaticFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
                     db_file=db_file, name="{} -- static".format(tag))]
-
     wfname = "{}: {}".format(struc_name, name)
-
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
@@ -50,7 +48,7 @@ np.random.seed(int(time.time()))
 
 kpt_set = Kpoints.gamma_automatic(kpts=[2, 2, 1], shift=(0, 0, 0)).as_dict()
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 300, 'LAECHG': 'False',
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 300, 'LAECHG': '.FALSE.',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.', 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
 
@@ -58,13 +56,13 @@ crystal = os.getcwd().split('/')[-1].split('_')[0]
 if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
 
-for s in Xdatcar('XDATCAR').structures[1000:2500]:
+for s in Xdatcar('XDATCAR').structures[2000:2500]:
     added = False
     while not added:
         face = list(np.random.randint(low=1, high=5, size=3))
         slab = SlabGenerator(s, miller_index=face, min_slab_size=s.lattice.matrix[2][2],
                              min_vacuum_size=15.0, center_slab=True).get_slab()
-        if len(slab.sites) < 200 and check_vacuum_direction(slab):
+        if len(slab.sites) < 120 and check_vacuum_direction(slab):
             print('adding {} atoms in face {}'.format(slab.num_sites, face))
             incar_set = MPStaticSet(slab)
             structure_name = '{} {} {} slab from MD hkl: {}'\

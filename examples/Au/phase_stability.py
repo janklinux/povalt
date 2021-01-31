@@ -10,7 +10,7 @@ from pymatgen.io.vasp import Kpoints, Outcar
 from pymatgen.core.structure import Structure
 
 
-plot_only = False
+plot_only = True
 run_dft = False
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}
@@ -52,8 +52,8 @@ if not plot_only:
             with open('quip.result', 'r') as f:
                 for line in f:
                     if 'Energy' in line:
-                        gap_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
-                        gap_energy[csys]['energy'].append(float(line.split('=')[1]))
+                        gap_energy[csys]['lat_const'].append(run_cell.volume/run_cell.num_sites)
+                        gap_energy[csys]['energy'].append(float(line.split('=')[1])/run_cell.num_sites)
 
             if run_dft:
                 run_cell.to(fmt='POSCAR', filename='POSCAR')
@@ -61,16 +61,17 @@ if not plot_only:
                 os.symlink('../../POTCAR', 'POTCAR')
                 os.symlink('../../INCAR', 'INCAR')
 
-                os.system('nice -n 10 mpirun -n 4 vasp_std > run')
+                os.system('nice -n 15 mpirun -n 4 vasp_std | tee run')
 
-                dft_energy[csys]['lat_const'].append(float(cell.lattice.matrix[2][2] + dv))
-                dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy))
+                dft_energy[csys]['lat_const'].append(run_cell.volume/run_cell.num_sites)
+                dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy)/run_cell.num_sites)
 
             os.chdir(run_dir)
             shutil.rmtree(tmp_dir)
         print('')
         sys.stdout.flush()
 
+    os.chdir(base_dir)
     with open('gap_data.json', 'w') as f:
         json.dump(obj=gap_energy, fp=f)
     if run_dft:
@@ -80,6 +81,7 @@ if not plot_only:
         with open('dft_data.json', 'r') as f:
             dft_energy = json.load(f)
 else:
+    os.chdir(base_dir)
     with open('gap_data.json', 'r') as f:
         gap_energy = json.load(f)
     with open('dft_data.json', 'r') as f:
@@ -110,8 +112,8 @@ for csys in ['fcc', 'bcc', 'sc', 'hcp']:
     plt.plot(dft_energy[csys]['lat_const'], dft_energy[csys]['energy'], '.',
              linewidth=1, color=color[csys], label=csys+'-DFT')
 
-plt.xlabel(r'Lattice Constant [\AA]', fontsize=16, color='k')
-plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
+plt.xlabel(r'Volume per atom [1/\AA$^3$]', fontsize=16, color='k')
+plt.ylabel(r'Energy [eV/atom]', fontsize=16, color='k')
 
 plt.legend(loc='upper right', fontsize=8)
 

@@ -1,9 +1,10 @@
+import re
 import os
 import time
 import datetime
 import numpy as np
 from pymongo import MongoClient
-from pymatgen.core.structure import Structure, StructureError
+from pymatgen.core.structure import Structure, Lattice
 from fireworks import LaunchPad, Workflow
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
@@ -61,28 +62,32 @@ for doc in data_coll.find({}):
     if 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
         bin_name = doc['name'].split('||')[1].split()[3]
         s = Structure.from_dict(doc['data']['final_structure'])
+
         cell = None
-        kpt_set = None
+        use_scale = None
         for i in range(1, 19):
             cell = SupercellTransformation(scaling_matrix=np.array(scale(i))).apply_transformation(s)
-            if cell.num_sites > 120:
-                kpt_set = Kpoints.automatic_gamma_density(structure=cell, kppa=1000).as_dict()
+            if 60 <= cell.num_sites <= 100:
+                use_scale = scale(i)
                 break
 
-        if cell is None or kpt_set is None:
+        if use_scale is None:
             raise ValueError('Supercell trafo failed...')
 
-        print('Number of atoms in supercell: {} || Composition: {}'
-              .format(cell.num_sites, cell.composition.element_composition))
+        print('Number of atoms in supercell: {} || Composition: {} || Transformation: {}'
+              .format(cell.num_sites, cell.composition.element_composition, use_scale))
 
-        for _ in range(5):  # 10 random structures per configuration
+        for _ in range(5):  # random structures per configuration
             # Create random distorted lattice
+            cell = SupercellTransformation(scaling_matrix=np.array(use_scale)).apply_transformation(s)
             added = False
             while not added:
                 new_lat = np.empty((3, 3))
                 for i in range(3):
                     for j in range(3):
-                        new_lat[i, j] = (1 + (np.random.random() - 0.5) * 0.2) * cell.lattice.matrix[i, j]
+                        new_lat[i, j] = (1 + (np.random.random() - 0.5) * 0.5) * cell.lattice.matrix[i, j]
+
+                cell.lattice = Lattice(new_lat)
 
                 # Random distort the coordinates [and apply random magnetic moments]
                 new_crds = []
@@ -90,36 +95,29 @@ for doc in data_coll.find({}):
                 site_properties = dict({'initial_moment': []})
                 for s in cell.sites:
                     new_species.append(s.specie)
-                    new_crds.append(np.array([(np.random.random() - 0.5) * 0.3 + s.coords[0],
-                                              (np.random.random() - 0.5) * 0.3 + s.coords[1],
-                                              (np.random.random() - 0.5) * 0.3 + s.coords[2]]))
+                    new_crds.append(np.array([(np.random.random() - 0.5) * 0.4 + s.coords[0],
+                                              (np.random.random() - 0.5) * 0.4 + s.coords[1],
+                                              (np.random.random() - 0.5) * 0.4 + s.coords[2]]))
                     if s.specie.name == 'Au':
                         site_properties['initial_moment'].append(1.0)
                     else:
                         site_properties['initial_moment'].append(-1.0)
 
-                try:
-                    new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
-                                         charge=None, validate_proximity=True, to_unit_cell=False,
-                                         coords_are_cartesian=True, site_properties=site_properties)
-                except StructureError:
-                    continue
-
-                show_it = False
-                if show_it:
-                    new_cell.to(fmt='POSCAR', filename='/tmp/POSCAR')
-                    os.system('VESTA /tmp/POSCAR')
-                    quit()
+                new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
+                                     charge=None, validate_proximity=True, to_unit_cell=False,
+                                     coords_are_cartesian=True, site_properties=site_properties)
 
                 incar_set = MPStaticSet(new_cell)
-                structure_name = str(new_cell.composition.element_composition)
+                structure_name = re.sub(' ', '', str(new_cell.composition.element_composition)) + \
+                    ' ' + str(new_cell.num_sites) + ' in ' + bin_name
 
-                meta = {'name': structure_name,
-                        'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
+                meta = {'name': structure_name, 'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
+                kpt_set = Kpoints.automatic_gamma_density(structure=new_cell, kppa=1000).as_dict()
 
                 static_wf = get_static_wf(structure=new_cell, struc_name=structure_name, vasp_input_set=incar_set,
                                           vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
                                           user_kpoints_settings=kpt_set, metadata=meta)
+
                 run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
                 lpad_cuau.add_wf(run_wf)
                 added = True

@@ -39,7 +39,7 @@ if read_from_db:
     run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
     data_db = run_con.pot_train
     data_db.authenticate('jank', 'b@sf_mongo')
-    data_coll = data_db['aurum']
+    data_coll = data_db['cuprum']
     complete_xyz = []
     crystal_system = []
     print('Starting DB read of {} entries...'.format(data_coll.estimated_document_count()))
@@ -54,14 +54,14 @@ if read_from_db:
 
         valid = True
 
-        if 'Slab' in doc['name']:
+        if 'slab' in doc['name']:
             valid = check_vacuum_direction(doc['data']['final_structure'])
 
         if valid:
             complete_xyz.append(doc['data']['xyz'])
-            if 'Slab' in doc['name']:
+            if 'slab' in doc['name']:
                 crystal_system.append('slab')
-            elif 'Cluster' in doc['name']:
+            elif 'cluster' in doc['name']:
                 crystal_system.append('cluster')
             else:
                 crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
@@ -91,48 +91,40 @@ for sys in systems:
         np.random.shuffle(train_selected[sys])
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
-print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
-      '                          bcc     : {:5d} [{:3.1f}%]\n'
-      '                          sc      : {:5d} [{:3.1f}%]\n'
-      '                          hcp     : {:5d} [{:3.1f}%]\n'
-      '                          slab    : {:5d} [{:3.1f}%]\n'
-      '                          cluster : {:5d} [{:3.1f}%]\n'
-      '                          addition: {:5d} [{:3.1f}%]'.
-      format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
-             int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
-             int(system_count['sc'] * train_split['sc']), train_split['sc']*100,
-             int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
-             int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
-             int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
-             int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
-# print('This will need approximately {} GB of memory during training.'.format(np.round(
-#     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
-#      system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
-#      system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
-#      system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
-# ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
-# |          dim1           | * |    dim2    | * numerics
+# print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
+#       '                          bcc     : {:5d} [{:3.1f}%]\n'
+#       '                          sc      : {:5d} [{:3.1f}%]\n'
+#       '                          hcp     : {:5d} [{:3.1f}%]\n'
+#       '                          slab    : {:5d} [{:3.1f}%]\n'
+#       '                          cluster : {:5d} [{:3.1f}%]\n'
+#       '                          addition: {:5d} [{:3.1f}%]'.
+#       format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
+#              int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
+#              int(system_count['sc'] * train_split['sc']), train_split['sc']*100,
+#              int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
+#              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
+#              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
+#              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
 
 processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': [], 'addition': []}
 
 for i, xyz in enumerate(complete_xyz):
-    xyz[1] = re.sub('bulk', crystal_system[i], xyz[1])
     xyz[1] = re.sub('forces:R:3', 'forces:R:3:force_mask:L:1', xyz[1])
 
-    force_flag = np.zeros(len(xyz[2:]))
+    force_flag = ['F' for _ in range(len(xyz[2:]))]
     for j in range(int(force_fraction * len(force_flag))):
-        force_flag[j] = 1
+        force_flag[j] = 'T'
     np.random.shuffle(force_flag)
     for j in range(2, len(xyz)):
-        xyz[j] = xyz[j].strip() + '   {}\n'.format(int(force_flag[j - 2]))
+        xyz[j] = xyz[j].strip() + '   {}\n'.format(force_flag[j - 2])
 
     processed[crystal_system[i]].append(xyz)
 
 
 with open('train.xyz', 'w') as f:
-    with open('atom/parsed.xyz', 'r') as f_in:
+    with open('../atom/parsed.xyz', 'r') as f_in:
         f.write(f_in.read())
-    with open('dimer/AuAu/dimer.xyz', 'r') as f_in:
+    with open('../dimer/CuCu_dimer.xyz', 'r') as f_in:
         f.write(f_in.read())
     for sys in systems:
         for i, xyz in enumerate(processed[sys]):

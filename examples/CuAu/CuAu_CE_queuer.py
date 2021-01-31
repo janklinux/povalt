@@ -27,16 +27,15 @@ def get_optimize_wf(structure, struc_name='', name='Relax', vasp_input_set=None,
     vis_relax = vis_relax.__class__.from_dict(v)
 
     fws = [OptimizeFW(structure=structure, vasp_input_set=vis_relax, vasp_cmd=vasp_cmd,
-                      db_file=db_file, name="{} Relax".format(tag))]
+                      job_type='full_opt_run', db_file=db_file, name="{} Relax".format(tag))]
     wfname = "{}:{}".format(struc_name, name)
-
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
 
-incar_mod = {'EDIFF': 1E-5, 'EDIFFG': 1E-3, 'NSW': 101, 'ISMEAR': 0, 'ISPIN': 1, 'ISYM': 0, 'NELM': 100,
-             'ENCUT': 520, 'NCORE': 8, 'ALGO': 'Normal', 'AMIN': 0.1, 'LREAL': '.FALSE.'}
+incar_mod = {'EDIFF': 1E-5, 'NSW': 101, 'ISMEAR': 0, 'ISPIN': 1, 'ISYM': 0, 'NELM': 100,
+             'ENCUT': 520, 'NCORE': 8, 'ALGO': 'Normal', 'LREAL': '.FALSE.'}
 
 
 crystal = os.getcwd().split('/')[-1].split('_')[-1]
@@ -44,7 +43,11 @@ if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
 
 all_files = []
-for i in [2, 3]:  # , 4, 5, 6]:
+for i in [7, 8, 9]:
+    # hcp: 2,3
+    # fcc: 2,3,4,5,6,7,8,9
+    # bcc: 2,3,4,5,6
+    # sc:  2,3,4,5,6
     tmp = glob.glob('training_data/SCEL{:d}*/**/POSCAR'.format(i), recursive=True)
     all_files.extend(tmp)
 

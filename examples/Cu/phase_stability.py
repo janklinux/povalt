@@ -4,15 +4,14 @@ import json
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
-from ase.io import read, write
+from ase.io import write
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.io.vasp import Kpoints
+from pymatgen.io.vasp import Kpoints, Outcar
 from pymatgen.core.structure import Structure
 
 
+plot_only = True
 run_dft = False
-plot_only = False
-
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}
 
@@ -20,10 +19,10 @@ base_dir = os.getcwd()
 run_dir = os.path.join(os.getcwd(), 'run_dir')
 
 if not plot_only:
-    gap_energy = {'fcc': {'atom_vol': [], 'energy': []}, 'bcc': {'atom_vol': [], 'energy': []},
-                  'sc': {'atom_vol': [], 'energy': []}, 'hcp': {'atom_vol': [], 'energy': []}}
-    dft_energy = {'fcc': {'atom_vol': [], 'energy': []}, 'bcc': {'atom_vol': [], 'energy': []},
-                  'sc': {'atom_vol': [], 'energy': []}, 'hcp': {'atom_vol': [], 'energy': []}}
+    gap_energy = {'fcc': {'lat_const': [], 'energy': []}, 'bcc': {'lat_const': [], 'energy': []},
+                  'sc': {'lat_const': [], 'energy': []}, 'hcp': {'lat_const': [], 'energy': []}}
+    dft_energy = {'fcc': {'lat_const': [], 'energy': []}, 'bcc': {'lat_const': [], 'energy': []},
+                  'sc': {'lat_const': [], 'energy': []}, 'hcp': {'lat_const': [], 'energy': []}}
     for csys in ['fcc', 'bcc', 'sc', 'hcp']:
         print('Running: {:3.3s}'.format(csys), end='')
         sys.stdout.flush()
@@ -45,15 +44,15 @@ if not plot_only:
             write('cell.xyz', images=AseAtomsAdaptor().get_atoms(run_cell), format='extxyz')
 
             for file in os.listdir(base_dir):
-                if file.startswith('platinum.xml') or file.startswith('compress.dat'):
+                if file.startswith('copper.xml') or file.startswith('compress.dat'):
                     os.symlink(os.path.join('..', '..', file), file)
 
-            os.system('quip atoms_filename=cell.xyz param_filename=platinum.xml e > quip.result')
+            os.system('quip atoms_filename=cell.xyz param_filename=copper.xml e > quip.result')
 
             with open('quip.result', 'r') as f:
                 for line in f:
-                    if 'Energy=' in line:
-                        gap_energy[csys]['atom_vol'].append(float(run_cell.volume/run_cell.num_sites))
+                    if 'Energy' in line:
+                        gap_energy[csys]['lat_const'].append(float(run_cell.volume/run_cell.num_sites))
                         gap_energy[csys]['energy'].append(float(line.split('=')[1])/run_cell.num_sites)
 
             if run_dft:
@@ -64,13 +63,11 @@ if not plot_only:
 
                 os.system('nice -n 10 mpirun -n 4 vasp_std | tee run')
 
-                dft_energy[csys]['atom_vol'].append(float(run_cell.volume/run_cell.num_sites))
-                dft_energy[csys]['energy'].append(read('vasprun.xml').get_potential_energy(force_consistent=True)
-                                                  /run_cell.num_sites)
+                dft_energy[csys]['lat_const'].append(float(run_cell.volume/run_cell.num_sites))
+                dft_energy[csys]['energy'].append(float(Outcar('OUTCAR').final_energy)/run_cell.num_sites)
 
             os.chdir(run_dir)
             shutil.rmtree(tmp_dir)
-
         print('')
         sys.stdout.flush()
 
@@ -83,7 +80,6 @@ if not plot_only:
     else:
         with open('dft_data.json', 'r') as f:
             dft_energy = json.load(f)
-
 else:
     os.chdir(base_dir)
     with open('gap_data.json', 'r') as f:
@@ -111,9 +107,9 @@ plt.rcParams['ytick.labelsize'] = 18
 plt.rcParams['axes.linewidth'] = 3
 
 for csys in ['fcc', 'bcc', 'sc', 'hcp']:
-    plt.plot(gap_energy[csys]['atom_vol'], gap_energy[csys]['energy'], '-',
+    plt.plot(gap_energy[csys]['lat_const'], gap_energy[csys]['energy'], '-',
              linewidth=1, color=color[csys], label=csys+'-GAP')
-    plt.plot(dft_energy[csys]['atom_vol'], dft_energy[csys]['energy'], '.',
+    plt.plot(dft_energy[csys]['lat_const'], dft_energy[csys]['energy'], '.',
              linewidth=1, color=color[csys], label=csys+'-DFT')
 
 plt.xlabel(r'Volume per atom [\AA$^3$]', fontsize=16, color='k')
