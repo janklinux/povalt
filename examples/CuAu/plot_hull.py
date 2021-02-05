@@ -37,6 +37,9 @@ hall = open_halloffame(fit_input["halloffame_filename"])
 #      Currently calculated for ranges 0.001, 0.005, 0.01, 0.05, 0.1, 0.5 eV/unit cell
 #
 
+dft_only = True
+
+
 for indiv_i in range(10):
     checkhull(fit_input, hall, indices=[indiv_i])
 
@@ -86,6 +89,14 @@ for indiv_i in range(10):
     plt.scatter(df_calc[comp_a], df_calc[dft_Ef], facecolors='none', edgecolors='b', label=r'dft')
     plt.plot(df_hull[comp], df_hull[Ef], 'b.-')
     # plt.plot(indiv.dft_gs[comp_a], indiv.dft_gs[dft_Ef], 'bo-', label='_nolegend_')
+
+    if dft_only:
+        plt.xlim([-0.02, 1.02])
+        plt.legend(loc='best')
+        plt.tight_layout()
+        fname = 'dft_input.png'
+        plt.savefig(fname, dpi=170)
+        dft_only = False
 
     # to plot calculated configurations predicted Ef & predicted hull
     plt.scatter(df_calc[comp_a], df_calc[clex_Ef], color='r', marker='.', label=r'clex')
