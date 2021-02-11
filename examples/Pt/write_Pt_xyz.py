@@ -27,13 +27,13 @@ do_soap = False
 
 systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons']
 
-train_split = {'fcc': 0.5,
-               'bcc': 0.5,
-               'hcp': 0.5,
-               'sc': 0.5,
-               'slab': 0.9,
-               'cluster': 0.9,
-               'phonons': 0.9,
+train_split = {'fcc': 0.8,
+               'bcc': 0.8,
+               'hcp': 0.8,
+               'sc': 0.8,
+               'slab': 0.8,
+               'cluster': 0.8,
+               'phonons': 0.8,
                'addition': 1.0}
 
 with open('train.xyz', 'w') as f:
@@ -106,7 +106,7 @@ for crd in zcrds:
     wtmp = ''
     for bit in tmp_line[1].split(' '):
         if 'Properties' in bit:
-            bit += ':force_mask:L:1 '
+            bit += ':force_mask:L:1:force_component_sigma:R:3 '
             bit += 'virial="{} {} {} {} {} {} {} {} {}"'.format(
                 virial[0][0], virial[0][1], virial[0][2],
                 virial[1][0], virial[1][1], virial[1][2],
@@ -115,17 +115,23 @@ for crd in zcrds:
     tmp_line[1] = wtmp.strip() + '\n'
     tmp_line[0] = tmp_line[0].strip() + '\n'
 
-    force_flag = np.zeros(len(tmp_line[2:]))
-    for j in range(int(force_fraction * len(force_flag))):
-        force_flag[j] = 1
-    np.random.shuffle(force_flag)
+    forces = []
+    for j in range(2, len(tmp_line)):
+        forces.append([float(x) for x in tmp_line[j].split()[4:7]])
+
+    f_min = 0.1
+    f_scale = 0.1
+    f = np.clip(np.abs(forces) * f_scale, a_min=f_min, a_max=None)
 
     for j in range(2, len(tmp_line)):
-        tmp_line[j] = tmp_line[j].strip() + '     0\n'
+        tmp_line[j] = tmp_line[j].strip() + '     0  {:5.5f} {:5.5f} {:5.5f}\n'.format(f[j-2][0],
+                                                                                       f[j-2][1], f[j-2][2])
 
     with open('train.xyz', 'a') as f:
-        for line in tmp_line:
-            f.write(line)
+        with open('phonons.xyz', 'a') as ff:
+            for line in tmp_line:
+                f.write(line)
+                ff.write(line)
 
     force_curve.append(atoms.get_forces()[1][2])
 
@@ -306,7 +312,7 @@ for i, xyz in enumerate(complete_xyz):
     wtmp = ''
     for bit in tmp_line[1].split(' '):
         if 'Properties' in bit:
-            bit += ':force_mask:L:1 '
+            bit += ':force_mask:L:1:force_component_sigma:R:3 '
             bit += 'virial="{} {} {} {} {} {} {} {} {}"'.format(
                 virial[0][0], virial[0][1], virial[0][2],
                 virial[1][0], virial[1][1], virial[1][2],
@@ -320,9 +326,22 @@ for i, xyz in enumerate(complete_xyz):
         force_flag[j] = 1
     np.random.shuffle(force_flag)
 
+    forces = []
     for j in range(2, len(tmp_line)):
-        tmp_line[j] = tmp_line[j].strip() + '     {}\n'.format(int(force_flag[j - 2]))
+        forces.append([float(x) for x in tmp_line[j].split()[4:7]])
 
+    if crystal_system[i] == 'phonons':
+        f_min = 0.001
+        f_scale = 0.1
+    else:
+        f_min = 0.1
+        f_scale = 0.1
+    f = np.clip(np.abs(forces) * f_scale, a_min=f_min, a_max=None)
+
+    for j in range(2, len(tmp_line)):
+        tmp_line[j] = tmp_line[j].strip() + '     {}  {:5.5f} {:5.5f} {:5.5f}\n'.format(int(force_flag[j - 2]),
+                                                                                        f[j-2][0], f[j-2][1],
+                                                                                        f[j-2][2])
     processed[crystal_system[i]].append(tmp_line)
 
 

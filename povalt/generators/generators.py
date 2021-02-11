@@ -32,7 +32,7 @@ class Dimer:
     """
 
     def __init__(self, species, lattice, min_dist, max_dist, show_spin_curves,
-                 show_result, cores, non_collinear=False):
+                 show_result, cores, mpi_cmd, non_collinear=False):
         """
         Checks parameters and sets up the grid
 
@@ -58,6 +58,7 @@ class Dimer:
         self.base_dir = os.getcwd()
         self.grid = np.linspace(start=min_dist, stop=max_dist, num=100, endpoint=True)
         self.ncl = non_collinear
+        self.mpi_cmd = mpi_cmd
 
     def run_dimer_aims(self):
         """
@@ -112,7 +113,7 @@ class Dimer:
                                             f.write('  fixed_spin_moment {:2.2f}'.format(fixed_spin))
                                             f.write('\n\n')
 
-                                    os.system('nice -n 10 mpirun -n {} /home/jank/bin/aims > run'.format(self.cores))
+                                    os.system('{} -n {} /home/jank/bin/aims > run'.format(self.mpi_cmd, self.cores))
 
                                     forces = None
                                     parse_forces = False
@@ -349,10 +350,9 @@ class Dimer:
                         pots.write_file('POTCAR')
 
                         if self.ncl:
-                            # os.environ['CUDA_VISIBLE_DEVICES'] = '3,4'
-                            os.system('nice -n 15 mpirun -n {} vasp_ncl | tee run'.format(self.cores))
+                            os.system('{} -n {} vasp_ncl | tee run'.format(self.mpi_cmd, self.cores))
                         else:
-                            os.system('nice -n 15 mpirun -n {} vasp_std | tee run'.format(self.cores))
+                            os.system('{} -n {} vasp_std | tee run'.format(self.mpi_cmd, self.cores))
 
                         run = read('vasprun.xml')
                         forces = run.get_forces()

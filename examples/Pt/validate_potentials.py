@@ -39,14 +39,17 @@ def parse_quip(filename):
                 if len(line.split()) == 3:
                     end_time = line.split()[2]
             if line.startswith('Energy='):
+                predicted_energies.append(float(line.split('=')[1]))
                 if start_parse:
                     data.append(tmp)
                 start_parse = True
                 tmp = list()
-                predicted_energies.append(float(line.split('=')[1]))
             if start_parse:
                 if line.startswith('AT'):
                     tmp.append(line[3:])
+
+    data.append(tmp)
+
     dt = datetime.strptime(end_time, '%H:%M:%S') - datetime.strptime(start_time, '%H:%M:%S')
     return dict({'data': data, 'predicted_energies': predicted_energies}), dt
 
@@ -103,7 +106,7 @@ def get_differences(result, reference):
                 virial.append(float(bits[8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
-                forces.append([float(x) for x in line.split()[13:17]])
+                forces.append([float(x) for x in line.split()[16:19]])
             if line_count == n_atoms + 2:
                 line_count = 0
                 tmp = dict()
@@ -160,7 +163,7 @@ def get_differences(result, reference):
 
     print('parsed sizes: data: {}, ref: {}'.format(len(result_data), len(reference_data)))
 
-    for i in range(np.min([len(result_data), len(reference_data)])):
+    for i in range(len(result_data)):
         for fa, fb in zip(np.array(result_data[i]['coords']), np.array(reference_data[i]['coords'])):
             if not np.all(fa == fb):
                 print('not the same: ', fa, fb)
@@ -175,7 +178,7 @@ def get_differences(result, reference):
         df = 0
         for fa, fb in zip(np.array(result_data[i]['forces']), np.array(reference_data[i]['forces'])):
             df += np.linalg.norm(fa - fb) / 3
-        force_diff.append(df/len(result_data[i]['forces']))
+        force_diff.append(df / len(result_data[i]['forces']))
 
         # df = 0
         # for fa, fb in zip(np.array(result_data[i]['virial']), np.array(reference_data[i]['virial'])):
@@ -186,7 +189,7 @@ def get_differences(result, reference):
 
 
 def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
-                avg_energy_error, force_error, gap_name):
+                avg_energy_error, force_error, gap_name, multipot):
 
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
@@ -220,7 +223,8 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
 
     plt.text(-3.0, -4.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
 
-    plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
+    if multipot:
+        plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
 
     plt.legend(loc='upper left')
 
@@ -228,54 +232,75 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.ylim(-7, 1)
 
     plt.tight_layout()
-    plt.savefig('../GAP_vs_DFT-'+gap_name+'.png', dpi=300)
+    if multipot:
+        fname = '../GAP_vs_DFT-' + gap_name + '.png'
+    else:
+        fname = 'GAP_vs_DFT-' + gap_name + '.png'
+    plt.savefig(fname, dpi=300)
     plt.close()
 
 
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-conn = MongoClient(host='numphys.org', port=27017, ssl=True, tlsCAFile=ca_file, ssl_certfile=cl_file)
-data_db = conn.pot_train
-data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['validate_potentials']
-
 reference = parse_xyz('test.xyz')
 
-print('DB Content: {} potentials'.format(data_coll.estimated_document_count()))
-
-base_dir = os.getcwd()
-xml_name = None
-xml_label = None
-for pot in data_coll.find():
-    os.chdir(base_dir)
-    for p in pot:
-        if p != '_id':
-            bits = p.split(':')
-            if len(bits) == 2:
-                xml_name = bits[0] + '.' + bits[1]
-            if len(bits) == 4:
-                xml_label = p.split(':')[3][:-1]
-
-    if os.path.isdir(xml_label):
-        shutil.rmtree(xml_label)
-    os.mkdir(xml_label)
-    os.chdir(xml_label)
-
-    for p in pot:
-        if p != '_id':
-            with open(re.sub(':', '.', p), 'wb') as f:
-                f.write(lzma.decompress(pot[p]))
-
-    os.symlink('../compress.dat', 'compress.dat')
-    os.symlink('../test.xyz', 'test.xyz')
-    os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
-    print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
-    os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
-
+multi_potential = False
+if not multi_potential:
     result, runtime = parse_quip('quip.result')
-    os.system('nice -n 10 xz -z9e quip.result &')
     eref, epred, de, df = get_differences(result=result, reference=reference)
 
+    for ie, e in enumerate(de):
+        if e > 0.1:
+            print(ie, e)
+            with open('error_{}.xyz'.format(ie), 'w') as f:
+                for line in result['data'][ie]:
+                    f.write(line)
+
     scatterplot(result_energy=epred, reference_energy=eref,
-                quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
-                force_error=np.sum(df)/len(df), gap_name=xml_label)
+                quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de) / len(de),
+                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons_adds', multipot=multi_potential)
+
+else:
+    ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
+    cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+    conn = MongoClient(host='numphys.org', port=27017, ssl=True, tlsCAFile=ca_file, ssl_certfile=cl_file)
+    data_db = conn.pot_train
+    data_db.authenticate('jank', 'b@sf_mongo')
+    data_coll = data_db['validate_potentials']
+
+    print('DB Content: {} potentials'.format(data_coll.estimated_document_count()))
+
+    base_dir = os.getcwd()
+    xml_name = None
+    xml_label = None
+    for pot in data_coll.find():
+        os.chdir(base_dir)
+        for p in pot:
+            if p != '_id':
+                bits = p.split(':')
+                if len(bits) == 2:
+                    xml_name = bits[0] + '.' + bits[1]
+                if len(bits) == 4:
+                    xml_label = p.split(':')[3][:-1]
+
+        if os.path.isdir(xml_label):
+            shutil.rmtree(xml_label)
+        os.mkdir(xml_label)
+        os.chdir(xml_label)
+
+        for p in pot:
+            if p != '_id':
+                with open(re.sub(':', '.', p), 'wb') as f:
+                    f.write(lzma.decompress(pot[p]))
+
+        os.symlink('../compress.dat', 'compress.dat')
+        os.symlink('../test.xyz', 'test.xyz')
+        os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
+        print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
+        os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
+
+        result, runtime = parse_quip('quip.result')
+        os.system('nice -n 10 xz -z9e quip.result &')
+        eref, epred, de, df = get_differences(result=result, reference=reference)
+
+        scatterplot(result_energy=epred, reference_energy=eref,
+                    quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
+                    force_error=np.sum(df)/len(df), gap_name=xml_label, multipot=multi_potential)

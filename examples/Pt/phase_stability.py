@@ -11,7 +11,7 @@ from pymatgen.core.structure import Structure
 
 
 run_dft = False
-plot_only = False
+plot_only = True
 
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}

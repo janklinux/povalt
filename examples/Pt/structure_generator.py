@@ -66,31 +66,32 @@ else:
     raise ValueError('No scaling implemented for the chosen cell...')
 
 prim = Structure.from_file('POSCAR')
-cell = SupercellTransformation(scaling_matrix=scale_mat).apply_transformation(prim)
 
-unit_cell_kpts = [8, 8, 8]  # unit cells have ALL been run at 8 8 8 Gamma
-cell_kpts = []
-for ik, k in enumerate(unit_cell_kpts):
-    cell_kpts.append(int(np.ceil(k / np.sum(scale_mat[ik]))))
+# unit_cell_kpts = [8, 8, 8]  # unit cells have ALL been run at 8 8 8 Gamma
+# cell_kpts = []
+# for ik, k in enumerate(unit_cell_kpts):
+#     cell_kpts.append(int(np.ceil(k / np.sum(scale_mat[ik]))))
 
-kpt_set = Kpoints.gamma_automatic(kpts=cell_kpts, shift=(0, 0, 0)).as_dict()
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
  
-if 100 > cell.num_sites > 128:
-    print('Number of atoms in cell: {}'.format(cell.num_sites))
-    raise ValueError('Atoms in supercell not in the range 100 > sites > 128, adjust transformation matrix...')
+# if 100 > cell.num_sites > 128:
+#     print('Number of atoms in cell: {}'.format(cell.num_sites))
+#     raise ValueError('Atoms in supercell not in the range 100 > sites > 128, adjust transformation matrix...')
 
-print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
+# print('Number of atoms in supercell: {} || k-grid set to: {}'.format(cell.num_sites, cell_kpts))
 
 random.seed(time.time())
-total_structures = 125
+total_structures = 250
 
 # quit()
 
 i = 0
 while i < total_structures:
+    cell = SupercellTransformation(scaling_matrix=scale_mat).apply_transformation(prim)
+    kpt_set = Kpoints.automatic_gamma_density(structure=cell, kppa=1200).as_dict()
+
     # de = np.array([[(random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45],
     #                [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35, (random.random() - 0.5) * 0.45],
     #                [(random.random() - 0.5) * 0.45, (random.random() - 0.5) * 0.45, (random.random() - 0.5) * 2.35]])
@@ -101,14 +102,15 @@ while i < total_structures:
     # if np.any(eps > 0.15):
     #     print('Component > 0.15 -> too much strain, omitting structure...')
     #     continue
+
     new_lat =  cell.lattice.matrix
     new_crds = []
     new_species = []
     for s in cell.sites:
         new_species.append(s.specie)
-        new_crds.append(np.array([(random.random() - 0.5) * 0.05 + s.coords[0],
-                                  (random.random() - 0.5) * 0.05 + s.coords[1],
-                                  (random.random() - 0.5) * 0.05 + s.coords[2]]))
+        new_crds.append(np.array([(random.random() - 0.5) * 0.02 + s.coords[0],
+                                  (random.random() - 0.5) * 0.02 + s.coords[1],
+                                  (random.random() - 0.5) * 0.02 + s.coords[2]]))
 
     new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
                          charge=None, validate_proximity=True, to_unit_cell=False,
