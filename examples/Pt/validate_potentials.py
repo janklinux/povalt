@@ -4,6 +4,7 @@ import lzma
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+from ase.io import read, write
 from pymongo import MongoClient
 from datetime import datetime
 
@@ -75,7 +76,7 @@ def parse_xyz(filename):
             if line_count == n_atoms + 2:
                 line_count = 0
                 tmp = list()
-                tmp.append(n_atoms)
+                tmp.append('{}\n'.format(n_atoms))
                 tmp.append(info)
                 for a in atoms:
                     tmp.append(a)
@@ -124,6 +125,7 @@ def get_differences(result, reference):
         coord = []
         virial = []
         forces = []
+        config_type = None
         n_atoms = 0
         line_count = 0
         for line in ref:
@@ -140,6 +142,8 @@ def get_differences(result, reference):
                         for v in bits[ii+1:ii+8]:
                             virial.append(float(v))
                         virial.append(float(bits[ii+8][:-1]))
+                    if 'config_type' in bit:
+                        config_type = bit.split('=')[1]
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[4:7]])
@@ -150,6 +154,7 @@ def get_differences(result, reference):
                 tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
+                tmp['config_type'] = config_type
                 reference_data.append(tmp)
                 energy = 0
                 virial = []
@@ -160,6 +165,7 @@ def get_differences(result, reference):
     force_diff = []
     reference_per_atom = []
     prediction_per_atom = []
+    system_config = []
 
     print('parsed sizes: data: {}, ref: {}'.format(len(result_data), len(reference_data)))
 
@@ -171,6 +177,7 @@ def get_differences(result, reference):
 
         reference_per_atom.append(reference_data[i]['free_energy'] / len(result_data[i]['coords']))
         prediction_per_atom.append(result_data[i]['free_energy'] / len(result_data[i]['coords']))
+        system_config.append(reference_data[i]['config_type'])
 
         energy_diff.append(np.abs(np.abs(reference_data[i]['free_energy'] / len(result_data[i]['coords'])) -
                                   np.abs(result_data[i]['free_energy'] / len(result_data[i]['coords']))))
@@ -185,10 +192,10 @@ def get_differences(result, reference):
         #     df += np.linalg.norm(fa - fb) / 3
         # virial_diff.append(df/len(result_data[i]['virial']))
 
-    return reference_per_atom, prediction_per_atom, energy_diff, force_diff
+    return reference_per_atom, prediction_per_atom, energy_diff, force_diff, system_config
 
 
-def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
+def scatterplot(result_energy, reference_energy, system_type, quip_time, max_energy_error,
                 avg_energy_error, force_error, gap_name, multipot):
 
     plt.rc('text', usetex=True)
@@ -207,7 +214,46 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
     plt.rcParams['ytick.labelsize'] = 18
     plt.rcParams['axes.linewidth'] = 3
 
-    plt.scatter(result_energy, reference_energy, marker='.', color='navy', label=None, s=0.5)
+    plt_color = {'fcc': 'y', 'bcc': 'navy', 'hcp': 'g', 'sc': 'm', 'slab': 'r', 'phonons': 'b',
+                 'addition': 'brown', 'cluster': 'green'}
+
+    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'phonons', 'addition', 'cluster']):
+        plt_x = []
+        plt_y = []
+        plt.text(-6, -0.5-(ip*0.2), r'{}'.format(tp), color=plt_color[tp], fontsize=6)
+        for cnt, (res, ref) in enumerate(zip(result_energy, reference_energy)):
+            if system_type[cnt] == tp:
+                plt_x.append(ref)
+                plt_y.append(res)
+        plt.scatter(plt_x, plt_y, marker='.', color=plt_color[tp], label=None, s=0.5)
+
+    fcc_dft = -24.39050152 / 4
+    fcc_gap = -24.404683 / 4
+    plt.plot(fcc_dft, fcc_gap, marker='x', color='k')
+    plt.annotate(r'fcc', xy=(fcc_dft, fcc_gap), xytext=(fcc_dft - 0.1, fcc_gap - 0.5), color='y', fontsize=6,
+                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+                                 headwidth=2.0, headlength=4.0, shrink=0.05))
+
+    bcc_dft = -11.97199694 / 2
+    bcc_gap = -11.989746 / 2
+    plt.plot(bcc_dft, bcc_gap, marker='x', color='k')
+    plt.annotate(r'bcc', xy=(bcc_dft, bcc_gap), xytext=(bcc_dft - 0.5, bcc_gap + 0.5), color='navy', fontsize=6,
+                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+                                 headwidth=2.0, headlength=4.0, shrink=0.05))
+
+    hcp_dft = -17.78139257 / 3
+    hcp_gap = -17.785577 / 3
+    plt.plot(hcp_dft, hcp_gap, marker='x', color='k')
+    plt.annotate(r'hcp', xy=(hcp_dft, hcp_gap), xytext=(hcp_dft + 0.5, hcp_gap - 0.5), color='g', fontsize=6,
+                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+                                 headwidth=2.0, headlength=4.0, shrink=0.05))
+
+    sc_dft = -5.57232362
+    sc_gap = -5.6127757  # -5.6727757
+    plt.plot(sc_dft, sc_gap, marker='x', color='k')
+    plt.annotate(r'sc', xy=(sc_dft, sc_gap), xytext=(sc_dft - 0.5, sc_gap + 0.5), color='m', fontsize=6,
+                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+                                 headwidth=2.0, headlength=4.0, shrink=0.05))
 
     plt.xlabel(r'Computed Energy [eV/atom]', fontsize=16, color='k')
     plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
@@ -243,20 +289,24 @@ def scatterplot(result_energy, reference_energy, quip_time, max_energy_error,
 reference = parse_xyz('test.xyz')
 
 multi_potential = False
+
 if not multi_potential:
     result, runtime = parse_quip('quip.result')
-    eref, epred, de, df = get_differences(result=result, reference=reference)
+    eref, epred, de, df, sys_conf = get_differences(result=result, reference=reference)
 
     for ie, e in enumerate(de):
         if e > 0.1:
             print(ie, e)
             with open('error_{}.xyz'.format(ie), 'w') as f:
-                for line in result['data'][ie]:
-                    f.write(line)
+                for line in reference['data'][ie]:
+                    f.write(str(line))
+            atoms = read('error_{}.xyz'.format(ie))
+            write(filename='error_{}.vasp'.format(ie), images=atoms, format='vasp')
+            os.unlink('error_{}.xyz'.format(ie))
 
-    scatterplot(result_energy=epred, reference_energy=eref,
+    scatterplot(result_energy=epred, reference_energy=eref, system_type=sys_conf,
                 quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de) / len(de),
-                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons_adds', multipot=multi_potential)
+                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons_trimers', multipot=multi_potential)
 
 else:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -299,8 +349,8 @@ else:
 
         result, runtime = parse_quip('quip.result')
         os.system('nice -n 10 xz -z9e quip.result &')
-        eref, epred, de, df = get_differences(result=result, reference=reference)
+        eref, epred, de, df, sys_conf = get_differences(result=result, reference=reference)
 
-        scatterplot(result_energy=epred, reference_energy=eref,
+        scatterplot(result_energy=epred, reference_energy=eref, system_type=sys_conf,
                     quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de)/len(de),
                     force_error=np.sum(df)/len(df), gap_name=xml_label, multipot=multi_potential)

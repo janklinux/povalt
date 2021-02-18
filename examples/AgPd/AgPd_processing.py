@@ -48,9 +48,9 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 run_con = MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train
 data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['CuAu']
+data_coll = data_db['AgPd']
 
-lpad_cuau = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='agpd_fw', username='jank', password='mongo', ssl=False)
 
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
@@ -59,14 +59,14 @@ incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'I
 np.random.seed(int(time.time()))
 
 for doc in data_coll.find({}):
-    if 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
+    if 'AgPd CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
         bin_name = doc['name'].split('||')[1].split()[3]
-        s = Structure.from_dict(doc['data']['final_structure'])
+        prim = Structure.from_dict(doc['data']['final_structure'])
 
         cell = None
         use_scale = None
         for i in range(1, 19):
-            cell = SupercellTransformation(scaling_matrix=np.array(scale(i))).apply_transformation(s)
+            cell = SupercellTransformation(scaling_matrix=np.array(scale(i))).apply_transformation(prim)
             if 60 <= cell.num_sites <= 100:
                 use_scale = scale(i)
                 break
@@ -74,12 +74,12 @@ for doc in data_coll.find({}):
         if use_scale is None:
             raise ValueError('Supercell trafo failed...')
 
-        print('Number of atoms in supercell: {} || Composition: {} || Transformation: {}'
-              .format(cell.num_sites, cell.composition.element_composition, use_scale))
+        print('Number of atoms in supercell: {} || Composition: {}'
+              .format(cell.num_sites, cell.composition.element_composition))
 
         for _ in range(5):  # random structures per configuration
             # Create random distorted lattice
-            cell = SupercellTransformation(scaling_matrix=np.array(use_scale)).apply_transformation(s)
+            cell = SupercellTransformation(scaling_matrix=np.array(use_scale)).apply_transformation(prim)
             added = False
             while not added:
                 new_lat = np.empty((3, 3))
@@ -98,7 +98,7 @@ for doc in data_coll.find({}):
                     new_crds.append(np.array([(np.random.random() - 0.5) * 0.4 + s.coords[0],
                                               (np.random.random() - 0.5) * 0.4 + s.coords[1],
                                               (np.random.random() - 0.5) * 0.4 + s.coords[2]]))
-                    if s.specie.name == 'Au':
+                    if s.specie.name == 'Ag':
                         site_properties['initial_moment'].append(1.0)
                     else:
                         site_properties['initial_moment'].append(-1.0)
@@ -119,5 +119,5 @@ for doc in data_coll.find({}):
                                           user_kpoints_settings=kpt_set, metadata=meta)
 
                 run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
-                lpad_cuau.add_wf(run_wf)
+                lpad.add_wf(run_wf)
                 added = True

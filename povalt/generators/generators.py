@@ -23,7 +23,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import read, write
-from pymatgen.io.vasp import Potcar
+from pymatgen.io.vasp import Potcar, Vasprun
 
 
 class Dimer:
@@ -404,8 +404,8 @@ class Dimer:
                     dists = []
                     energies = []
 
-                    # print('Collecting {:2s} <--> {:2s} || Spin: {:d}'
-                    #       .format(self.species[i], self.species[j], fixed_spin))
+                    print('Collecting {:2s} <--> {:2s} || Spin: {:d}'
+                          .format(self.species[i], self.species[j], fixed_spin))
 
                     run_dir = os.path.join(self.base_dir, str(self.species[i] + self.species[j] +
                                            '_spin_{:d}'.format(fixed_spin)))
@@ -421,6 +421,10 @@ class Dimer:
                         dists.append(float(d))
 
                         run = read(os.path.join(str(np.round(d, 2)), 'vasprun.xml'))
+                        if not Vasprun(os.path.join(str(np.round(d, 2)), 'vasprun.xml')).converged:
+                            print(run_dir, np.round(d, 2))
+                            print('not conv....')
+                            quit()
 
                         energies.append(run.get_potential_energy(force_consistent=True))
                         ftmp.append(run.get_forces())
@@ -469,17 +473,17 @@ class Dimer:
                     virial = -np.dot(vol, stress)
 
                     file = io.StringIO()
-                    write(filename=file, images=at, format='xyz', parallel=False)
+                    write(filename=file, images=at, format='extxyz', parallel=False)
                     file.seek(0)
                     xyz = file.readlines()
                     file.close()
 
                     xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" ' \
-                                              'config_type={}\n'.format(
+                                              'config_type=dimer_{}\n'.format(
                         virial[0][0], virial[0][1], virial[0][2],
                         virial[1][0], virial[1][1], virial[1][2],
                         virial[2][0], virial[2][1], virial[2][2],
-                        self.species[i]+self.species[j]+'_dimer')
+                        str(self.species[j]+self.species[i]))
 
                     with open('/tmp/delmetmp', 'wt') as f:
                         for line in xyz:
@@ -492,10 +496,10 @@ class Dimer:
                                                                 'spin_idx': itmp}
 
                 filename = ''.join([self.species[i], self.species[j]])+'_dimer.xyz'
-                write(filename=filename, format='xyz', images=atmp)
+                write(filename=filename, format='extxyz', images=atmp)
 
-                print(os.getcwd())
-                print('written: ', self.species[i], self.species[j])
+                # print(os.getcwd())
+                print('wrote: ', self.species[i], self.species[j])
 
         if self.show_result:
             plt.rc('text', usetex=True)

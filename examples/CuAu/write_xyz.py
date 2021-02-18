@@ -22,17 +22,14 @@ np.random.seed(1410)  # fix for reproduction
 
 read_from_db = False
 force_fraction = 1  # percentage of forces to INCLUDE from training
-do_soap = False
 
-systems = ['fcc', 'bcc', 'hcp', 'sc']  #, 'slab', 'cluster', 'addition']
+systems = ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu',
+           'fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au',
+           'fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu']
 
-train_split = {'fcc': 1,
-               'bcc': 1,
-               'hcp': 1,
-               'sc': 1,
-               'slab': 1,
-               'cluster': 1,
-               'addition': 1}
+train_split = {'fcc_Cu': 0.3, 'bcc_Cu': 0.3, 'hcp_Cu': 0.3, 'sc_Cu': 0.3, 'slab_Cu': 0.5,
+               'fcc_Au': 0.3, 'bcc_Au': 0.3, 'hcp_Au': 0.3, 'sc_Au': 0.3, 'slab_Au': 0.5,
+               'fcc_AuCu': 0.6, 'bcc_AuCu': 0.6, 'hcp_AuCu': 0.6, 'sc_AuCu': 0.6}
 
 if read_from_db:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -43,12 +40,12 @@ if read_from_db:
     data_coll = data_db['CuAu']
     complete_xyz = []
     crystal_system = []
-    print('Starting DB read of {} entries...'.format(data_coll.estimated_document_count()))
+    print('Starting DB read for CuAu of {} entries...'.format(data_coll.estimated_document_count()))
     print('busy on: ', end='')
     sys.stdout.flush()
     ik = 0
     for doc in data_coll.find({}):
-        if ik % 500 == 0:
+        if ik % 1000 == 0:
             print(' {:d}'.format(ik), end='')
             sys.stdout.flush()
         ik += 1
@@ -61,22 +58,75 @@ if read_from_db:
         if valid:
             complete_xyz.append(doc['data']['xyz'])
             if 'slab' in doc['name']:
-                crystal_system.append('slab')
+                crystal_system.append('slab_CuAu')
             elif 'cluster' in doc['name']:
-                crystal_system.append('cluster')
+                crystal_system.append('cluster_CuAu')
             else:
                 crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
+    print('')
+
+    data_coll = data_db['cuprum']
+    print('Starting DB read for Cu of {} entries...'.format(data_coll.estimated_document_count()))
+    print('busy on: ', end='')
+    sys.stdout.flush()
+    ik = 0
+    for doc in data_coll.find({}):
+        if ik % 1000 == 0:
+            print(' {:d}'.format(ik), end='')
+            sys.stdout.flush()
+        ik += 1
+
+        valid = True
+
+        if 'slab' in doc['name']:
+            valid = check_vacuum_direction(doc['data']['final_structure'])
+
+        if valid:
+            complete_xyz.append(doc['data']['xyz'])
+            if 'Slab' in doc['name']:
+                crystal_system.append('slab_Cu')
+            elif 'Cluster' in doc['name']:
+                crystal_system.append('cluster_Cu')
+            else:
+                crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Cu')
+    print('')
+
+    data_coll = data_db['aurum']
+    print('Starting DB read for Au of {} entries...'.format(data_coll.estimated_document_count()))
+    print('busy on: ', end='')
+    sys.stdout.flush()
+    ik = 0
+    for doc in data_coll.find({}):
+        if ik % 1000 == 0:
+            print(' {:d}'.format(ik), end='')
+            sys.stdout.flush()
+        ik += 1
+
+        valid = True
+
+        if 'slab' in doc['name']:
+            valid = check_vacuum_direction(doc['data']['final_structure'])
+
+        if valid:
+            complete_xyz.append(doc['data']['xyz'])
+            if 'Slab' in doc['name']:
+                crystal_system.append('slab_Au')
+            elif 'Cluster' in doc['name']:
+                crystal_system.append('cluster_Au')
+            else:
+                crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Au')
+    print('')
 
     with open('structures.json', 'w') as f:
         json.dump(complete_xyz, f)
     with open('systems.json', 'w') as f:
         json.dump(crystal_system, f)
-    print('')
 else:
     with open('structures.json', 'r') as f:
         complete_xyz = json.load(f)
     with open('systems.json', 'r') as f:
         crystal_system = json.load(f)
+
 
 system_count = dict()
 train_selected = dict()
@@ -116,7 +166,9 @@ print('There\'s currently {} computed structures in the database'.format(len(com
 # ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
 # |          dim1           | * |    dim2    | * numerics
 
-processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': [], 'addition': []}
+processed = {'fcc_Cu': [], 'bcc_Cu': [], 'hcp_Cu': [], 'sc_Cu': [], 'slab_Cu': [],
+             'fcc_Au': [], 'bcc_Au': [], 'hcp_Au': [], 'sc_Au': [], 'slab_Au': [],
+             'fcc_AuCu': [], 'bcc_AuCu': [], 'hcp_AuCu': [], 'sc_AuCu': []}
 
 for i, xyz in enumerate(complete_xyz):
     with open('/tmp/delme', 'w') as f:
@@ -124,7 +176,7 @@ for i, xyz in enumerate(complete_xyz):
             f.write(line)
 
     atoms = read('/tmp/delme')
-    atoms.info['config_type'] = atoms.info['config_type'].split('_')[0]
+    atoms.info['config_type'] = crystal_system[i]
 
     mask = np.random.choice([False, True], size=len(atoms), p=[force_fraction, 1.-force_fraction])
     atoms.new_array('force_mask', mask)
@@ -135,7 +187,7 @@ for i, xyz in enumerate(complete_xyz):
     atoms.new_array("force_component_sigma", f)
 
     file = io.StringIO()
-    write(filename=file, images=atoms, format='xyz', parallel=False)
+    write(filename=file, images=atoms, format='extxyz', parallel=False)
     file.seek(0)
     xyz = file.readlines()
 
@@ -144,10 +196,10 @@ for i, xyz in enumerate(complete_xyz):
 
 with open('train.xyz', 'w') as f:
     for at in ['Au', 'Cu']:
-        with open(os.path.join('atom', at, 'parsed.xyz'), 'r') as f_in:
+        with open(os.path.join('../training_data/atom', at, 'parsed.xyz'), 'r') as f_in:
             f.write(f_in.read())
-    for at in ['CuCu', 'AuAu', 'AuCu']:
-        with open('dimer/AuAu/dimer.xyz', 'r') as f_in:
+    for at in ['CuCu', 'AuAu', 'CuAu']:
+        with open(os.path.join('../training_data/dimer', '{}_dimer.xyz'.format(at)), 'r') as f_in:
             f.write(f_in.read())
     for sys in systems:
         for i, xyz in enumerate(processed[sys]):

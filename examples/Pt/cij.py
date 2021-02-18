@@ -16,7 +16,7 @@ for il, line in enumerate(content):
 
 quip_cij = []
 atoms = read('../vasp/POSCAR')
-write(filename='input.xyz', images=atoms, format='xyz')
+write(filename='input.xyz', images=atoms, format='extxyz')
 os.system('quip atoms_filename=input.xyz param_filename=platinum.xml cij > quip.result')
 with open('quip.result', 'r') as f:
     for line in f:

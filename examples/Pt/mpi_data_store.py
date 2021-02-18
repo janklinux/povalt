@@ -14,7 +14,8 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
+lpad = LaunchPad.auto_load()
+#    (host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
 all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
 offset = np.floor(len(all_jobs) / size)
 

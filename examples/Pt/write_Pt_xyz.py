@@ -25,16 +25,17 @@ force_fraction = 0  # percentage of forces to EXCLUDE from training
 show_dimer = False
 do_soap = False
 
-systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons']
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons', 'trimer']
 
-train_split = {'fcc': 0.8,
-               'bcc': 0.8,
-               'hcp': 0.8,
-               'sc': 0.8,
+train_split = {'fcc': 0.7,
+               'bcc': 0.7,
+               'hcp': 0.7,
+               'sc': 0.7,
                'slab': 0.8,
                'cluster': 0.8,
                'phonons': 0.8,
-               'addition': 1.0}
+               'addition': 1.0,
+               'trimer': 1.0}
 
 with open('train.xyz', 'w') as f:
     f.write('1\n')
@@ -56,7 +57,7 @@ for crd in zcrds:
 
     xyz = ''
     file = io.StringIO()
-    write(filename=file, images=atoms, format='xyz')
+    write(filename=file, images=atoms, format='extxyz')
     file.seek(0)
     for f in file:
         xyz += f
@@ -234,6 +235,7 @@ print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
       '                          slab    : {:5d} [{:3.1f}%]\n'
       '                          cluster : {:5d} [{:3.1f}%]\n'
       '                          phonons : {:5d} [{:3.1f}%]\n'
+      '                          trimer  : {:5d} [{:3.1f}%]\n'
       '                          addition: {:5d} [{:3.1f}%]'.
       format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
              int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
@@ -242,6 +244,7 @@ print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
              int(system_count['phonons'] * train_split['phonons']), train_split['phonons']*100,
+             int(system_count['trimer'] * train_split['trimer']), train_split['trimer']*100,
              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
 # print('This will need approximately {} GB of memory during training.'.format(np.round(
 #     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
@@ -258,7 +261,8 @@ processed = {'fcc': [],
              'slab': [],
              'cluster': [],
              'phonons': [],
-             'addition': []}
+             'addition': [],
+             'trimer': []}
 
 skips = 0
 force_flag = []

@@ -39,11 +39,8 @@ hall = open_halloffame(fit_input["halloffame_filename"])
 
 dft_only = True
 
-
-for indiv_i in range(10):
+for indiv_i in range(15):
     checkhull(fit_input, hall, indices=[indiv_i])
-
-    proj = Project()
 
     indiv = hall[indiv_i]
     write_eci(proj, hall[0].eci, to_json(indiv_i, hall[indiv_i]))

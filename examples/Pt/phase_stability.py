@@ -11,7 +11,7 @@ from pymatgen.core.structure import Structure
 
 
 run_dft = False
-plot_only = True
+plot_only = False
 
 
 color = {'fcc': 'navy', 'bcc': 'm', 'sc': 'b', 'hcp': 'g'}
@@ -66,7 +66,7 @@ if not plot_only:
 
                 dft_energy[csys]['atom_vol'].append(float(run_cell.volume/run_cell.num_sites))
                 dft_energy[csys]['energy'].append(read('vasprun.xml').get_potential_energy(force_consistent=True)
-                                                  /run_cell.num_sites)
+                                                  / run_cell.num_sites)
 
             os.chdir(run_dir)
             shutil.rmtree(tmp_dir)
