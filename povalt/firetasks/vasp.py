@@ -44,7 +44,7 @@ from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 
 @explicit_serialize
 class FewstepsFW(Firework):
-    def __init__(self, structure, vasp_input_set, vasp_cmd, name, db_info, lammps_energy):
+    def __init__(self, structure, vasp_input_set, vasp_cmd, name):
         """
         Standard static calculation Firework for a structure.
 
@@ -60,8 +60,6 @@ class FewstepsFW(Firework):
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
-        t.append(AddToDbTask(force_thresh=float(0.05), energy_thresh=10.0,
-                             db_info=db_info, lammps_energy=lammps_energy))
         super(FewstepsFW, self).__init__(t, name=name)
 
 

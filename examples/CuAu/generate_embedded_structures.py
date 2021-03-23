@@ -10,12 +10,12 @@ from pymatgen.core.structure import Structure
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
-from atomate.vasp.fireworks.core import StaticFW
 from atomate.vasp.powerups import add_modify_incar
+from povalt.firetasks.vasp import FewstepsFW
 
 
-def get_static_wf(in_structure, struc_name='', name='', vasp_input_set=None,
-                  vasp_cmd=None, db_file=None, user_kpoints_settings=None, tag=None, metadata=None):
+def get_few_steps_wf(in_structure, struc_name='', name='', vasp_input_set=None,
+                     vasp_cmd=None, user_kpoints_settings=None, tag=None, metadata=None):
 
     if vasp_input_set is None:
         raise ValueError('INPUTSET needs to be defined...')
@@ -31,8 +31,8 @@ def get_static_wf(in_structure, struc_name='', name='', vasp_input_set=None,
     vs.update({"user_kpoints_settings": user_kpoints_settings})
     vis_relax = vis.__class__.from_dict(vs)
 
-    fws = [StaticFW(structure=in_structure, vasp_input_set=vis_relax, vasp_cmd=vasp_cmd,
-                    db_file=db_file, name="{} -- relax".format(tag))]
+    fws = [FewstepsFW(structure=in_structure, vasp_input_set=vis_relax, vasp_cmd=vasp_cmd,
+                      name="{} -- relax".format(tag))]
     wfname = "{}: {}".format(struc_name, name)
 
     return Workflow(fws, name=wfname, metadata=metadata)
@@ -319,8 +319,8 @@ for si, structure in enumerate(all_structures):
     meta = {'name': structure_name, 'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
     kpt_set = Kpoints.automatic_gamma_density(structure=relaxed, kppa=1000).as_dict()
 
-    static_wf = get_static_wf(in_structure=relaxed, struc_name=structure_name, vasp_input_set=incar_set,
-                              vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
-                              user_kpoints_settings=kpt_set, metadata=meta)
+    static_wf = get_few_steps_wf(in_structure=relaxed, struc_name=structure_name, vasp_input_set=incar_set,
+                                 vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
+                                 user_kpoints_settings=kpt_set, metadata=meta)
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)
