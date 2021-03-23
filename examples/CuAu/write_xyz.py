@@ -4,8 +4,12 @@ import sys
 import json
 import pymongo
 import numpy as np
+import tensorflow as tf
+# from mpi4py import MPI
 from ase.io import read, write
 from pymatgen import Structure
+from quippy.convert import ase_to_quip
+from quippy.descriptors import Descriptor
 
 
 def check_vacuum_direction(input_data):
@@ -18,18 +22,32 @@ def check_vacuum_direction(input_data):
     return True
 
 
+# mpi_comm = MPI.COMM_WORLD
+# mpi_size = mpi_comm.Get_size()
+# mpi_rank = mpi_comm.Get_rank()
+
+
+tf.debugging.set_log_device_placement(True)
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    print(gpu)
+    tf.config.experimental.set_memory_growth(gpu, enable=True)
+
+
 np.random.seed(1410)  # fix for reproduction
 
+do_soap = False
 read_from_db = False
 force_fraction = 1  # percentage of forces to INCLUDE from training
+
 
 systems = ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu',
            'fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au',
            'fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu']
 
-train_split = {'fcc_Cu': 0.3, 'bcc_Cu': 0.3, 'hcp_Cu': 0.3, 'sc_Cu': 0.3, 'slab_Cu': 0.5,
-               'fcc_Au': 0.3, 'bcc_Au': 0.3, 'hcp_Au': 0.3, 'sc_Au': 0.3, 'slab_Au': 0.5,
-               'fcc_AuCu': 0.6, 'bcc_AuCu': 0.6, 'hcp_AuCu': 0.6, 'sc_AuCu': 0.6}
+train_split = {'fcc_Cu': 0.2, 'bcc_Cu': 0.2, 'hcp_Cu': 0.2, 'sc_Cu': 0.2, 'slab_Cu': 0.75,
+               'fcc_Au': 0.2, 'bcc_Au': 0.2, 'hcp_Au': 0.2, 'sc_Au': 0.2, 'slab_Au': 0.75,
+               'fcc_AuCu': 1.0, 'bcc_AuCu': 1.0, 'hcp_AuCu': 1.0, 'sc_AuCu': 1.0}
 
 if read_from_db:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -130,68 +148,236 @@ else:
 
 system_count = dict()
 train_selected = dict()
-for sys in systems:
-    system_count[sys] = crystal_system.count(sys)
+for csys in systems:
+    system_count[csys] = crystal_system.count(csys)
     tmp = []
-    for i in range(system_count[sys]):
-        if i < system_count[sys] * train_split[sys]:
+    for i in range(system_count[csys]):
+        if i < system_count[csys] * train_split[csys]:
             tmp.append(True)
         else:
             tmp.append(False)
-        train_selected[sys] = tmp
-        np.random.shuffle(train_selected[sys])
+        train_selected[csys] = tmp
+        np.random.shuffle(train_selected[csys])
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
 
-# print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
-#       '                          bcc     : {:5d} [{:3.1f}%]\n'
-#       '                          sc      : {:5d} [{:3.1f}%]\n'
-#       '                          hcp     : {:5d} [{:3.1f}%]\n'
-#       '                          slab    : {:5d} [{:3.1f}%]\n'
-#       '                          cluster : {:5d} [{:3.1f}%]\n'
-#       '                          addition: {:5d} [{:3.1f}%]'.
-#       format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
-#              int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
-#              int(system_count['sc'] * train_split['sc']), train_split['sc']*100,
-#              int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
-#              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
-#              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
-#              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
 
-# print('This will need approximately {} GB of memory during training.'.format(np.round(
-#     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
-#      system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
-#      system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
-#      system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
-# ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
-# |          dim1           | * |    dim2    | * numerics
+for sc in system_count:
+    print('{}: {}'.format(sc, system_count[sc]))
 
 processed = {'fcc_Cu': [], 'bcc_Cu': [], 'hcp_Cu': [], 'sc_Cu': [], 'slab_Cu': [],
              'fcc_Au': [], 'bcc_Au': [], 'hcp_Au': [], 'sc_Au': [], 'slab_Au': [],
              'fcc_AuCu': [], 'bcc_AuCu': [], 'hcp_AuCu': [], 'sc_AuCu': []}
 
-for i, xyz in enumerate(complete_xyz):
-    with open('/tmp/delme', 'w') as f:
-        for line in xyz:
-            f.write(line)
 
-    atoms = read('/tmp/delme')
-    atoms.info['config_type'] = crystal_system[i]
+suggestions = dict()
+if do_soap:
+    for csys in systems:
+        selected_idx = []
+        print('SOAP processing {}: '.format(csys))
+        all_kernels = dict()
+        for ci, species in enumerate(['Cu', 'Au']):
+            if species not in csys:
+                continue
 
-    mask = np.random.choice([False, True], size=len(atoms), p=[force_fraction, 1.-force_fraction])
-    atoms.new_array('force_mask', mask)
+            print('Species {}...'.format(species), end='')
+            sys.stdout.flush()
 
-    f_min = 0.1
-    f_scale = 0.1
-    f = np.clip(np.abs(atoms.get_forces()) * f_scale, a_min=f_min, a_max=None)
-    atoms.new_array("force_component_sigma", f)
+            tmp = []
+            for idx, st in enumerate(complete_xyz):
+                if crystal_system[idx] != csys:
+                    continue
+                tmp.append(st)
 
-    file = io.StringIO()
-    write(filename=file, images=atoms, format='extxyz', parallel=False)
-    file.seek(0)
-    xyz = file.readlines()
+            with open('/tmp/all_{}.xyz'.format(csys), 'w') as f:
+                for st in tmp:
+                    for line in st:
+                        f.write(line)
+            atoms = read('/tmp/all_{}.xyz'.format(csys), index=':')
 
-    processed[crystal_system[i]].append(xyz)
+            q = dict()
+
+            d = Descriptor('soap_turbo l_max=8 alpha_max={8 8} atom_sigma_r={0.5 0.5} atom_sigma_t={0.5 0.5} '
+                           'atom_sigma_r_scaling={0. 0.} atom_sigma_t_scaling={0. 0.} rcut_hard=5.9 '
+                           'rcut_soft=5.4 basis=poly3gauss scaling_mode=polynomial amplitude_scaling={1.0 1.0} '
+                           'n_species=2 species_Z={29 79} radial_enhancement=1 compress_file=compress.dat '
+                           'central_index='+str(ci+1)+' central_weight={1.0 1.0} add_species=F')
+
+            num_desc = 0
+            qtmp = []
+            for at in atoms:
+                qats = ase_to_quip(at)
+                qats.set_cutoff(cutoff=5.9)
+                qats.calc_connect()
+                desc = d.calc_descriptor(qats)
+                qtmp.append(tf.constant(np.array(desc), dtype=tf.float16, shape=desc.shape))
+                num_desc += desc.shape[0]
+            q[species] = qtmp
+
+            print('{} descriptors computed...'.format(num_desc), end='')
+            sys.stdout.flush()
+
+            kernel = []
+            indexes = []
+            with tf.device('/device:GPU:0'):  # .format(0)):
+                for ik in range(len(q[species])):
+                    for il in range(ik + 1, len(q[species])):
+                        # print(q[species][0][ik], q[species][0][il])
+                        # print(np.dot(q[species][0][ik], np.transpose(q[species][0][il])), len(q[species][0][ik]))
+                        # print(q[species][0][ik].shape[0], q[species][0][il].shape[0])
+                        # print(np.sum(np.dot(q[species][0][ik], np.transpose(q[species][0][il]))) /
+                        #       (q[species][0][ik].shape[0] * q[species][0][il].shape[0]))
+                        tf_result = tf.reduce_sum(tf.matmul(q[species][ik], tf.transpose(q[species][il])))
+                        # print(tf_result)
+                        # print(tf_result.numpy())
+                        kernel.append(tf_result.numpy() / (q[species][ik].shape[0] * q[species][il].shape[0]))
+                        # kernel.append(np.sum(np.dot(q[species][0][ik], np.transpose(q[species][0][il]))) /
+                        #               (q[species][0][ik].shape[0] * q[species][0][il].shape[0]))
+                        indexes.append([ik, il])
+                all_kernels[species] = {'kernel': kernel, 'index': indexes}
+
+            with tf.device('/device:CPU:0'):  # .format(0)):
+                added = []
+                print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
+                sys.stdout.flush()
+                for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                          all_kernels[species]['index']))):
+                    if kv < 0.5:
+                        # if csys == 'fcc_AuCu':
+                        #     print(ik, kv, len(added))
+                        for ix in idx:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                    else:
+                        for ix in idx:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                        if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            # print('bruch @ ', ik, kv, len(added))
+                            break
+
+                for at in added:
+                    if 'stress' in at.arrays:
+                        del at.arrays['stress']
+
+                if species not in suggestions:
+                    suggestions[species] = {csys: added}
+                else:
+                    suggestions[species].update({csys: added})
+
+                print('selected {} xyz'.format(len(added)))
+
+        with open('soap_{}.json'.format(csys), 'w') as f:
+            json.dump(obj=all_kernels, fp=f)
+
+else:
+
+    for csys in systems:
+        selected_idx = []
+        all_kernels = dict()
+        for species in ['Cu', 'Au']:
+            if species not in csys:
+                continue
+
+            print('Load kernels for {}...'.format(csys))
+
+            tmp = []
+            for idx, st in enumerate(complete_xyz):
+                if crystal_system[idx] != csys:
+                    continue
+                tmp.append(st)
+
+            with open('/tmp/all_{}.xyz'.format(csys), 'w') as f:
+                for st in tmp:
+                    for line in st:
+                        f.write(line)
+            atoms = read('/tmp/all_{}.xyz'.format(csys), index=':')
+
+            with open('soap_{}.json'.format(csys), 'r') as f:
+                all_kernels = json.load(fp=f)
+
+            added = []
+            print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
+            sys.stdout.flush()
+            for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                      all_kernels[species]['index']))):
+                if kv < 0.5:
+                    # if csys == 'fcc_AuCu':
+                    #     print(ik, kv, len(added))
+                    for ix in idx:
+                        if ix not in selected_idx:
+                            selected_idx.append(ix)
+                            added.append(atoms[ix])
+                else:
+                    for ix in idx:
+                        if ix not in selected_idx:
+                            selected_idx.append(ix)
+                            added.append(atoms[ix])
+                    if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                        # print('bruch @ ', ik, kv, len(added))
+                        break
+
+            for at in added:
+                if 'stress' in at.arrays:
+                    del at.arrays['stress']
+
+            if species not in suggestions:
+                suggestions[species] = {csys: added}
+            else:
+                suggestions[species].update({csys: added})
+
+            print('selected {} xyz'.format(len(added)))
+
+
+for species in suggestions:
+    for csys in systems:
+        if species not in csys:
+            continue
+        print(species, csys)
+        print('Take {} structures for {} in {}'.format(len(suggestions[species][csys]), species, csys))
+        for at in suggestions[species][csys]:
+            at.info['config_type'] = csys
+
+            mask = np.random.choice([False, True], size=len(at), p=[force_fraction, 1.-force_fraction])
+            at.new_array('force_mask', mask)
+
+            f_min = 0.1
+            f_scale = 0.1
+            f = np.clip(np.abs(at.get_forces()) * f_scale, a_min=f_min, a_max=None)
+            at.new_array("force_component_sigma", f)
+
+            file = io.StringIO()
+            write(filename=file, images=at, format='extxyz', parallel=False)
+            file.seek(0)
+            xyz = file.readlines()
+
+            processed[csys].append(xyz)
+
+
+# for i, xyz in enumerate(complete_xyz):
+#     with open('/tmp/delme', 'w') as f:
+#         for line in xyz:
+#             f.write(line)
+#
+#     atoms = read('/tmp/delme')
+#     atoms.info['config_type'] = crystal_system[i]
+#
+#     mask = np.random.choice([False, True], size=len(atoms), p=[force_fraction, 1.-force_fraction])
+#     atoms.new_array('force_mask', mask)
+#
+#     f_min = 0.1
+#     f_scale = 0.1
+#     f = np.clip(np.abs(atoms.get_forces()) * f_scale, a_min=f_min, a_max=None)
+#     atoms.new_array("force_component_sigma", f)
+#
+#     file = io.StringIO()
+#     write(filename=file, images=atoms, format='extxyz', parallel=False)
+#     file.seek(0)
+#     xyz = file.readlines()
+#
+#     processed[crystal_system[i]].append(xyz)
 
 
 with open('train.xyz', 'w') as f:
@@ -207,8 +393,14 @@ with open('train.xyz', 'w') as f:
                 for line in xyz:
                     f.write(line)
 
-with open('test.xyz', 'w') as f:
-    for sys in systems:
-        for xyz in processed[sys]:
+if read_from_db:
+    with open('/tmp/delme', 'w') as f:
+        for xyz in complete_xyz:
             for line in xyz:
                 f.write(line)
+    atoms = read('/tmp/delme', index=':')
+    for ia, at in enumerate(atoms):
+        at.info['config_type'] = crystal_system[ia]
+        if 'stress' in at.arrays:
+            del at.arrays['stress']
+    write(filename='test.xyz', images=atoms, format='extxyz')

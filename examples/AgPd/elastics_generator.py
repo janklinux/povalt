@@ -4,8 +4,8 @@ import time
 import datetime
 import numpy as np
 from pymongo import MongoClient
+from fireworks import Workflow, LaunchPad
 from pymatgen.core.structure import Structure, Lattice
-from fireworks import LaunchPad, Workflow
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
 from pymatgen.transformations.standard_transformations import SupercellTransformation
@@ -19,9 +19,16 @@ def scale(idx):
                      [0, 0, np.mod(idx, np.floor(idx/2)+1)+1]])
 
 
+def get_epsilon(structure):
+    eps = np.array([float(0.35*(x-0.5)) for x in np.random.random(6)])
+    cij = np.array([[1+eps[0], eps[5]/2, eps[4]/2],
+                    [eps[5]/2, 1+eps[1], eps[3]/2],
+                    [eps[4]/2, eps[3]/2, 1+eps[2]]])
+    return Lattice(np.dot(cij, structure.lattice.matrix))
+
+
 def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=None,
                   vasp_cmd=None, db_file=None, user_kpoints_settings=None, tag=None, metadata=None):
-
     if vasp_input_set is None:
         raise ValueError('INPUTSET needs to be defined...')
     if user_kpoints_settings is None:
@@ -38,6 +45,7 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
 
     fws = [StaticFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
                     db_file=db_file, name="{} -- static".format(tag))]
+
     wfname = "{}: {}".format(struc_name, name)
 
     return Workflow(fws, name=wfname, metadata=metadata)
@@ -56,12 +64,16 @@ incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 8, 'ISMEAR': 0, 'ISYM': 0, 'I
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': '.FALSE.',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
 
+
 np.random.seed(int(time.time()))
 
 for doc in data_coll.find({}):
     if 'AgPd CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
         bin_name = doc['name'].split('||')[1].split()[3]
         prim = Structure.from_dict(doc['data']['final_structure'])
+
+        if 'hcp' in bin_name:
+            continue
 
         cell = None
         use_scale = None
@@ -77,18 +89,13 @@ for doc in data_coll.find({}):
         print('Number of atoms in supercell: {} || Composition: {}'
               .format(cell.num_sites, cell.composition.element_composition))
 
-        for _ in range(5):  # random structures per configuration
+        for _ in range(3):  # random structures per configuration
             # Create random distorted lattice
             cell = SupercellTransformation(scaling_matrix=np.array(use_scale)).apply_transformation(prim)
             added = False
             while not added:
-                new_lat = np.empty((3, 3))
-                for i in range(3):
-                    for j in range(3):
-                        new_lat[i, j] = (1 + (np.random.random() - 0.5) * 0.5) * cell.lattice.matrix[i, j]
-
-                cell.lattice = Lattice(new_lat)
-
+                # Get random distorted elastics lattice
+                cell.lattice = get_epsilon(structure=cell)
                 # Random distort the coordinates [and apply random magnetic moments]
                 new_crds = []
                 new_species = []
@@ -103,13 +110,13 @@ for doc in data_coll.find({}):
                     else:
                         site_properties['initial_moment'].append(-1.0)
 
-                new_cell = Structure(lattice=new_lat, species=new_species, coords=new_crds,
+                new_cell = Structure(lattice=cell.lattice, species=new_species, coords=new_crds,
                                      charge=None, validate_proximity=True, to_unit_cell=False,
                                      coords_are_cartesian=True, site_properties=site_properties)
 
                 incar_set = MPStaticSet(new_cell)
                 structure_name = re.sub(' ', '', str(new_cell.composition.element_composition)) + \
-                    ' ' + str(new_cell.num_sites) + ' in ' + bin_name
+                    ' ' + str(new_cell.num_sites) + ' ' + bin_name + ' elastics'
 
                 meta = {'name': structure_name, 'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
                 kpt_set = Kpoints.automatic_gamma_density(structure=new_cell, kppa=1000).as_dict()

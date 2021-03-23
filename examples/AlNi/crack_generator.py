@@ -26,8 +26,12 @@ with open('control.in', 'r') as f:
 
 np.random.seed(int(time.time()))
 
-inputs = glob.glob('training_data/SCEL8_*/**/geometry.in', recursive=True)  # 9 und 10 noch offen
-np.random.shuffle(inputs)
+inputs = []
+for i in range(3, 11):
+    inputs.extend(glob.glob('training_data/SCEL8_*/**/geometry.in', recursive=True))
+
+print(len(inputs))
+quit()
 
 for inp in inputs:
     cell = Structure.from_file(inp)

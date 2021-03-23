@@ -300,7 +300,7 @@ class Dimer:
 
         for i in range(len(self.species)):
             for j in range(i, len(self.species)):
-                for fixed_spin in [0, 1, 2, 3, 4]:
+                for fixed_spin in [0, 1, 2, 3]:
                     print('Running {} <--> {} Spin: {}'.format(self.species[i], self.species[j], fixed_spin))
 
                     run_dir = os.path.join(os.getcwd(), str(self.species[i] + self.species[j] +
@@ -400,7 +400,7 @@ class Dimer:
         data = dict()
         for i in range(len(self.species)):
             for j in range(i, len(self.species)):
-                for fixed_spin in [0, 1, 2, 3, 4]:
+                for fixed_spin in [0, 1, 2, 3]:
                     dists = []
                     energies = []
 
@@ -448,7 +448,7 @@ class Dimer:
 
                     all_ens = []
                     all_frc = []
-                    for fixed_spin in [0, 1, 2, 3, 4]:
+                    for fixed_spin in [0, 1, 2, 3]:
                         all_ens.append(data[str(self.species[i] + self.species[j]) + str(fixed_spin)]['energy'][ik])
                         all_frc.append(data[str(self.species[i] + self.species[j]) + str(fixed_spin)]['forces'][ik])
 

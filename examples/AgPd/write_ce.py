@@ -38,7 +38,7 @@ cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
 run_con = MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train
 data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['CuAu']
+data_coll = data_db['AgPd']
 
 base_dir = os.getcwd()
 import_list = {'bcc': [], 'fcc': [], 'sc': [], 'hcp': []}
@@ -50,12 +50,12 @@ for crystal in ['fcc', 'bcc', 'hcp', 'sc']:
     os.mkdir(crystal)
 
 for doc in data_coll.find({}):
-    if 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
+    if 'AgPd CASM generated and relaxed structure for multiplication and rnd distortion' in doc['name']:
         crystal = doc['name'].split('||')[1].split()[3].split('_')[0]
         xyz = doc['data']['xyz']
         s = Structure.from_dict(doc['data']['final_structure'])
 
-        if s.num_sites > 6:
+        if s.num_sites <= 5 or s.num_sites > 6:
             continue
 
         out = dict()
@@ -66,6 +66,8 @@ for doc in data_coll.find({}):
         out['relaxed_energy'] = float(doc['data']['free_energy'])
         out['relaxed_forces'] = []
         out['relaxed_lattice'] = []
+        # out['relaxed_mag_basis'] = []
+        # out['relaxed_magmom'] = 0
 
         for j in s.symbol_set:
             out['atom_type'].append(j)
@@ -90,18 +92,6 @@ for doc in data_coll.find({}):
         count[crystal] += 1
 
 for crystal in ['fcc', 'bcc', 'hcp', 'sc']:
-    dump = parse_single(os.path.join('/home/jank/work/Aalto/GAP_data/Cu/training_data', crystal, 'prim'))
-    os.mkdir(os.path.join(crystal, str(count[crystal])))
-    with open(os.path.join(crystal, str(count[crystal]), 'properties.calc.json'), 'w') as f:
-        json.dump(obj=dump, fp=f, indent=2)
-    import_list[crystal].append(os.path.join(base_dir, crystal, str(count[crystal]), 'properties.calc.json'))
-    count[crystal] += 1
-    dump = parse_single(os.path.join('/home/jank/work/Aalto/GAP_data/Au/training_data', crystal, 'prim'))
-    os.mkdir(os.path.join(crystal, str(count[crystal])))
-    with open(os.path.join(crystal, str(count[crystal]), 'properties.calc.json'), 'w') as f:
-        json.dump(obj=dump, fp=f, indent=2)
-    import_list[crystal].append(os.path.join(base_dir, crystal, str(count[crystal]), 'properties.calc.json'))
-
     with open('import_{}.list'.format(crystal), 'w') as f:
         for line in import_list[crystal]:
             f.write(line + '\n')

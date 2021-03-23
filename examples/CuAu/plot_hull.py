@@ -38,7 +38,6 @@ hall = open_halloffame(fit_input["halloffame_filename"])
 #
 
 dft_only = True
-
 for indiv_i in range(15):
     checkhull(fit_input, hall, indices=[indiv_i])
 
@@ -67,20 +66,20 @@ for indiv_i in range(15):
 
     plt.rcParams['font.family'] = 'DejaVu Sans'
     plt.rcParams['font.sans-serif'] = 'cm'
-    plt.rcParams['xtick.major.size'] = 8
-    plt.rcParams['xtick.major.width'] = 3
-    plt.rcParams['xtick.minor.size'] = 4
-    plt.rcParams['xtick.minor.width'] = 3
-    plt.rcParams['xtick.labelsize'] = 18
-    plt.rcParams['ytick.major.size'] = 8
-    plt.rcParams['ytick.major.width'] = 3
-    plt.rcParams['ytick.minor.size'] = 4
-    plt.rcParams['ytick.minor.width'] = 3
-    plt.rcParams['ytick.labelsize'] = 18
-    plt.rcParams['axes.linewidth'] = 3
+    # plt.rcParams['xtick.major.size'] = 8
+    # plt.rcParams['xtick.major.width'] = 3
+    # plt.rcParams['xtick.minor.size'] = 4
+    # plt.rcParams['xtick.minor.width'] = 3
+    # plt.rcParams['xtick.labelsize'] = 18
+    # plt.rcParams['ytick.major.size'] = 8
+    # plt.rcParams['ytick.major.width'] = 3
+    # plt.rcParams['ytick.minor.size'] = 4
+    # plt.rcParams['ytick.minor.width'] = 3
+    # plt.rcParams['ytick.labelsize'] = 18
+    # plt.rcParams['axes.linewidth'] = 3
 
-    plt.xlabel(r'Copper content [%]', fontsize=18)
-    plt.ylabel(r'Formation energy (eV/unit cell)', fontsize=18)
+    plt.xlabel(r'Parametric $\mu$', fontsize=14)
+    plt.ylabel(r'E$_f$ (eV/prim)', fontsize=14)
 
     # to plot dft formation energy & hull
     plt.scatter(df_calc[comp_a], df_calc[dft_Ef], facecolors='none', edgecolors='b', label=r'dft')

@@ -43,6 +43,52 @@ from custodian.vasp.validators import VasprunXMLValidator, VaspFilesValidator
 
 
 @explicit_serialize
+class FewstepsFW(Firework):
+    def __init__(self, structure, vasp_input_set, vasp_cmd, name, db_info, lammps_energy):
+        """
+        Standard static calculation Firework for a structure.
+
+        Args:
+            structure (Structure): Input structure
+            vasp_input_set (VaspInputSet): input set to use
+            vasp_cmd (str): Command to run vasp.
+            name: the name of the workflow
+            db_info: database credentials to store results
+            lammps_energy: energy from LAMMPS run for this structure
+        """
+
+        t = list()
+        t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
+        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
+        t.append(AddToDbTask(force_thresh=float(0.05), energy_thresh=10.0,
+                             db_info=db_info, lammps_energy=lammps_energy))
+        super(FewstepsFW, self).__init__(t, name=name)
+
+
+@explicit_serialize
+class RunFewVaspCustodian(FiretaskBase):
+    """
+    Run VASP using custodian "on rails", fixes most runtime errors, uses not all handlers
+    but default validators from custodian package
+
+    Required params:
+        vasp_cmd (str): the name of the full executable for running VASP
+    """
+
+    required_params = ['vasp_cmd']
+    optional_params = []
+
+    def run_task(self, fw_spec):
+        vasp_cmd = env_chk(self['vasp_cmd'], fw_spec)
+        handlers = [VaspErrorHandler(), MeshSymmetryErrorHandler(), PotimErrorHandler(),
+                    PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
+        validators = [VasprunXMLValidator(), VaspFilesValidator()]
+
+        c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=5)
+        c.run()
+
+
+@explicit_serialize
 class StaticFW(Firework):
     def __init__(self, structure, vasp_input_set, vasp_cmd, name, db_info, lammps_energy):
         """

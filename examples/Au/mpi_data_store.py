@@ -78,7 +78,7 @@ for wfid in local_list:
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
     file = io.StringIO()
-    asewrite(filename=file, images=atoms, format='xyz', parallel=False)
+    asewrite(filename=file, images=atoms, format='extxyz', parallel=False)
     file.seek(0)
     xyz = file.readlines()
     file.close()

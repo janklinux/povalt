@@ -215,9 +215,10 @@ def scatterplot(result_energy, reference_energy, system_type, quip_time, max_ene
     plt.rcParams['axes.linewidth'] = 3
 
     plt_color = {'fcc': 'y', 'bcc': 'navy', 'hcp': 'g', 'sc': 'm', 'slab': 'r', 'phonons': 'b',
-                 'addition': 'brown', 'cluster': 'green'}
+                 'addition': 'brown', 'cluster': 'green', 'trimer': 'lightgreen', 'elastics': 'lightblue'}
 
-    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'phonons', 'addition', 'cluster']):
+    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'phonons',
+                             'addition', 'cluster', 'trimer', 'elastics']):
         plt_x = []
         plt_y = []
         plt.text(-6, -0.5-(ip*0.2), r'{}'.format(tp), color=plt_color[tp], fontsize=6)

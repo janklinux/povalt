@@ -47,7 +47,7 @@ def get_ceblock_data_complete(base_dir):
 
 np.random.seed(1410)  # fix for reproduction
 
-force_fraction = 0.0  # percentage of forces to EXCLUDE from training
+force_fraction = 1.0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
 with open('train.xyz', 'w') as fout:
