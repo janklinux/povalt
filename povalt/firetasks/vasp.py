@@ -59,7 +59,7 @@ class FewstepsFW(Firework):
 
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
-        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
+        t.append(RunFewVaspCustodian(vasp_cmd=vasp_cmd))
         super(FewstepsFW, self).__init__(t, name=name)
 
 
@@ -78,7 +78,7 @@ class RunFewVaspCustodian(FiretaskBase):
 
     def run_task(self, fw_spec):
         vasp_cmd = env_chk(self['vasp_cmd'], fw_spec)
-        handlers = [MeshSymmetryErrorHandler(), FrozenJobErrorHandler()]
+        handlers = [MeshSymmetryErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
         validators = [VasprunXMLValidator(), VaspFilesValidator()]
 
         c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=5)
