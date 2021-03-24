@@ -78,8 +78,7 @@ class RunFewVaspCustodian(FiretaskBase):
 
     def run_task(self, fw_spec):
         vasp_cmd = env_chk(self['vasp_cmd'], fw_spec)
-        handlers = [VaspErrorHandler(), MeshSymmetryErrorHandler(), PotimErrorHandler(),
-                    PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
+        handlers = [MeshSymmetryErrorHandler(), FrozenJobErrorHandler()]
         validators = [VasprunXMLValidator(), VaspFilesValidator()]
 
         c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=5)
@@ -260,7 +259,7 @@ class AddToDbTask(FiretaskBase):
             postprocess=lambda x: float(x),
             last_one_only=True)
 
-        dE = float((float(runo.final_energy) - float(self['lammps_energy'])) / len(run.final_structure.sites) * 1000.0)
+        dE = float((float(runo.final_energy) - float(self['lammps_energy'])) / run.final_structure.num_sites * 1000.0)
 
         if np.any(np.array(forces) > float(self['force_thresh'])) or dE > float(self['energy_thresh']):
             dft_data = dict()

@@ -249,7 +249,7 @@ print('Total structures: {}'.format(len(all_structures)))
 
 
 lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos',
-                'mass 1 63.546', 'mass 2 196.967', 'pair_style quip',
+                'mass 1 63.546', 'mass 2 196.967', 'pair_style quip', 'neigh_modify every 1 delay 0 check yes',
                 'pair_coeff * * CuAu.xml "Potential xml_label=GAP_2021_3_8_120_19_5_5_313" 29 79',
                 'thermo_style custom time pe ke temp', 'thermo 1', 'velocity all zero linear',
                 'min_style cg', 'minimize 1e-10 1e-12 10000 100000',
@@ -259,9 +259,9 @@ lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
 
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 16, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100,
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LREAL': 'AUTO',
              'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.',
-             'ISIF': 3, 'IBRION': 2, 'NSW': 5}
+             'POTIM': 0.25, 'ISIF': 3, 'IBRION': 2, 'NSW': 5}
 
 pot_dir = '/home/jank/work/Aalto/GAP_data/CuAu/validation'
 base_dir = os.path.join(os.getcwd(), 'first_round')
