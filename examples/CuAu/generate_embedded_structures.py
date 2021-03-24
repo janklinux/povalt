@@ -258,7 +258,7 @@ lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 16, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 1, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LREAL': 'AUTO',
              'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.',
              'POTIM': 0.25, 'ISIF': 3, 'IBRION': 2, 'NSW': 5}
@@ -324,3 +324,6 @@ for si, structure in enumerate(all_structures):
                                  user_kpoints_settings=kpt_set, metadata=meta)
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)
+
+    if si == 5:
+        break

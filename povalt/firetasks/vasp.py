@@ -53,18 +53,16 @@ class FewstepsFW(Firework):
             vasp_input_set (VaspInputSet): input set to use
             vasp_cmd (str): Command to run vasp.
             name: the name of the workflow
-            db_info: database credentials to store results
-            lammps_energy: energy from LAMMPS run for this structure
         """
 
         t = list()
         t.append(WriteVaspFromIOSet(structure=structure, vasp_input_set=vasp_input_set))
-        t.append(RunFewVaspCustodian(vasp_cmd=vasp_cmd))
+        t.append(RunVaspFewCustodian(vasp_cmd=vasp_cmd))
         super(FewstepsFW, self).__init__(t, name=name)
 
 
 @explicit_serialize
-class RunFewVaspCustodian(FiretaskBase):
+class RunVaspFewCustodian(FiretaskBase):
     """
     Run VASP using custodian "on rails", fixes most runtime errors, uses not all handlers
     but default validators from custodian package
@@ -78,7 +76,8 @@ class RunFewVaspCustodian(FiretaskBase):
 
     def run_task(self, fw_spec):
         vasp_cmd = env_chk(self['vasp_cmd'], fw_spec)
-        handlers = [MeshSymmetryErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
+        handlers = [VaspErrorHandler(), MeshSymmetryErrorHandler(),
+                    PositiveEnergyErrorHandler(), FrozenJobErrorHandler(), StdErrHandler()]
         validators = [VasprunXMLValidator(), VaspFilesValidator()]
 
         c = Custodian(handlers, [VaspJob(vasp_cmd=vasp_cmd)], validators=validators, max_errors=5)
