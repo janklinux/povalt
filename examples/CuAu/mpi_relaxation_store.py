@@ -59,60 +59,47 @@ for wfid in local_list:
         raise FileNotFoundError('Are you on the right machine?\n'
                                 'Workflow directory [{}] does not exist here...'.format(ldir))
 
-    runs = [os.path.join(ldir, vrun)
-            for vrun in sorted([file for file in os.listdir(ldir) if file.startswith('vasprun')])]
-    cars = [os.path.join(ldir, ocar)
-            for ocar in sorted([file for file in os.listdir(ldir) if file.startswith('OUTCAR')])]
+    run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
+    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False, index=':')
 
-    if len(runs) == 0:
-        raise FileNotFoundError('No vaspruns found, check output in {}'.format(ldir))
+    step_time = []
+    with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
+        for line in f:
+            if b'LOOP+:  cpu time' in line:
+                step_time.append(float(line.split()[6]))
 
-    for run, car in zip(runs, cars):
-        os.link(os.path.join(ldir, run), os.path.join(ldir, 'vasprun.xml.gz'))  # ase workaround
-        run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
-        atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False, index=':')
+    for ai, at in enumerate(atoms):
+        rel_step += 1
 
-        step_time = []
-        with gzip.open(car, 'r') as f:
-            for line in f:
-                if b'LOOP+:  cpu time' in line:
-                    step_time.append(float(line.split()[6]))
+        stress = at.get_stress(voigt=False)
+        vol = at.get_volume()
+        virial = -np.dot(vol, stress)
 
-        for ai, at in enumerate(atoms):
-            rel_step += 1
+        at.info['virial'] = virial
+        at.info['relaxation_step'] = rel_step
+        at.info['config_type'] = fw_dict['metadata']['name'].split()[3]
 
-            stress = at.get_stress(voigt=False)
-            vol = at.get_volume()
-            virial = -np.dot(vol, stress)
+        file = io.StringIO()
+        asewrite(filename=file, images=at, format='extxyz', parallel=False)
+        file.seek(0)
+        xyz = file.readlines()
+        file.close()
 
-            at.info['virial'] = virial
-            at.info['relaxation_step'] = rel_step
-            at.info['config_type'] = fw_dict['metadata']['name'].split()[3]
+        runtime += step_time[ai]
 
-            file = io.StringIO()
-            asewrite(filename=file, images=at, format='extxyz', parallel=False)
-            file.seek(0)
-            xyz = file.readlines()
-            file.close()
+        dft_data = dict()
+        dft_data['xyz'] = xyz
+        dft_data['PBE_54'] = run.potcar_symbols
+        dft_data['runtime'] = runtime
+        dft_data['parameters'] = run.parameters.as_dict()
+        dft_data['free_energy'] = at.get_potential_energy(force_consistent=True)
+        dft_data['final_structure'] = run.final_structure.as_dict()
 
-            runtime += step_time[ai]
+        data_name = 'CuAu generated embedded structure ||  ' + fw_dict['metadata']['name'] + \
+                    '  ||  created ' + fw_dict['metadata']['date'] + '  ||  FewStepFW'
 
-            dft_data = dict()
-            dft_data['xyz'] = xyz
-            dft_data['PBE_54'] = run.potcar_symbols
-            dft_data['runtime'] = runtime
-            dft_data['parameters'] = run.parameters.as_dict()
-            dft_data['free_energy'] = at.get_potential_energy(force_consistent=True)
-            dft_data['final_structure'] = run.final_structure.as_dict()
-
-            data_name = 'CuAu generated embedded structure ||  ' + fw_dict['metadata']['name'] + \
-                        '  ||  created ' + fw_dict['metadata']['date'] + '  ||  FewStepFW'
-
-            data_coll.insert_one({'name': data_name, 'data': dft_data})
-            lpad.delete_wf(wfid, delete_launch_dirs=True)
-            sys.stdout.flush()
-
-        os.unlink(os.path.join(ldir, 'vasprun.xml.gz'))
+        data_coll.insert_one({'name': data_name, 'data': dft_data})
+        lpad.delete_wf(wfid, delete_launch_dirs=True)
 
     lpad.delete_wf(wfid, delete_launch_dirs=True)
 
