@@ -9,7 +9,7 @@ from atomate.vasp.fireworks.core import OptimizeFW
 from atomate.vasp.powerups import add_modify_incar
 
 
-def get_relax_wf(structure, struc_name='', name='Relax Run', vasp_input_set=None,
+def get_relax_wf(structure, struc_name='', name='Static_run', vasp_input_set=None,
                  vasp_cmd=None, db_file=None, user_kpoints_settings=None, tag=None, metadata=None):
 
     if vasp_input_set is None:
@@ -33,10 +33,7 @@ def get_relax_wf(structure, struc_name='', name='Relax Run', vasp_input_set=None
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
-ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
-cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
-lpad = LaunchPad(host='numphys.org', port=27017, name='basf_fw', username='jank', password='b@sf_mongo', ssl=True,
-                 ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='cunico_fw', username='jank', password='mongo', ssl=False)
 
 
 crystal = os.getcwd().split('/')[-1].split('_')[-1]
@@ -44,19 +41,20 @@ if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
 
 all_files = []
-for i in [5, 6, 7, 8]:
+for i in range(1, 11):
     # hcp:
-    # fcc: 1, 2: complete; 5, 6, 7, 8: 0.4 <= atom_frac(Ni&Cr) <= 0.5
+    # fcc: scel 1-10; atom_frac(Cu) => 0.8
     # bcc:
     # sc:
-    tmp = glob.glob('training_data/SCEL{:d}*/**/geometry.in'.format(i), recursive=True)
+    tmp = glob.glob('training_data/SCEL{:d}_*/**/POSCAR'.format(i), recursive=True)
     all_files.extend(tmp)
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 1, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 4, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
 
-spin_key = {'Ni': 2, 'Cr': -2, 'Fe': 3, 'Nb': -1, 'Ta': -1, 'Mo': 1, 'Ti': 1, 'Al': -1}
+spin_key = {'Cu': 1, 'Ni': 2, 'Co': -2}
 
 for file in all_files:
     s = Structure.from_file(file)
@@ -69,7 +67,7 @@ for file in all_files:
                                coords_are_cartesian=False, site_properties=site_properties)
 
     input_set = MPRelaxSet(spin_structure)
-    kpts = Kpoints.automatic_density(structure=spin_structure, kppa=1200).as_dict()
+    kpts = Kpoints.automatic_gamma_density(structure=spin_structure, kppa=1200).as_dict()
 
     bin_name = crystal + '_'
     for ts in s.composition.element_composition:
@@ -81,9 +79,9 @@ for file in all_files:
     meta = {'name': structure_name,
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
 
-    relax_wf = get_relax_wf(structure=spin_structure, struc_name=structure_name, name='Iconel CE Relaxation',
+    relax_wf = get_relax_wf(structure=spin_structure, struc_name=structure_name, name='CE Relaxation',
                             vasp_input_set=input_set, user_kpoints_settings=kpts, metadata=meta,
-                            vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe '
-                                     '-n 2 vasp_std')
+                            vasp_cmd='srun --nodes=1 --ntasks=8 --ntasks-per-node=8 '
+                                     '--mem-per-cpu=1800 --exclusive vasp_std')
     run_wf = add_modify_incar(relax_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)

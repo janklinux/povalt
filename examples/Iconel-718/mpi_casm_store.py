@@ -1,6 +1,7 @@
 import os
 import io
 import sys
+import gzip
 import pymongo
 import numpy as np
 from mpi4py import MPI
@@ -14,17 +15,19 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-lpad = LaunchPad.auto_load()
-#    (host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
-all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
-offset = np.floor(len(all_jobs) / size)
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')
+
+lpad = LaunchPad(host='numphys.org', port=27017, name='basf_fw', username='jank', password='b@sf_mongo', ssl=True,
+                 ssl_ca_certs=ca_file, ssl_certfile=cl_file)
+all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
+offset = np.floor(len(all_jobs) / size)
+
 run_con = pymongo.MongoClient(host='numphys.org', port=27017, ssl=True, ssl_ca_certs=ca_file, ssl_certfile=cl_file)
 data_db = run_con.pot_train
 data_db.authenticate('jank', 'b@sf_mongo')
-data_coll = data_db['platinum']
+data_coll = data_db['Iconel']
 
 
 if rank == 0:
@@ -42,7 +45,6 @@ for i, j in enumerate(all_jobs):
 
 all_len = len(local_list)
 store = comm.allreduce(all_len, op=MPI.SUM)
-
 if store != len(all_jobs):
     raise ValueError('MPI job distribution not consistent')
 
@@ -51,17 +53,25 @@ for wfid in local_list:
     sys.stdout.flush()
 
     fw = lpad.get_fw_by_id(wfid)
-
-    # ldir = '/'.join(lpad.get_launchdir(fw_id=wfid).split('/')[-3:])
     ldir = lpad.get_launchdir(fw_id=wfid)
-
     if not os.path.isdir(ldir):
-        raise FileNotFoundError('Are you on the right machine? '
-                                'Workflow {} directory does not exist here... : {}'.format(wfid, ldir))
+        raise FileNotFoundError('Are you on the right machine?\n'
+                                'Workflow directory [{}] does not exist here...'.format(ldir))
 
-    run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
+    vrun = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('vasprun')])[-1])
+    ocar = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('OUTCAR')])[-1])
+
+    run = Vasprun(vrun)
     if not run.converged or not run.converged_electronic:
         raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
+
+    with gzip.open(ocar, 'r') as f:
+        for line in f:
+            if b'Total CPU time used (sec):' in line:
+                runtime = float(line.split()[5])
+
+    if not os.path.isfile(os.path.join(ldir, 'vasprun.xml.gz')):
+        os.link(os.path.join(ldir, vrun), os.path.join(ldir, 'vasprun.xml.gz'))  # ase workaround
 
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
     file = io.StringIO()
@@ -70,26 +80,28 @@ for wfid in local_list:
     xyz = file.readlines()
     file.close()
 
-    # for Pt this is done during writing, all following projects NEED THIS HERE
-    # stress = atoms.get_stress(voigt=False)
-    # vol = atoms.get_volume()
-    # virial = -np.dot(vol, stress)
-    #
-    # xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type=bulk\n'.format(
-    #     virial[0][0], virial[0][1], virial[0][2],
-    #     virial[1][0], virial[1][1], virial[1][2],
-    #     virial[2][0], virial[2][1], virial[2][2])
+    stress = atoms.get_stress(voigt=False)
+    vol = atoms.get_volume()
+    virial = -np.dot(vol, stress)
+
+    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
+
+    xyz[1] = xyz[1].strip() + ' virial="{} {} {} {} {} {} {} {} {}" config_type={}\n'.format(
+        virial[0][0], virial[0][1], virial[0][2],
+        virial[1][0], virial[1][1], virial[1][2],
+        virial[2][0], virial[2][1], virial[2][2],
+        fw_dict['metadata']['name'].split()[3])
 
     dft_data = dict()
     dft_data['xyz'] = xyz
     dft_data['PBE_54'] = run.potcar_symbols
+    dft_data['runtime'] = runtime
     dft_data['parameters'] = run.parameters.as_dict()
     dft_data['free_energy'] = atoms.get_potential_energy(force_consistent=True)
     dft_data['final_structure'] = run.final_structure.as_dict()
 
-    fw_dict = lpad.get_wf_by_fw_id(fw.fw_id).as_dict()
-    data_name = 'Pt random structure  ||  ' + fw_dict['metadata']['name'] + \
-                '  ||  created ' + fw_dict['metadata']['date'] + '  ||  StaticFW'
+    data_name = 'Iconel CASM generated and relaxed structure for multiplication and rnd distortion  ||  ' + \
+                fw_dict['metadata']['name'] + '  ||  created ' + fw_dict['metadata']['date'] + '  ||  OptimizeFW'
 
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     lpad.delete_wf(wfid, delete_launch_dirs=True)

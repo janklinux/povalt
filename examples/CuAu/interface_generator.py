@@ -4,7 +4,7 @@ import time
 import datetime
 import numpy as np
 from fireworks import LaunchPad, Workflow
-from pymatgen import Structure
+from pymatgen import Structure, Lattice
 from pymatgen.io.vasp.sets import MPRelaxSet
 from pymatgen.io.vasp.inputs import Kpoints
 from atomate.vasp.fireworks.core import OptimizeFW
@@ -35,7 +35,17 @@ def get_static_wf(structure, struc_name='', name='', vasp_input_set=None,
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
+def get_epsilon(structure):
+    eps = np.array([float(0.1*(x-0.5)) for x in np.random.random(6)])
+    cij = np.array([[1+eps[0], eps[5]/2, eps[4]/2],
+                    [eps[5]/2, 1+eps[1], eps[3]/2],
+                    [eps[4]/2, eps[3]/2, 1+eps[2]]])
+    return Lattice(np.dot(cij, structure.lattice.matrix))
+
+
 # lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
+
+np.random.seed(int(time.time()))
 
 ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
 cl_file = os.path.expanduser('~/ssl/numphys/client.pem')

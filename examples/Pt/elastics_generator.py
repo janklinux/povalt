@@ -11,7 +11,7 @@ from atomate.vasp.powerups import add_modify_incar
 
 
 def get_epsilon(structure):
-    eps = np.array([float(0.1*(x-0.5)) for x in np.random.random(6)])
+    eps = np.array([float(0.05*(x-0.5)) for x in np.random.random(6)])
     cij = np.array([[1+eps[0], eps[5]/2, eps[4]/2],
                     [eps[5]/2, 1+eps[1], eps[3]/2],
                     [eps[4]/2, eps[3]/2, 1+eps[2]]])
@@ -66,27 +66,27 @@ elif crystal == 'sc':
 else:
     raise ValueError('No scaling implemented for the chosen cell...')
 
-cubic = Structure.from_file('POSCAR')
+cubic = Structure.from_file('CONTCAR')
 
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 1, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
 
 np.random.seed(int(time.time()))
-total_structures = 250
+total_structures = 400
 
 i = 0
 while i < total_structures:
-    cubic.lattice = get_epsilon(structure=cubic)
-    new_crds = []
-    new_species = []
-    for s in cubic.sites:
-        new_species.append(s.specie)
-        new_crds.append(np.array([(np.random.random() - 0.5) * 0.01 + s.coords[0],
-                                  (np.random.random() - 0.5) * 0.01 + s.coords[1],
-                                  (np.random.random() - 0.5) * 0.01 + s.coords[2]]))
+    # cubic.lattice = get_epsilon(structure=cubic)
+    # new_crds = []
+    # new_species = []
+    # for s in cubic.sites:
+    #     new_species.append(s.specie)
+    #     new_crds.append(np.array([(np.random.random() - 0.5) * 0.01 + s.coords[0],
+    #                               (np.random.random() - 0.5) * 0.01 + s.coords[1],
+    #                               (np.random.random() - 0.5) * 0.01 + s.coords[2]]))
 
-    new_cell = Structure(lattice=cubic.lattice, species=new_species, coords=new_crds,
+    new_cell = Structure(lattice=get_epsilon(structure=cubic), species=cubic.species, coords=cubic.cart_coords,
                          charge=None, validate_proximity=True, to_unit_cell=False,
                          coords_are_cartesian=True, site_properties=None)
 
@@ -94,7 +94,7 @@ while i < total_structures:
     structure_name = '{} {} for elastics'.format(len(new_cell.sites), str(new_cell.symbol_set[0]))  # + crystal
     meta = {'name': structure_name,
             'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
-    kpt_set = Kpoints.automatic_gamma_density(structure=cubic, kppa=1000).as_dict()
+    kpt_set = Kpoints.automatic_gamma_density(structure=new_cell, kppa=1000).as_dict()
 
     # vasp_cmd = 'srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
 
@@ -102,7 +102,6 @@ while i < total_structures:
                               vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe '
                                        '-n 2 vasp_std',
                               user_kpoints_settings=kpt_set, metadata=meta)
-
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)
 

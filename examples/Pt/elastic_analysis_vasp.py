@@ -31,7 +31,7 @@ def get_vasp_tensor(filename):
         if copy:
             if len(inp) == 7 and len(inp[0]) == 2:
                 elastic_tensor.append(inp[1:])
-    return np.asarray(elastic_tensor).astype(np.float)
+    return np.asarray(elastic_tensor).astype(np.float32)
 
 
 def get_quip_tensor(filename):
@@ -48,7 +48,7 @@ def get_quip_tensor(filename):
     for line in lines:
         if line.startswith('CIJ'):
             elastic_tensor.append([float(x) for x in line.split()[1:7]])
-    return np.asarray(elastic_tensor).astype(np.float)
+    return np.asarray(elastic_tensor).astype(np.float32)
 
 
 # ### Elastic tensor $C_{ij}$

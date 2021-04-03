@@ -213,7 +213,7 @@ data_coll = data_db['validate_potentials']
 reference = parse_xyz('test.xyz')
 
 num_pots = data_coll.estimated_document_count()
-offset = np.int(num_pots / mpi_size)
+offset = int(num_pots / mpi_size)
 
 base_dir = os.getcwd()
 all_names = []

@@ -90,6 +90,8 @@ def get_differences(result, reference):
     reference_data = []
 
     for ip, res in enumerate(result['data']):
+        energy = 0
+        config_type = None
         coord = []
         virial = []
         forces = []
@@ -99,12 +101,18 @@ def get_differences(result, reference):
             line_count += 1
             if line_count == 1:
                 n_atoms = int(line)
-            # if line_count == 2:
-            #     bits = line.split()
-            #     virial.append(float(bits[0].split('=')[1][1:]))
-            #     for v in bits[1:8]:
-            #         virial.append(float(v))
-            #     virial.append(float(bits[8][:-1]))
+            if line_count == 2:
+                bits = line.split()
+                for ii, bit in enumerate(bits):
+                    if 'free_energy' in bit:
+                        energy = float(bit.split('=')[1])
+                    if 'virial' in bit:
+                        virial.append(float(bits[ii].split('=')[1][1:]))
+                        for v in bits[ii+1:ii+8]:
+                            virial.append(float(v))
+                        virial.append(float(bits[ii+8][:-1]))
+                    if 'config_type' in bit:
+                        config_type = bit.split('=')[1]
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
                 forces.append([float(x) for x in line.split()[16:19]])
@@ -115,6 +123,7 @@ def get_differences(result, reference):
                 tmp['virial'] = virial
                 tmp['coords'] = coord
                 tmp['forces'] = forces
+                tmp['config_type'] = config_type
                 result_data.append(tmp)
                 virial = []
                 coord = []
@@ -202,81 +211,80 @@ def scatterplot(result_energy, reference_energy, system_type, quip_time, max_ene
     plt.rc('font', family='sans-serif', serif='Palatino')
     plt.rcParams['font.family'] = 'DejaVu Sans'
     plt.rcParams['font.sans-serif'] = 'cm'
-    plt.rcParams['xtick.major.size'] = 8
-    plt.rcParams['xtick.major.width'] = 3
-    plt.rcParams['xtick.minor.size'] = 4
-    plt.rcParams['xtick.minor.width'] = 3
-    plt.rcParams['xtick.labelsize'] = 18
-    plt.rcParams['ytick.major.size'] = 8
-    plt.rcParams['ytick.major.width'] = 3
-    plt.rcParams['ytick.minor.size'] = 4
-    plt.rcParams['ytick.minor.width'] = 3
-    plt.rcParams['ytick.labelsize'] = 18
-    plt.rcParams['axes.linewidth'] = 3
+    # plt.rcParams['xtick.major.size'] = 8
+    # plt.rcParams['xtick.major.width'] = 3
+    # plt.rcParams['xtick.minor.size'] = 4
+    # plt.rcParams['xtick.minor.width'] = 3
+    # plt.rcParams['xtick.labelsize'] = 18
+    # plt.rcParams['ytick.major.size'] = 8
+    # plt.rcParams['ytick.major.width'] = 3
+    # plt.rcParams['ytick.minor.size'] = 4
+    # plt.rcParams['ytick.minor.width'] = 3
+    # plt.rcParams['ytick.labelsize'] = 18
+    # plt.rcParams['axes.linewidth'] = 3
 
     plt_color = {'fcc': 'y', 'bcc': 'navy', 'hcp': 'g', 'sc': 'm', 'slab': 'r', 'phonons': 'b',
                  'addition': 'brown', 'cluster': 'green', 'trimer': 'lightgreen', 'elastics': 'lightblue'}
 
-    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'phonons',
-                             'addition', 'cluster', 'trimer', 'elastics']):
+    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab']):
+        # , 'phonons', 'addition', 'cluster', 'trimer', 'elastics']):
         plt_x = []
         plt_y = []
-        plt.text(-6, -0.5-(ip*0.2), r'{}'.format(tp), color=plt_color[tp], fontsize=6)
+        plt.text(-3.25, -0.5-(ip*0.1), r'{}'.format(tp), color=plt_color[tp], fontsize=6)
         for cnt, (res, ref) in enumerate(zip(result_energy, reference_energy)):
             if system_type[cnt] == tp:
                 plt_x.append(ref)
                 plt_y.append(res)
         plt.scatter(plt_x, plt_y, marker='.', color=plt_color[tp], label=None, s=0.5)
 
-    fcc_dft = -24.39050152 / 4
-    fcc_gap = -24.404683 / 4
-    plt.plot(fcc_dft, fcc_gap, marker='x', color='k')
-    plt.annotate(r'fcc', xy=(fcc_dft, fcc_gap), xytext=(fcc_dft - 0.1, fcc_gap - 0.5), color='y', fontsize=6,
-                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
-                                 headwidth=2.0, headlength=4.0, shrink=0.05))
-
-    bcc_dft = -11.97199694 / 2
-    bcc_gap = -11.989746 / 2
-    plt.plot(bcc_dft, bcc_gap, marker='x', color='k')
-    plt.annotate(r'bcc', xy=(bcc_dft, bcc_gap), xytext=(bcc_dft - 0.5, bcc_gap + 0.5), color='navy', fontsize=6,
-                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
-                                 headwidth=2.0, headlength=4.0, shrink=0.05))
-
-    hcp_dft = -17.78139257 / 3
-    hcp_gap = -17.785577 / 3
-    plt.plot(hcp_dft, hcp_gap, marker='x', color='k')
-    plt.annotate(r'hcp', xy=(hcp_dft, hcp_gap), xytext=(hcp_dft + 0.5, hcp_gap - 0.5), color='g', fontsize=6,
-                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
-                                 headwidth=2.0, headlength=4.0, shrink=0.05))
-
-    sc_dft = -5.57232362
-    sc_gap = -5.6127757  # -5.6727757
-    plt.plot(sc_dft, sc_gap, marker='x', color='k')
-    plt.annotate(r'sc', xy=(sc_dft, sc_gap), xytext=(sc_dft - 0.5, sc_gap + 0.5), color='m', fontsize=6,
-                 arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
-                                 headwidth=2.0, headlength=4.0, shrink=0.05))
+    # fcc_dft = -24.39050152 / 4
+    # fcc_gap = -24.404683 / 4
+    # plt.plot(fcc_dft, fcc_gap, marker='x', color='k')
+    # plt.annotate(r'fcc', xy=(fcc_dft, fcc_gap), xytext=(fcc_dft - 0.1, fcc_gap - 0.5), color='y', fontsize=6,
+    #              arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+    #                              headwidth=2.0, headlength=4.0, shrink=0.05))
+    #
+    # bcc_dft = -11.97199694 / 2
+    # bcc_gap = -11.989746 / 2
+    # plt.plot(bcc_dft, bcc_gap, marker='x', color='k')
+    # plt.annotate(r'bcc', xy=(bcc_dft, bcc_gap), xytext=(bcc_dft - 0.5, bcc_gap + 0.5), color='navy', fontsize=6,
+    #              arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+    #                              headwidth=2.0, headlength=4.0, shrink=0.05))
+    #
+    # hcp_dft = -17.78139257 / 3
+    # hcp_gap = -17.785577 / 3
+    # plt.plot(hcp_dft, hcp_gap, marker='x', color='k')
+    # plt.annotate(r'hcp', xy=(hcp_dft, hcp_gap), xytext=(hcp_dft + 0.5, hcp_gap - 0.5), color='g', fontsize=6,
+    #              arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+    #                              headwidth=2.0, headlength=4.0, shrink=0.05))
+    #
+    # sc_dft = -5.57232362
+    # sc_gap = -5.6127757  # -5.6727757
+    # plt.plot(sc_dft, sc_gap, marker='x', color='k')
+    # plt.annotate(r'sc', xy=(sc_dft, sc_gap), xytext=(sc_dft - 0.5, sc_gap + 0.5), color='m', fontsize=6,
+    #              arrowprops=dict(facecolor='k', edgecolor='k', width=0.1,
+    #                              headwidth=2.0, headlength=4.0, shrink=0.05))
 
     plt.xlabel(r'Computed Energy [eV/atom]', fontsize=16, color='k')
     plt.ylabel(r'Predicted Energy [eV/atom]', fontsize=16, color='k')
 
     plt.scatter(5, 5, marker='.', color='k', label=r'GAP vs DFT', facecolor='w', s=25)
 
-    plt.plot([-6.5, 0.5], [-6.5, 0.5], '-', color='k', linewidth=0.25)
+    plt.plot([-3.5, 0.5], [-3.5, 0.5], '-', color='k', linewidth=0.25)
 
-    plt.text(-4.5, -0.6, r'Max error: {} eV/atom'.format(round(max_energy_error, 3)), fontsize=8)
-    plt.text(-4.5, -0.9, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    plt.text(-2.5, -0.3, r'Max error: {} eV/atom'.format(round(max_energy_error, 3)), fontsize=8)
+    plt.text(-2.5, -0.5, r'Mean error: {} meV/atom'.format(round(avg_energy_error*1000, 1)), fontsize=8)
+    plt.text(-2.5, -0.8, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
 
-    plt.text(-4.5, -1.3, r'Mean force error: {} eV/\AA'.format(round(force_error, 3)), fontsize=8)
+    # plt.text(-2.0, -4.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
 
-    plt.text(-3.0, -4.4, r'QUIP runtime: {}'.format(quip_time), fontsize=8)
-
-    if multipot:
-        plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
+    # if multipot:
+    #     plt.text(-4.3, -6.1, get_command_line('platinum.xml'), fontsize=4)
 
     plt.legend(loc='upper left')
 
-    plt.xlim(-7, 1)
-    plt.ylim(-7, 1)
+    plt.xlim(-4, 1)
+    plt.ylim(-4, 1)
 
     plt.tight_layout()
     if multipot:
@@ -307,7 +315,7 @@ if not multi_potential:
 
     scatterplot(result_energy=epred, reference_energy=eref, system_type=sys_conf,
                 quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de) / len(de),
-                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons_trimers', multipot=multi_potential)
+                force_error=np.sum(df) / len(df), gap_name='2b+SOAP', multipot=multi_potential)
 
 else:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -344,7 +352,7 @@ else:
 
         os.symlink('../compress.dat', 'compress.dat')
         os.symlink('../test.xyz', 'test.xyz')
-        os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Pt/compress.dat@compress.dat@g {}'.format(xml_name))
+        os.system('sed -i s@/users/kloppej1/scratch/jank/pot_fit/Au/compress.dat@compress.dat@g {}'.format(xml_name))
         print('running: quip atoms_filename=test.xyz param_filename={} for {}'.format(xml_name, xml_label))
         os.system('nice -n 10 quip atoms_filename=test.xyz param_filename={} e f > quip.result'.format(xml_name))
 

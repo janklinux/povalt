@@ -6,7 +6,7 @@ from fireworks import LaunchPad, Workflow
 from ase.io.lammpsdata import write_lammps_data
 from ase.io.lammpsrun import read_lammps_dump_text
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.core.structure import Structure
+from pymatgen.core.structure import Structure, Lattice
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
@@ -36,6 +36,14 @@ def get_few_steps_wf(in_structure, struc_name='', name='', vasp_input_set=None,
     wfname = "{}: {}".format(struc_name, name)
 
     return Workflow(fws, name=wfname, metadata=metadata)
+
+
+def get_epsilon(in_structure):
+    eps = np.array([float(0.1*(x-0.5)) for x in np.random.random(6)])
+    cij = np.array([[1+eps[0], eps[5]/2, eps[4]/2],
+                    [eps[5]/2, 1+eps[1], eps[3]/2],
+                    [eps[4]/2, eps[3]/2, 1+eps[2]]])
+    return Lattice(np.dot(cij, in_structure.lattice.matrix))
 
 
 show_ball = False
@@ -258,13 +266,13 @@ lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 1, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 16, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
              'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LREAL': 'AUTO',
              'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.',
-             'POTIM': 0.25, 'ISIF': 3, 'IBRION': 2, 'NSW': 5}
+             'ISIF': 3, 'IBRION': 2, 'NSW': 5}
 
 pot_dir = '/home/jank/work/Aalto/GAP_data/CuAu/validation'
-base_dir = os.path.join(os.getcwd(), 'first_round')
+base_dir = os.path.join(os.getcwd(), '2nd_round')
 for si, structure in enumerate(all_structures):
     os.chdir(base_dir)
     if os.path.isdir(str(si)):
@@ -324,6 +332,3 @@ for si, structure in enumerate(all_structures):
                                  user_kpoints_settings=kpt_set, metadata=meta)
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)
-
-    if si == 5:
-        break
