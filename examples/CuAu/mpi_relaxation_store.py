@@ -62,11 +62,11 @@ for wfid in local_list:
     run = Vasprun(os.path.join(ldir, 'vasprun.xml.gz'))
     atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False, index=':')
 
-    step_time = []
-    with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
-        for line in f:
-            if b'LOOP+:  cpu time' in line:
-                step_time.append(float(line.split()[6]))
+    # step_time = []
+    # with gzip.open(os.path.join(ldir, 'OUTCAR.gz'), 'r') as f:
+    #     for line in f:
+    #         if b'LOOP+:  cpu time' in line:
+    #             step_time.append(float(line.split()[6]))
 
     for ai, at in enumerate(atoms):
         rel_step += 1
@@ -85,12 +85,12 @@ for wfid in local_list:
         xyz = file.readlines()
         file.close()
 
-        runtime += step_time[ai]
+        # runtime += step_time[ai]
 
         dft_data = dict()
         dft_data['xyz'] = xyz
         dft_data['PBE_54'] = run.potcar_symbols
-        dft_data['runtime'] = runtime
+        # dft_data['runtime'] = runtime
         dft_data['parameters'] = run.parameters.as_dict()
         dft_data['free_energy'] = at.get_potential_energy(force_consistent=True)
         dft_data['final_structure'] = run.final_structure.as_dict()
