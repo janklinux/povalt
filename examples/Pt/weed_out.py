@@ -15,11 +15,11 @@ data_coll = data_db['platinum']
 # add_coll = data_db['platinum_additions']
 
 for doc in data_coll.find({}):
-    if 'elastics' in doc['name']:
+    if 'elastic' in doc['name']:
         print('pooping: ', doc['_id'], doc['name'])
-        # data_coll.delete_one({'_id': doc['_id']})
+        data_coll.delete_one({'_id': doc['_id']})
         # doc['name'] = re.sub('elastics', 'random', doc['name'])
-        data_coll.update_one({'_id': doc['_id']}, {'$set': {'name': re.sub('elastics', 'random', doc['name'])}})
+        # data_coll.update_one({'_id': doc['_id']}, {'$set': {'name': re.sub('elastics', 'random', doc['name'])}})
         # data_coll.update_one({'_id': doc['_id']}, {'$set': {'data': doc['data']}})
 
     # if float(doc['data']['free_energy']) in wrong_energies:

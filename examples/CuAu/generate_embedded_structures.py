@@ -6,7 +6,7 @@ from fireworks import LaunchPad, Workflow
 from ase.io.lammpsdata import write_lammps_data
 from ase.io.lammpsrun import read_lammps_dump_text
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.core.structure import Structure, Lattice
+from pymatgen.core.structure import Structure
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
@@ -36,14 +36,6 @@ def get_few_steps_wf(in_structure, struc_name='', name='', vasp_input_set=None,
     wfname = "{}: {}".format(struc_name, name)
 
     return Workflow(fws, name=wfname, metadata=metadata)
-
-
-def get_epsilon(in_structure):
-    eps = np.array([float(0.1*(x-0.5)) for x in np.random.random(6)])
-    cij = np.array([[1+eps[0], eps[5]/2, eps[4]/2],
-                    [eps[5]/2, 1+eps[1], eps[3]/2],
-                    [eps[4]/2, eps[3]/2, 1+eps[2]]])
-    return Lattice(np.dot(cij, in_structure.lattice.matrix))
 
 
 show_ball = False
@@ -151,11 +143,11 @@ for structure in all_structures:
         sux = Structure(lattice=[tmp.lattice.matrix[0], tmp.lattice.matrix[1], lat_mul * tmp.lattice.matrix[2]],
                         species=tmp.species, coords=tmp.cart_coords, coords_are_cartesian=True, to_unit_cell=False)
 
-        fuckarray = []
+        helparray = []
         for c in sux.cart_coords:
-            fuckarray.append(c[2])
+            helparray.append(c[2])
 
-        middle = np.amax(fuckarray) - np.amin(fuckarray)
+        middle = np.amax(helparray) - np.amin(helparray)
         move_dist = sux.lattice.matrix[2][2] / 2 - middle
 
         scrds = []
@@ -258,7 +250,7 @@ print('Total structures: {}'.format(len(all_structures)))
 
 lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic', 'read_data atom.pos',
                 'mass 1 63.546', 'mass 2 196.967', 'pair_style quip', 'neigh_modify every 1 delay 0 check yes',
-                'pair_coeff * * CuAu.xml "Potential xml_label=GAP_2021_3_8_120_19_5_5_313" 29 79',
+                'pair_coeff * * CuAu.xml "Potential xml_label=GAP_2021_4_11_180_11_36_47_690" 29 79',
                 'thermo_style custom time pe ke temp', 'thermo 1', 'velocity all zero linear',
                 'min_style cg', 'minimize 1e-10 1e-12 10000 100000',
                 'write_dump all atom final_positions.atom']
@@ -267,46 +259,48 @@ lammps_input = ['newton on', 'boundary p p p', 'units metal', 'atom_style atomic
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='cuau_fw', username='jank', password='mongo', ssl=False)
 
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 16, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 100, 'LREAL': 'AUTO',
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LREAL': 'AUTO',
              'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.',
-             'ISIF': 3, 'IBRION': 2, 'NSW': 5}
+             'IBRION': 2, 'ISIF': 3, 'NSW': 5}
 
 pot_dir = '/home/jank/work/Aalto/GAP_data/CuAu/validation'
 base_dir = os.path.join(os.getcwd(), '2nd_round')
 for si, structure in enumerate(all_structures):
-    os.chdir(base_dir)
-    if os.path.isdir(str(si)):
-        continue
-        # shutil.rmtree(str(si))
-    os.mkdir(str(si))
-    os.chdir(str(si))
+    # os.chdir(base_dir)
+    # if os.path.isdir(str(si)):
+    #     continue
+    #     # shutil.rmtree(str(si))
+    # os.mkdir(str(si))
+    # os.chdir(str(si))
+    #
+    # print('Running: {}'.format(structure.composition.element_composition))
+    #
+    # if len(structure.composition.chemical_system.split('-')) < 2:
+    #     print('Skipped because of single-species')
+    #     continue
+    #
+    # for file in os.listdir(pot_dir):
+    #     if file.startswith('CuAu') or file.startswith('compre'):
+    #         os.symlink(os.path.join(pot_dir, file), file)
+    #
+    # with open('atom.pos', 'w') as f:
+    #     write_lammps_data(f, atoms=AseAtomsAdaptor().get_atoms(structure=structure), units='metal',
+    #                       specorder=['Cu', 'Au'])
+    #
+    # with open('lammps.in', 'w') as f:
+    #     for line in lammps_input:
+    #         f.write(line + '\n')
+    #
+    # os.system('nice -n 15 lmp -in lammps.in')
+    #
+    # with open('final_positions.atom', 'r') as f:
+    #     relaxed = AseAtomsAdaptor().get_structure(atoms=read_lammps_dump_text(f))
 
-    print('Running: {}'.format(structure.composition.element_composition))
+    # spec_map = {'H': 'Cu', 'He': 'Au'}
+    # relaxed.replace_species(species_mapping=spec_map)
+    # relaxed.to(filename='final.vasp', fmt='POSCAR')
 
-    if len(structure.composition.chemical_system.split('-')) < 2:
-        print('Skipped because of single-species')
-        continue
-
-    for file in os.listdir(pot_dir):
-        if file.startswith('CuAu') or file.startswith('compre'):
-            os.symlink(os.path.join(pot_dir, file), file)
-
-    with open('atom.pos', 'w') as f:
-        write_lammps_data(f, atoms=AseAtomsAdaptor().get_atoms(structure=structure), units='metal',
-                          specorder=['Cu', 'Au'])
-
-    with open('lammps.in', 'w') as f:
-        for line in lammps_input:
-            f.write(line + '\n')
-
-    os.system('nice -n 15 lmp -in lammps.in')
-
-    with open('final_positions.atom', 'r') as f:
-        relaxed = AseAtomsAdaptor().get_structure(atoms=read_lammps_dump_text(f))
-
-    spec_map = {'H': 'Cu', 'He': 'Au'}
-    relaxed.replace_species(species_mapping=spec_map)
-    relaxed.to(filename='final.vasp', fmt='POSCAR')
+    relaxed = structure
 
     site_properties = {'initial_moment': []}
     for s in relaxed.sites:

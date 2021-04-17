@@ -193,11 +193,11 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
 
     plt_color = {'fcc_Au': 'y', 'bcc_Au': 'navy', 'hcp_Au': 'g', 'sc_Au': 'm', 'slab_Au': 'r',
                  'fcc_Cu': 'y', 'bcc_Cu': 'navy', 'hcp_Cu': 'g', 'sc_Cu': 'm', 'slab_Cu': 'r',
-                 'fcc_AuCu': 'y', 'bcc_AuCu': 'navy', 'hcp_AuCu': 'g', 'sc_AuCu': 'm'}
+                 'fcc_AuCu': 'y', 'bcc_AuCu': 'navy', 'hcp_AuCu': 'g', 'sc_AuCu': 'm', 'embedded_AuCu': 'r'}
 
     all_list = [['fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au'],
                 ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu'],
-                ['fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu']]
+                ['fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu', 'embedded_AuCu']]
 
     ax = []
     for ispec, sub_list in enumerate(all_list):
@@ -215,7 +215,7 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
                     e_errors.append(np.abs(res - ref))
                     f_errors.append(df)
 
-            ax[ispec].text(-3.9, -0.5 - (ip * 0.3), r'{}'.format(re.sub('_', '\_', tp)),
+            ax[ispec].text(-3.9, -0.5 - (ip * 0.3), r'{}: {}'.format(re.sub('_', '\_', tp), len(plt_x)),
                            color=plt_color[tp], fontsize=5)
             ax[ispec].scatter(plt_x, plt_y, marker='.', color=plt_color[tp], label=None, s=0.5)
 
@@ -237,6 +237,7 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
     ax[2].set_xlabel(r'Computed [eV/atom]', fontsize=8, color='k')
     ax[1].set_ylabel(r'Predicted [eV/atom]', fontsize=8, color='k')
 
+    print('QUIP Runtime: {}'.format(quip_time))
     # plt.text(-2.5, -3.6, r'runtime: {}'.format(quip_time), fontsize=8)
 
     plt.tight_layout()

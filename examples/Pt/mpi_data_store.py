@@ -15,7 +15,6 @@ size = comm.Get_size()
 rank = comm.Get_rank()
 
 lpad = LaunchPad.auto_load()
-#    (host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
 all_jobs = lpad.get_wf_ids({'state': 'COMPLETED'})
 offset = np.floor(len(all_jobs) / size)
 
@@ -93,6 +92,5 @@ for wfid in local_list:
 
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     lpad.delete_wf(wfid, delete_launch_dirs=True)
-    sys.stdout.flush()
 
 MPI.Finalize()

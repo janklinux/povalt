@@ -33,7 +33,7 @@ read_from_db = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 do_soap = False
 
-systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab']  # , 'cluster', 'addition']
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster']  # , 'cluster', 'addition']
 
 train_split = {'fcc': 1.0,
                'bcc': 1.0,
@@ -71,7 +71,7 @@ if read_from_db:
             complete_xyz.append(doc['data']['xyz'])
             if 'Slab' in doc['name']:
                 crystal_system.append('slab')
-            elif 'Cluster' in doc['name']:
+            elif 'cluster' in doc['name']:
                 crystal_system.append('cluster')
             else:
                 crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
@@ -124,6 +124,8 @@ processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': [
 suggestions = dict()
 if do_soap:
     for csys in systems:
+        if train_split[csys] == 0.0:
+            continue
         selected_idx = []
         print('SOAP processing {}: '.format(csys))
         all_kernels = dict()
@@ -223,6 +225,8 @@ if do_soap:
 else:
 
     for csys in systems:
+        if train_split[csys] == 0.0:
+            continue
         selected_idx = []
         all_kernels = dict()
         for species in ['Au']:
@@ -332,8 +336,49 @@ with open('train.xyz', 'w') as f:
                     f.write(line)
 
 
-with open('test.xyz', 'w') as f:
-    for sys in systems:
-        for xyz in processed[sys]:
+if read_from_db:
+    print('\nProcessing Testing Data...')
+    with open('/tmp/delme.xyz', 'w') as f:
+        for xyz in complete_xyz:
             for line in xyz:
                 f.write(line)
+    atoms = read('/tmp/delme.xyz', index=':')
+    processed = dict()
+    for csys in systems:
+        processed[csys] = []
+
+    for ia, at in enumerate(atoms):
+        if crystal_system[ia] not in processed:
+            continue
+        if crystal_system[ia] == 'cluster':
+            stress = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+        else:
+            stress = at.get_stress(voigt=False)
+
+        vol = at.get_volume()
+        virial = -np.dot(vol, stress)
+
+        at.info['virial'] = virial
+        at.info['config_type'] = crystal_system[ia]
+
+        f_min = 0.1
+        f_scale = 0.1
+        f = np.clip(np.abs(at.get_forces()) * f_scale, a_min=f_min, a_max=None)
+        at.new_array("force_component_sigma", f)
+
+        file = io.StringIO()
+        write(filename=file, images=at, format='extxyz', parallel=False)
+        file.seek(0)
+        xyz = file.readlines()
+
+        processed[crystal_system[ia]].append(xyz)
+
+    print('\nTest Data Contents:')
+    for pr in processed:
+        print('{}: {}'.format(pr, len(processed[pr])))
+
+    with open('test.xyz', 'w') as f:
+        for csys in systems:
+            for xyz in processed[csys]:
+                for line in xyz:
+                    f.write(line)

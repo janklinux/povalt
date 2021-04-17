@@ -28,25 +28,16 @@ def get_relax_wf(structure, struc_name='', name='', vasp_input_set=None,
 
     fws = [OptimizeFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
                       db_file=db_file, name="{} -- OptimizeFW".format(tag))]
-
     wfname = "{}: {}".format(struc_name, name)
 
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
-def check_vacuum_direction(input_data):
-    a = input_data.lattice.matrix[0] / 2
-    b = input_data.lattice.matrix[1] / 2
-    for c in input_data.cart_coords:
-        if np.linalg.norm(c - np.array([a + b])) < 6:
-            return False
-    return True
+lpad = LaunchPad(host='195.148.22.179', port=27017, name='hkl_fw', username='jank', password='mongo', ssl=False)
 
-
-lpad = LaunchPad(host='195.148.22.179', port=27017, name='train_fw', username='jank', password='mongo', ssl=False)
-
+kpt_set = Kpoints.gamma_automatic(kpts=[4, 4, 1], shift=(0, 0, 0)).as_dict()
 incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 16, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.', 'IBRION': 1,
+             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.',
              'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.', 'IDIPOL': 3, 'LDIPOL': '.TRUE.', 'DIPOL': '0.5 0.5 0.5'}
 
 hkl_list = []
@@ -71,7 +62,6 @@ for csys in systems:
                 structure_name = 'Surface energy validation for hkl: {}'.format(hkl)
                 meta = {'name': structure_name,
                         'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
-                kpt_set = Kpoints.gamma_automatic(kpts=[2, 2, 1], shift=(0, 0, 0)).as_dict()
                 relax_wf = get_relax_wf(structure=slab, struc_name=structure_name, vasp_input_set=incar_set,
                                         vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
                                         user_kpoints_settings=kpt_set, metadata=meta)
