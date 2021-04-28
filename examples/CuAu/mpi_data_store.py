@@ -59,8 +59,12 @@ for wfid in local_list:
     ocar = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('OUTCAR')])[-1])
 
     run = Vasprun(vrun)
-    if not run.converged or not run.converged_electronic:
-        raise ValueError('Run {} is NOT converged, something is very wrong here...'.format(wfid))
+    if not run.converged_electronic:
+        print('Run {} is NOT converged, will not be stored...'.format(wfid))
+        continue
+    if run.final_energy >= 0:
+        print('Run {} has POSITIVE ENERGY, will not be stored...'.format(wfid))
+        continue
 
     with gzip.open(ocar, 'r') as f:
         for line in f:

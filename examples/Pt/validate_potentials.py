@@ -1,3 +1,4 @@
+import io
 import re
 import os
 import lzma
@@ -215,10 +216,10 @@ def scatterplot(result_energy, reference_energy, system_type, quip_time, max_ene
     plt.rcParams['axes.linewidth'] = 3
 
     plt_color = {'fcc': 'y', 'bcc': 'navy', 'hcp': 'g', 'sc': 'm', 'slab': 'r', 'phonons': 'b',
-                 'addition': 'brown', 'cluster': 'green', 'trimer': 'lightgreen', 'elastics': 'lightblue'}
+                 'addition': 'brown', 'cluster': 'green', 'elastics': 'lightblue'}
 
     for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'phonons',
-                             'addition', 'cluster', 'trimer', 'elastics']):
+                             'addition', 'cluster', 'elastics']):
         plt_x = []
         plt_y = []
         for cnt, (res, ref) in enumerate(zip(result_energy, reference_energy)):
@@ -297,19 +298,15 @@ if not multi_potential:
 
     for ie, e in enumerate(de):
         if e > 0.1:
-            print(ie, e)
-            with open('error_{}.xyz'.format(ie), 'w') as f:
-                for line in reference['data'][ie]:
-                    f.write(str(line))
-            atoms = read('error_{}.xyz'.format(ie))
-            atoms.info['comment'] = eref[ie]
-            print('Error {}: {}'.format(ie, eref[ie]))
+            with open('error_{}.xyz'.format(ie), 'w') as fout:
+                fout.writelines(reference['data'][ie])
+            atoms = read('error_{}.xyz'.format(ie), format='extxyz')
             write(filename='error_{}.vasp'.format(ie), images=atoms, format='vasp')
-            os.unlink('error_{}.xyz'.format(ie))
+            print('Error {}: {} -- Er: {} Ep: {}'.format(ie, e, eref[ie], epred[ie]))
 
     scatterplot(result_energy=epred, reference_energy=eref, system_type=sys_conf,
                 quip_time=runtime, max_energy_error=np.amax(de), avg_energy_error=np.sum(de) / len(de),
-                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons_trimers', multipot=multi_potential)
+                force_error=np.sum(df) / len(df), gap_name='2b+SOAP+phonons+elastics', multipot=multi_potential)
 
 else:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')

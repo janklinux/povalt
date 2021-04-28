@@ -31,23 +31,24 @@ for gpu in gpus:
 
 np.random.seed(1410)  # fix for reproduction
 
-read_from_db = True
+read_from_db = False
+write_test_data = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 show_dimer = False
-do_soap = True
-select_from_soap = True
-new_order = True
+do_soap = False
+select_from_soap = False
+order = 'top_bottom'  # offset | linear | top_bottom
 
 
-systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons', 'trimer',
-           'elastics', 'random']
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster', 'addition', 'phonons', 'trimer', 'elastics', 'random']
 
-# train_split = {'fcc': 1.0, 'bcc': 1.0, 'hcp': 1.0, 'sc': 1.0, 'slab': 1.0,
-#                'cluster': 1.0, 'phonons': 1.0, 'addition': 1.0, 'trimer': 1.0, 'elastics': 1.0}  # , 'random': 0.0}
+# train_split = {'fcc': 1.0, 'bcc': 0.9, 'hcp': 0.9, 'sc': 0.9, 'slab': 1.0,
+#                'cluster': 1.0, 'phonons': 1.0, 'addition': 1.0, 'trimer': 0.0,
+#                'elastics': 1.0, 'random': 0.0}
 
-train_split = {'fcc': 0.0, 'bcc': 0.0, 'hcp': 0.0, 'sc': 0.0, 'slab': 0.0,
-               'cluster': 0.0, 'phonons': 0.0, 'addition': 0.0, 'trimer': 0.0,
-               'elastics': 1.0, 'random': 0.0}
+train_split = {'fcc': 1.0, 'bcc': 1.0, 'hcp': 1.0, 'sc': 1.0, 'slab': 1.0,
+               'cluster': 1.0, 'phonons': 1.0, 'addition': 1.0, 'trimer': 1.0,
+               'elastics': 1.0, 'random': 1.0}
 
 
 with open('train.xyz', 'w') as f:
@@ -184,43 +185,50 @@ if read_from_db:
     ik = 0
     total_slabs = 0
     added_slabs = 0
+    print('busy on src:', end='')
+    sys.stdout.flush()
     for doc in data_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1, 'data.final_structure': 1}):
         if ik % 1000 == 0:
-            print('busy on src: {:d}'.format(ik))
+            print(' {:d}'.format(ik), end='')
+            sys.stdout.flush()
         ik += 1
 
         valid = True
-        if 'Slab' in doc['name']:
+        if 'slab' in doc['name'].lower():
             total_slabs += 1
             valid = check_vacuum_direction(doc['data']['final_structure'])
 
         if valid:
             complete_xyz.append(doc['data']['xyz'])
-            if 'Slab' in doc['name']:
+            if 'slab' in doc['name'].lower():
                 added_slabs += 1
                 crystal_system.append('slab')
-            elif 'Cluster' in doc['name']:
+            elif 'cluster' in doc['name'].lower():
                 crystal_system.append('cluster')
-            elif 'phonons' in doc['name']:
+            elif 'phonons' in doc['name'].lower():
                 crystal_system.append('phonons')
-            elif 'elastics' in doc['name']:
+            elif 'elastics' in doc['name'].lower():
                 crystal_system.append('elastics')
             else:
-                crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
-
+                crystal_system.append(doc['name'].split('||')[1].split(' ')[5].lower())
+    print('')
+    print('busy on add:', end='')
+    sys.stdout.flush()
     ik = 0
     for doc in add_coll.find({}, {'_id': 0, 'data.xyz': 1, 'name': 1}):
         if ik % 100 == 0:
-            print('busy on add: {:d}'.format(ik))
+            print(' {:d}'.format(ik), end='')
+            sys.stdout.flush()
         ik += 1
         complete_xyz.append(doc['data']['xyz'])
         crystal_system.append('addition')
+    print('')
 
     with open('structures.json', 'w') as f:
         json.dump(complete_xyz, f)
     with open('systems.json', 'w') as f:
         json.dump(crystal_system, f)
-    print('Slabs, total: {} -- added: {}'.format(total_slabs, added_slabs))
+    print('Slabs total: {} -- added: {}'.format(total_slabs, added_slabs))
 else:
     with open('structures.json', 'r') as f:
         complete_xyz = json.load(f)
@@ -241,7 +249,13 @@ for csys in systems:
         train_selected[csys] = tmp
     np.random.shuffle(train_selected[csys])
 
+
+print('')
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
+for sc in system_count:
+    print('{}: {}'.format(sc, system_count[sc]))
+print('')
+
 
 all_xyz = dict()
 for csys in systems:
@@ -250,38 +264,6 @@ for csys in systems:
         if crystal_system[idx] == csys:
             tmp.append(st)
     all_xyz[csys] = tmp
-
-# print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
-#       '                          bcc     : {:5d} [{:3.1f}%]\n'
-#       '                          sc      : {:5d} [{:3.1f}%]\n'
-#       '                          hcp     : {:5d} [{:3.1f}%]\n'
-#       '                          slab    : {:5d} [{:3.1f}%]\n'
-#       '                          cluster : {:5d} [{:3.1f}%]\n'
-#       '                          phonons : {:5d} [{:3.1f}%]\n'
-#       '                          elastics: {:5d} [{:3.1f}%]\n'
-#       '                          trimer  : {:5d} [{:3.1f}%]\n'
-#       '                          addition: {:5d} [{:3.1f}%]'.
-#       format(int(system_count['fcc'] * train_split['fcc']), train_split['fcc']*100,
-#              int(system_count['bcc'] * train_split['bcc']), train_split['bcc']*100,
-#              int(system_count['sc'] * train_split['sc']), train_split['sc']*100,
-#              int(system_count['hcp'] * train_split['hcp']), train_split['hcp']*100,
-#              int(system_count['slab'] * train_split['slab']), train_split['slab']*100,
-#              int(system_count['cluster'] * train_split['cluster']), train_split['cluster']*100,
-#              int(system_count['phonons'] * train_split['phonons']), train_split['phonons']*100,
-#              int(system_count['elastics'] * train_split['elastics']), train_split['elastics']*100,
-#              int(system_count['trimer'] * train_split['trimer']), train_split['trimer']*100,
-#              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
-
-# print('This will need approximately {} GB of memory during training.'.format(np.round(
-#     (system_count['fcc'] * train_split['fcc'] + system_count['bcc'] * train_split['bcc'] +
-#      system_count['sc'] * train_split['sc'] + system_count['hcp'] * train_split['hcp'] +
-#      system_count['slab'] * train_split['slab'] + system_count['cluster'] * train_split['cluster'] +
-#      system_count['addition'] * train_split['addition']) * 8 * 1000 * len(systems) * 150 / 2**30 * 1.1, 2)))
-# ( num systems * include % ) * #systems * 150 * 8 bytes * 1000 / GB + 10%
-# |          dim1           | * |    dim2    | * numerics
-
-# processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [],
-#              'cluster': [], 'phonons': [], 'elastics': [], 'addition': [], 'trimer': [], 'random': []}
 
 processed = dict()
 for csys in systems:
@@ -297,7 +279,7 @@ if select_from_soap:
             print('SOAP processing {}: '.format(csys))
             all_kernels = dict()
             for ci, species in enumerate(['Pt']):
-                print('Species {}...'.format(species), end='')
+                print('Species {} in {}...'.format(species, csys), end='')
                 sys.stdout.flush()
 
                 file = io.StringIO()
@@ -308,8 +290,8 @@ if select_from_soap:
 
                 q = dict()
                 d = Descriptor('soap_turbo l_max=8 alpha_max=8 atom_sigma_r=0.5 atom_sigma_t=0.5  '
-                               'atom_sigma_r_scaling=0.0 atom_sigma_t_scaling=0.0 rcut_hard=5.7 '
-                               'rcut_soft=5.2 basis=poly3gauss scaling_mode=polynomial amplitude_scaling=1.0 '
+                               'atom_sigma_r_scaling=0.0 atom_sigma_t_scaling=0.0 rcut_hard=5.2 '
+                               'rcut_soft=4.7 basis=poly3gauss scaling_mode=polynomial amplitude_scaling=1.0 '
                                'n_species=1 species_Z=78 radial_enhancement=1 compress_file=compress.dat '
                                'central_weight=1.0 add_species=F')
 
@@ -348,29 +330,57 @@ if select_from_soap:
 
                 with tf.device('/device:CPU:0'):  # .format(0)):
                     added = []
+                    offset = np.floor(len(atoms) / (np.floor(len(atoms) * train_split[csys])))
                     print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
                     sys.stdout.flush()
-                    for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
-                                                              all_kernels[species]['index']))):
-                        if kv < 0.5:
-                            # if csys == 'fcc_AuCu':
-                            #     print(ik, kv, len(added))
+                    if order == 'offset':
+                        for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                                  all_kernels[species]['index']))):
+                            for ix in idx:
+                                if np.mod(ik, offset) == 0:
+                                    if ix not in selected_idx:
+                                        selected_idx.append(ix)
+                                        added.append(atoms[ix])
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                                break
+                    elif order == 'top_bottom':
+                        for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                                  all_kernels[species]['index']))):
                             for ix in idx:
                                 if ix not in selected_idx:
                                     selected_idx.append(ix)
                                     added.append(atoms[ix])
-                        else:
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2):
+                                break
+
+                        for ik, (kv, idx) in enumerate(reversed(sorted(zip(all_kernels[species]['kernel'],
+                                                                           all_kernels[species]['index'])))):
                             for ix in idx:
                                 if ix not in selected_idx:
                                     selected_idx.append(ix)
                                     added.append(atoms[ix])
                             if len(added) >= np.floor(system_count[csys] * train_split[csys]):
-                                # print('bruch @ ', ik, kv, len(added))
                                 break
-
-                    for at in added:
-                        if 'stress' in at.arrays:
-                            del at.arrays['stress']
+                    elif order == 'linear':
+                        for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                                  all_kernels[species]['index']))):
+                            if kv < 0.5:
+                                # if csys == 'fcc_AuCu':
+                                #     print(ik, kv, len(added))
+                                for ix in idx:
+                                    if ix not in selected_idx:
+                                        selected_idx.append(ix)
+                                        added.append(atoms[ix])
+                            else:
+                                for ix in idx:
+                                    if ix not in selected_idx:
+                                        selected_idx.append(ix)
+                                        added.append(atoms[ix])
+                                if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                                    # print('bruch @ ', ik, kv, len(added))
+                                    break
+                    else:
+                        raise NotImplementedError('Invalid order specified...')
 
                     if species not in suggestions:
                         suggestions[species] = {csys: added}
@@ -387,10 +397,10 @@ if select_from_soap:
         for csys in systems:
             selected_idx = []
             all_kernels = dict()
+            added = []
             for species in ['Pt']:
                 if train_split[csys] == 0.0:
                     continue
-                print('Load kernels for {}...'.format(csys))
 
                 file = io.StringIO()
                 for st in all_xyz[csys]:
@@ -398,14 +408,26 @@ if select_from_soap:
                 file.seek(0)
                 atoms = read(filename=file, format='extxyz', index=':')
 
+                if train_split[csys] == 1.0:
+                    for at in atoms:
+                        added.append(at)
+                    if species not in suggestions:
+                        suggestions[species] = {csys: added}
+                    else:
+                        suggestions[species].update({csys: added})
+                    print('selected {} xyz from {} [100%]'.format(len(added), csys))
+                    continue
+
+                print('Load kernels for {} {}...'.format(len(all_xyz[csys]), csys), end='')
+                sys.stdout.flush()
+
                 with open('soap_{}.json'.format(csys), 'r') as f:
                     all_kernels = json.load(fp=f)
 
-                added = []
                 offset = np.floor(len(atoms) / (np.floor(len(atoms) * train_split[csys])))
                 print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
                 sys.stdout.flush()
-                if new_order:
+                if order == 'offset':
                     for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
                                                               all_kernels[species]['index']))):
                         for ix in idx:
@@ -413,19 +435,27 @@ if select_from_soap:
                                 if ix not in selected_idx:
                                     selected_idx.append(ix)
                                     added.append(atoms[ix])
+                        if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            break
+                elif order == 'top_bottom':
+                    for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                              all_kernels[species]['index']))):
+                        for ix in idx:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
                         if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2):
                             break
 
                     for ik, (kv, idx) in enumerate(reversed(sorted(zip(all_kernels[species]['kernel'],
                                                                        all_kernels[species]['index'])))):
                         for ix in idx:
-                            if np.mod(ik, offset) == 0:
-                                if ix not in selected_idx:
-                                    selected_idx.append(ix)
-                                    added.append(atoms[ix])
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
                         if len(added) >= np.floor(system_count[csys] * train_split[csys]):
                             break
-                else:
+                elif order == 'linear':
                     for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
                                                               all_kernels[species]['index']))):
                         if kv < 0.5:
@@ -443,10 +473,8 @@ if select_from_soap:
                             if len(added) >= np.floor(system_count[csys] * train_split[csys]):
                                 # print('bruch @ ', ik, kv, len(added))
                                 break
-
-                for at in added:
-                    if 'stress' in at.arrays:
-                        del at.arrays['stress']
+                else:
+                    raise NotImplementedError('Invalid order specified...')
 
                 if species not in suggestions:
                     suggestions[species] = {csys: added}
@@ -477,6 +505,9 @@ if select_from_soap:
 
                 at.info['virial'] = virial
 
+                if 'stress' in at.arrays:
+                    del at.arrays['stress']
+
                 f_min = 0.1
                 f_scale = 0.1
                 f = np.clip(np.abs(at.get_forces()) * f_scale, a_min=f_min, a_max=None)
@@ -497,13 +528,10 @@ if select_from_soap:
                 for line in xyz:
                     f.write(line)
 
-
 else:
 
-    system_count = dict()
     train_selected = dict()
     for csys in systems:
-        system_count[csys] = crystal_system.count(csys)
         tmp = []
         for i in range(system_count[csys]):
             if i < system_count[csys] * train_split[csys]:
@@ -519,6 +547,8 @@ else:
     atoms = read(filename=file, format='extxyz', index=':')
 
     for ia, at in enumerate(atoms):
+        if train_split[crystal_system[ia]] == 0.0:
+            continue
         if crystal_system[ia] == 'cluster':
             stress = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
         else:
@@ -530,10 +560,16 @@ else:
         at.info['virial'] = virial
         at.info['config_type'] = crystal_system[ia]
 
+        if 'stress' in at.arrays:
+            del at.arrays['stress']
+
         f_min = 0.1
         f_scale = 0.1
         f = np.clip(np.abs(at.get_forces()) * f_scale, a_min=f_min, a_max=None)
         at.new_array("force_component_sigma", f)
+
+        mask = np.random.choice([True, False], size=len(at), p=[force_fraction, 1.-force_fraction])
+        at.new_array('force_mask', mask)
 
         file = io.StringIO()
         write(filename=file, images=at, format='extxyz', parallel=False)
@@ -542,6 +578,10 @@ else:
 
         processed[crystal_system[ia]].append(xyz)
 
+    print('\nTraining Data Contents:')
+    for pr in processed:
+        print('{}: {}'.format(pr, int(system_count[pr]*train_split[pr])))
+
     with open('train.xyz', 'a') as f:
         for csys in systems:
             for i, xyz in enumerate(processed[csys]):
@@ -549,12 +589,8 @@ else:
                     for line in xyz:
                         f.write(line)
 
-print('\nTraining Data Contents:')
-for pr in processed:
-    print('{}: {}'.format(pr, len(processed[pr])))
 
-
-if read_from_db:
+if write_test_data:
     print('\nProcessing Testing Data...')
     with open('/tmp/delme.xyz', 'w') as f:
         for xyz in complete_xyz:
@@ -572,6 +608,9 @@ if read_from_db:
             stress = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
         else:
             stress = at.get_stress(voigt=False)
+
+        if crystal_system[ia] == 'trimer':
+            continue
 
         vol = at.get_volume()
         virial = -np.dot(vol, stress)
@@ -600,90 +639,3 @@ if read_from_db:
             for xyz in processed[csys]:
                 for line in xyz:
                     f.write(line)
-
-
-# skips = 0
-# force_flag = []
-#
-# for i, xyz in enumerate(complete_xyz):
-#     tmp = ''
-#     tmp_line = []
-#     for line in xyz:
-#         tmp += line
-#         if '\n' in line:
-#             tmp_line.append(tmp)
-#             tmp = ''
-#
-#     s_pos = 0
-#     l_pos = 0
-#     s_append = False
-#     l_append = False
-#     stress = []
-#     lattice = []
-#     for ii, el in enumerate(tmp_line[1].split()):
-#         if s_append:
-#             if '"' in el:
-#                 el = el[:-1]
-#             stress.append(float(el))
-#             if ii > s_pos + 7:
-#                 s_append = False
-#         if 'stress' in el:
-#             s_pos = ii
-#             stress.append(float(el.split('"')[1]))
-#             s_append = True
-#         if l_append:
-#             if '"' in el:
-#                 el = el[:-1]
-#             lattice.append(float(el))
-#             if ii > l_pos + 7:
-#                 l_append = False
-#         if 'Lattice' in el:
-#             l_pos = ii
-#             lattice.append(float(el.split('"')[1]))
-#             l_append = True
-#
-#     if len(stress) == 0:
-#         stress = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-#
-#     stress = np.array([stress[0:3], stress[3:6], stress[6:9]])
-#     lattice = np.array([lattice[0:3], lattice[3:6], lattice[6:9]])
-#     vol = np.abs(np.dot(lattice[2], np.cross(lattice[0], lattice[1])))
-#     virial = -np.dot(vol, stress)
-#
-#     tmp_line[1] = tmp_line[1].strip() + ' config_type={}\n'.format(crystal_system[i])
-#     wtmp = ''
-#     for bit in tmp_line[1].split(' '):
-#         if 'Properties' in bit:
-#             bit += ':force_mask:L:1:force_component_sigma:R:3 '
-#             bit += 'virial="{} {} {} {} {} {} {} {} {}"'.format(
-#                 virial[0][0], virial[0][1], virial[0][2],
-#                 virial[1][0], virial[1][1], virial[1][2],
-#                 virial[2][0], virial[1][2], virial[2][2])
-#         wtmp += bit + ' '
-#     tmp_line[1] = wtmp.strip() + '\n'
-#     tmp_line[0] = tmp_line[0].strip() + '\n'
-#
-#     force_flag = np.zeros(len(tmp_line[2:]))
-#     for j in range(int(force_fraction * len(force_flag))):
-#         force_flag[j] = 1
-#     np.random.shuffle(force_flag)
-#
-#     forces = []
-#     for j in range(2, len(tmp_line)):
-#         forces.append([float(x) for x in tmp_line[j].split()[4:7]])
-#
-#     if crystal_system[i] == 'phonons' or crystal_system[i] == 'elastics':
-#         f_min = 0.01
-#         f_scale = 0.1
-#     else:
-#         f_min = 0.1
-#         f_scale = 0.1
-#     f = np.clip(np.abs(forces) * f_scale, a_min=f_min, a_max=None)
-#
-#     for j in range(2, len(tmp_line)):
-#         tmp_line[j] = tmp_line[j].strip() + '     {}  {:5.5f} {:5.5f} {:5.5f}\n'.format(int(force_flag[j - 2]),
-#                                                                                         f[j-2][0], f[j-2][1],
-#                                                                                         f[j-2][2])
-#     processed[crystal_system[i]].append(tmp_line)
-#
-#

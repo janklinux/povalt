@@ -61,14 +61,15 @@ f_max = 1.0  # maximum unscaled force
 f_scale = 0.1  # scaling when forces exceed f_max
 
 
-systems = ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu',
-           'fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au', 'cluster_Au',
-           'fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu', 'embedded_AuCu', 'cluster_AuCu']
+systems = ['fcc_CoCuNi',
+           'fcc_CuNi',
+           'fcc_CoCu',
+           'fcc_CoNi']
 
-train_split = {'fcc_Cu': 0.15, 'bcc_Cu': 0.15, 'hcp_Cu': 0.15, 'sc_Cu': 0.15, 'slab_Cu': 0.45,
-               'fcc_Au': 0.15, 'bcc_Au': 0.15, 'hcp_Au': 0.15, 'sc_Au': 0.15, 'slab_Au': 0.45, 'cluster_Au': 0.75,
-               'fcc_AuCu': 1.0, 'bcc_AuCu': 1.0, 'hcp_AuCu': 1.0, 'sc_AuCu': 1.0,
-               'embedded_AuCu': 1.0, 'cluster_AuCu': 1.0}
+train_split = {'fcc_CoCuNi': 0.15,
+               'fcc_CuNi': 0.15,
+               'fcc_CoCu': 0.15,
+               'fcc_CoNi': 0.15}
 
 # train_split = {'fcc_Cu': 0.0, 'bcc_Cu': 0.0, 'hcp_Cu': 0.0, 'sc_Cu': 0.0, 'slab_Cu': 0.0,
 #                'fcc_Au': 0.0, 'bcc_Au': 0.0, 'hcp_Au': 0.0, 'sc_Au': 0.0, 'slab_Au': 0.0, 'cluster_Au': 0.0,
@@ -86,10 +87,10 @@ if mpi_rank == 0:
                                       ssl_ca_certs=ca_file, ssl_certfile=cl_file)
         data_db = run_con.pot_train
         data_db.authenticate('jank', 'b@sf_mongo')
-        data_coll = data_db['CuAu']
+        data_coll = data_db['CuNiCo']
         complete_xyz = []
         crystal_system = []
-        print('Starting DB read for AuCu of {} entries...'.format(data_coll.estimated_document_count()))
+        print('Starting DB read for CuNiCo of {} entries...'.format(data_coll.estimated_document_count()))
         print('busy on: ', end='')
         sys.stdout.flush()
         ik = 0
@@ -113,68 +114,42 @@ if mpi_rank == 0:
             if valid:
                 complete_xyz.append(doc['data']['xyz'])
                 if 'slab' in doc['name'].lower():
-                    crystal_system.append('slab_AuCu')
+                    crystal_system.append('slab_CuNiCo')
                 elif 'cluster' in doc['name'].lower():
-                    crystal_system.append('cluster_AuCu')
+                    crystal_system.append('cluster_CuNiCo')
                 elif 'embedded' in doc['name'].lower():
-                    crystal_system.append('embedded_AuCu')
+                    crystal_system.append('embedded_CuNiCo')
                 else:
                     crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
         print('')
 
         # f_out.close()
 
-        data_coll = data_db['cuprum']
-        print('Starting DB read for Cu of {} entries...'.format(data_coll.estimated_document_count()))
-        print('busy on: ', end='')
-        sys.stdout.flush()
-        ik = 0
-        for doc in data_coll.find({}):
-            if ik % 1000 == 0:
-                print(' {:d}'.format(ik), end='')
-                sys.stdout.flush()
-            ik += 1
-
-            valid = True
-
-            if 'slab' in doc['name'].lower():
-                valid = check_vacuum_direction(doc['data']['final_structure'])
-
-            if valid:
-                complete_xyz.append(doc['data']['xyz'])
-                if 'slab' in doc['name'].lower():
-                    crystal_system.append('slab_Cu')
-                elif 'cluster' in doc['name'].lower():
-                    crystal_system.append('cluster_Cu')
-                else:
-                    crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Cu')
-        print('')
-
-        data_coll = data_db['aurum']
-        print('Starting DB read for Au of {} entries...'.format(data_coll.estimated_document_count()))
-        print('busy on: ', end='')
-        sys.stdout.flush()
-        ik = 0
-        for doc in data_coll.find({}):
-            if ik % 1000 == 0:
-                print(' {:d}'.format(ik), end='')
-                sys.stdout.flush()
-            ik += 1
-
-            valid = True
-
-            if 'slab' in doc['name'].lower():
-                valid = check_vacuum_direction(doc['data']['final_structure'])
-
-            if valid:
-                complete_xyz.append(doc['data']['xyz'])
-                if 'slab' in doc['name'].lower():
-                    crystal_system.append('slab_Au')
-                elif 'cluster' in doc['name'].lower():
-                    crystal_system.append('cluster_Au')
-                else:
-                    crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Au')
-        print('')
+        # data_coll = data_db['cuprum']
+        # print('Starting DB read for Cu of {} entries...'.format(data_coll.estimated_document_count()))
+        # print('busy on: ', end='')
+        # sys.stdout.flush()
+        # ik = 0
+        # for doc in data_coll.find({}):
+        #     if ik % 1000 == 0:
+        #         print(' {:d}'.format(ik), end='')
+        #         sys.stdout.flush()
+        #     ik += 1
+        #
+        #     valid = True
+        #
+        #     if 'slab' in doc['name'].lower():
+        #         valid = check_vacuum_direction(doc['data']['final_structure'])
+        #
+        #     if valid:
+        #         complete_xyz.append(doc['data']['xyz'])
+        #         if 'slab' in doc['name'].lower():
+        #             crystal_system.append('slab_Cu')
+        #         elif 'cluster' in doc['name'].lower():
+        #             crystal_system.append('cluster_Cu')
+        #         else:
+        #             crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Cu')
+        # print('')
 
         with open('structures.json', 'w') as f:
             json.dump(complete_xyz, f)
@@ -239,7 +214,7 @@ if select_from_soap:
                 continue
             selected_idx = []
             all_kernels = dict()
-            for ci, species in enumerate(['Cu', 'Au']):
+            for ci, species in enumerate(['Co', 'Ni', 'Cu']):
                 if species not in csys:
                     continue
                 divider = len(csys.split('_')[1])/2
@@ -255,39 +230,22 @@ if select_from_soap:
                 file.seek(0)
                 atoms = read(filename=file, format='extxyz', index=':', parallel=False)
 
-                if train_split[csys] == 1.0:
-                    if 'Cu' not in suggestions:
-                        suggestions['Cu'] = {csys: atoms}
-                    else:
-                        suggestions['Cu'].update({csys: atoms})
-                    if 'Au' not in suggestions:
-                        suggestions['Au'] = {csys: []}
-                    else:
-                        suggestions['Au'].update({csys: []})
-                    continue
-
-                if species == 'Au' and 'Cu' in csys:
-                    if len(suggestions['Cu'][csys]) >= np.floor(system_count[csys]*train_split[csys]):
-                        suggestions[species] = {csys: []}
-                    else:
-                        suggestions[species].update({csys: []})
-                    continue
-
                 added = []
-                out_string = 'CPU{} SOAP processed {} {}: Species {}...'.format(mpi_rank, len(atoms), csys, species)
+                out_string = 'CPU{} SOAP processing {} {}: Species {}...'.format(mpi_rank, len(atoms), csys, species)
 
                 q = dict()
-                d = Descriptor('soap_turbo l_max=8 alpha_max={8 8} atom_sigma_r={0.5 0.5} atom_sigma_t={0.5 0.5} '
-                               'atom_sigma_r_scaling={0. 0.} atom_sigma_t_scaling={0. 0.} rcut_hard=5.2 '
-                               'rcut_soft=4.7 basis=poly3gauss scaling_mode=polynomial amplitude_scaling={1.0 1.0} '
-                               'n_species=2 species_Z={29 79} radial_enhancement=1 compress_file=compress.dat '
-                               'central_index='+str(ci+1)+' central_weight={1.0 1.0} add_species=F')
+                d = Descriptor('soap_turbo l_max=8 alpha_max={8 8 8} atom_sigma_r={0.5 0.5 0.5} '
+                               'atom_sigma_t={0.5 0.5 0.5} atom_sigma_r_scaling={0.0 0.0 0.0} '
+                               'atom_sigma_t_scaling={0.0 0.0 0.0} rcut_hard=5.5 rcut_soft=5.0 basis=poly3gauss '
+                               'scaling_mode=polynomial amplitude_scaling={1.0 1.0 1.0} '
+                               'n_species=3 species_Z={27 28 29} radial_enhancement=1 compress_file=compress.dat '
+                               'central_index='+str(ci+1)+' central_weight={1.0 1.0 1.0} add_species=F')
 
                 num_desc = 0
                 qtmp = []
                 for at in atoms:
                     qats = ase_to_quip(at)
-                    qats.set_cutoff(cutoff=5.2)
+                    qats.set_cutoff(cutoff=6.0)
                     qats.calc_connect()
                     desc = d.calc_descriptor(qats)
                     qtmp.append(tf.constant(np.array(desc), dtype=tf.float16, shape=desc.shape))
@@ -374,7 +332,7 @@ if select_from_soap:
                 continue
             selected_idx = []
             all_kernels = dict()
-            for species in ['Cu', 'Au']:
+            for species in ['Cu', 'Ni', 'Co']:
                 if species not in csys:
                     continue
 
@@ -391,24 +349,6 @@ if select_from_soap:
 
                 out_string = 'CPU{}: processed {} {} species {}...'.format(mpi_rank, len(atoms), csys, species)
                 added = []
-
-                if train_split[csys] == 1.0:
-                    if 'Cu' not in suggestions:
-                        suggestions['Cu'] = {csys: atoms}
-                    else:
-                        suggestions['Cu'].update({csys: atoms})
-                    if 'Au' not in suggestions:
-                        suggestions['Au'] = {csys: []}
-                    else:
-                        suggestions['Au'].update({csys: []})
-                    continue
-
-                if species == 'Au' and 'Cu' in csys:
-                    if len(suggestions['Cu'][csys]) >= np.floor(system_count[csys]*train_split[csys]):
-                        suggestions[species] = {csys: []}
-                    else:
-                        suggestions[species].update({csys: []})
-                    continue
 
                 with open('soap_{}.json'.format(csys), 'r') as f:
                     all_kernels = json.load(fp=f)
@@ -497,11 +437,11 @@ if select_from_soap:
     if mpi_rank == 0:
         print('Writing training data...')
         with open('train.xyz', 'w') as f:
-            for at in ['Au', 'Cu']:
-                with open(os.path.join('../training_data/atom', at, 'parsed.xyz'), 'r') as f_in:
+            for at in ['Cu', 'Ni', 'Co']:
+                with open(os.path.join('../training_data/atoms', at, 'parsed.xyz'), 'r') as f_in:
                     f.write(f_in.read())
-            for at in ['CuCu', 'AuAu', 'CuAu']:
-                with open(os.path.join('../training_data/dimer', '{}_dimer.xyz'.format(at)), 'r') as f_in:
+            for at in ['CuCu', 'CuNi', 'CuCo', 'NiNi', 'NiCo', 'CoCo']:
+                with open(os.path.join('../training_data/dimers', '{}_dimer.xyz'.format(at)), 'r') as f_in:
                     f.write(f_in.read())
             for xyz in processed:
                 for entry in xyz:
@@ -550,11 +490,11 @@ else:
 
         print('Writing training data...')
         with open('train.xyz', 'w') as f:
-            for at in ['Au', 'Cu']:
-                with open(os.path.join('../training_data/atom', at, 'parsed.xyz'), 'r') as f_in:
+            for at in ['Cu', 'Ni', 'Co']:
+                with open(os.path.join('../training_data/atoms', at, 'parsed.xyz'), 'r') as f_in:
                     f.write(f_in.read())
-            for at in ['CuCu', 'AuAu', 'CuAu']:
-                with open(os.path.join('../training_data/dimer', '{}_dimer.xyz'.format(at)), 'r') as f_in:
+            for at in ['CuCu', 'CuNi', 'CuCo', 'NiNi', 'NiCo', 'CoCo']:
+                with open(os.path.join('../training_data/dimers', '{}_dimer.xyz'.format(at)), 'r') as f_in:
                     f.write(f_in.read())
             for xyz in processed:
                 for entry in xyz:

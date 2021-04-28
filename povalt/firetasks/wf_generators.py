@@ -22,8 +22,8 @@ import json
 import datetime
 from fireworks import Firework, Workflow, ScriptTask
 from povalt.firetasks.base import Lammps, LammpsCG, PotentialTraining, Aims
+from povalt.firetasks.FHIaims import AimsSingleBasis
 from atomate.vasp.fireworks.core import StaticFW
-from fireworks.utilities.fw_utilities import explicit_serialize
 
 
 def train_potential(train_params, for_validation, db_file):
@@ -197,11 +197,11 @@ def aims_single_basis(aims_cmd, control, structure, basis_set, basis_dir, metada
     Returns:
         The workflow for LaunchPad
     """
-    fws = Firework([AimsSingleBasis(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
-                                    basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)])
+    fws = AimsSingleBasis(aims_cmd=aims_cmd, control=control, structure=structure, basis_set=basis_set,
+                          basis_dir=basis_dir, metadata=metadata, name=name, parents=parents)
 
     wfname = "{}: {}".format('Aims single basis ', name)
-    return Workflow(fws, name=wfname, metadata=metadata)
+    return Workflow([fws], name=wfname, metadata=metadata)
 
 
 def aims_double_basis(aims_cmd, control, structure, basis_dir, metadata, name):

@@ -38,7 +38,7 @@ hall = open_halloffame(fit_input["halloffame_filename"])
 #
 
 dft_only = True
-for indiv_i in range(5):
+for indiv_i in range(1):
     checkhull(fit_input, hall, indices=[indiv_i])
 
     indiv = hall[indiv_i]
@@ -93,6 +93,10 @@ for indiv_i in range(5):
         fname = 'dft_input.png'
         plt.savefig(fname, dpi=170)
         dft_only = False
+        plt.rcParams['font.family'] = 'DejaVu Sans'
+        plt.rcParams['font.sans-serif'] = 'cm'
+        plt.xlabel(r'Parametric $\mu$', fontsize=14)
+        plt.ylabel(r'E$_f$ (eV/prim)', fontsize=14)
 
     # to plot calculated configurations predicted Ef & predicted hull
     plt.scatter(df_calc[comp_a], df_calc[clex_Ef], color='r', marker='.', label=r'clex')

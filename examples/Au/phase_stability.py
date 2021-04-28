@@ -92,19 +92,19 @@ os.chdir(base_dir)
 
 plt.rc('text', usetex=True)
 plt.rc('font', family='sans-serif', serif='Palatino')
-plt.rcParams['font.family'] = 'DejaVu Sans'
-plt.rcParams['font.sans-serif'] = 'cm'
-plt.rcParams['xtick.major.size'] = 8
-plt.rcParams['xtick.major.width'] = 3
-plt.rcParams['xtick.minor.size'] = 4
-plt.rcParams['xtick.minor.width'] = 3
-plt.rcParams['xtick.labelsize'] = 18
-plt.rcParams['ytick.major.size'] = 8
-plt.rcParams['ytick.major.width'] = 3
-plt.rcParams['ytick.minor.size'] = 4
-plt.rcParams['ytick.minor.width'] = 3
-plt.rcParams['ytick.labelsize'] = 18
-plt.rcParams['axes.linewidth'] = 3
+# plt.rcParams['font.family'] = 'DejaVu Sans'
+# plt.rcParams['font.sans-serif'] = 'cm'
+# plt.rcParams['xtick.major.size'] = 8
+# plt.rcParams['xtick.major.width'] = 3
+# plt.rcParams['xtick.minor.size'] = 4
+# plt.rcParams['xtick.minor.width'] = 3
+# plt.rcParams['xtick.labelsize'] = 18
+# plt.rcParams['ytick.major.size'] = 8
+# plt.rcParams['ytick.major.width'] = 3
+# plt.rcParams['ytick.minor.size'] = 4
+# plt.rcParams['ytick.minor.width'] = 3
+# plt.rcParams['ytick.labelsize'] = 18
+# plt.rcParams['axes.linewidth'] = 3
 
 for csys in ['fcc', 'bcc', 'sc', 'hcp']:
     plt.plot(gap_energy[csys]['lat_const'], gap_energy[csys]['energy'], '-',

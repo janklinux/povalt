@@ -395,6 +395,7 @@ class RunAimsCustodian(FiretaskBase):
         c.run()
 
 
+@explicit_serialize
 class AimsSingleBasis(Firework):
     def __init__(self, aims_cmd, control, structure, basis_set, basis_dir, metadata, name, parents=None):
 
@@ -423,6 +424,7 @@ class AimsSingleBasis(Firework):
                                               format(structure.composition.reduced_formula, name))
 
 
+@explicit_serialize
 class AimsRelaxLightTight(Firework):
     def __init__(self, aims_cmd, control, structure, basis_dir, metadata, name, parents=None):
         """

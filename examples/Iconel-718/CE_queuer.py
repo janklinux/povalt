@@ -11,7 +11,6 @@ from atomate.vasp.powerups import add_modify_incar
 
 def get_relax_wf(structure, struc_name='', name='Relax Run', vasp_input_set=None,
                  vasp_cmd=None, db_file=None, user_kpoints_settings=None, tag=None, metadata=None):
-
     if vasp_input_set is None:
         raise ValueError('INPUTSET needs to be defined...')
     if user_kpoints_settings is None:
@@ -20,16 +19,13 @@ def get_relax_wf(structure, struc_name='', name='Relax Run', vasp_input_set=None
         raise ValueError('vasp_cmd needs to be set by user...')
     if tag is None:
         tag = datetime.datetime.now().strftime('%Y/%m/%d-%T')
-
     vis = vasp_input_set
     v = vis.as_dict()
     v.update({"user_kpoints_settings": user_kpoints_settings})
     vis_static = vis.__class__.from_dict(v)
-
     fws = [OptimizeFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
                       db_file=db_file, name="{} -- static".format(tag))]
     wfname = "{}: {}".format(struc_name, name)
-
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
@@ -44,7 +40,7 @@ if crystal not in ['bcc', 'fcc', 'hcp', 'sc']:
     raise ValueError('This directory is not conform with generator settings, please correct internals...')
 
 all_files = []
-for i in [5, 6, 7, 8]:
+for i in [1, 2, 3, 4, 5, 6, 7, 8]:
     # hcp:
     # fcc: 1, 2: complete; 5, 6, 7, 8: 0.4 <= atom_frac(Ni&Cr) <= 0.5
     # bcc:
@@ -52,11 +48,12 @@ for i in [5, 6, 7, 8]:
     tmp = glob.glob('training_data/SCEL{:d}*/**/geometry.in'.format(i), recursive=True)
     all_files.extend(tmp)
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 1, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 2,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
-             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 2, 'ISMEAR': 0, 'ISPIN': 2,
+             'ALGO': 'Normal', 'AMIN': 0.1, 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
+             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.', 'LVHAR': '.FALSE.'}
 
-spin_key = {'Ni': 2, 'Cr': -2, 'Fe': 3, 'Nb': -1, 'Ta': -1, 'Mo': 1, 'Ti': 1, 'Al': -1}
+spin_key = {'Ni': 2, 'Cr': -2, 'Fe': 3, 'Nb': -2, 'Ta': -1, 'Mo': 1, 'Ti': 1, 'Al': -1}
+
 
 for file in all_files:
     s = Structure.from_file(file)

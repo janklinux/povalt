@@ -30,18 +30,15 @@ for gpu in gpus:
 np.random.seed(1410)  # fix for reproduction
 
 read_from_db = False
+write_testing_data = False
 force_fraction = 0  # percentage of forces to EXCLUDE from training
 do_soap = False
+new_order = True
 
-systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster']  # , 'cluster', 'addition']
+systems = ['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster']
 
-train_split = {'fcc': 1.0,
-               'bcc': 1.0,
-               'hcp': 1.0,
-               'sc': 1.0,
-               'slab': 1.0,
-               'cluster': 1.0,
-               'addition': 1.0}
+train_split = {'fcc': 0.5, 'bcc': 0.5, 'hcp': 0.5, 'sc': 0.5,
+               'slab': 0.75, 'cluster': 0.75}
 
 if read_from_db:
     ca_file = os.path.expanduser('~/ssl/numphys/ca.crt')
@@ -103,6 +100,15 @@ for csys in systems:
 
 print('There\'s currently {} computed structures in the database'.format(len(complete_xyz)))
 
+all_xyz = dict()
+for csys in systems:
+    tmp = []
+    for idx, st in enumerate(complete_xyz):
+        if crystal_system[idx] == csys:
+            tmp.append(st)
+    all_xyz[csys] = tmp
+
+
 # print('Including in training DB: fcc     : {:5d} [{:3.1f}%]\n'
 #       '                          bcc     : {:5d} [{:3.1f}%]\n'
 #       '                          sc      : {:5d} [{:3.1f}%]\n'
@@ -119,7 +125,7 @@ print('There\'s currently {} computed structures in the database'.format(len(com
 #              int(system_count['addition'] * train_split['addition']), train_split['addition']*100))
 
 
-processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': [], 'addition': []}
+processed = {'fcc': [], 'bcc': [], 'hcp': [], 'sc': [], 'slab': [], 'cluster': []}
 
 suggestions = dict()
 if do_soap:
@@ -133,20 +139,13 @@ if do_soap:
             print('Species {}...'.format(species), end='')
             sys.stdout.flush()
 
-            tmp = []
-            for idx, st in enumerate(complete_xyz):
-                if crystal_system[idx] != csys:
-                    continue
-                tmp.append(st)
-
-            with open('/tmp/all_{}.xyz'.format(csys), 'w') as f:
-                for st in tmp:
-                    for line in st:
-                        f.write(line)
-            atoms = read('/tmp/all_{}.xyz'.format(csys), index=':')
+            file = io.StringIO()
+            for st in all_xyz[csys]:
+                file.writelines(st)
+            file.seek(0)
+            atoms = read(filename=file, format='extxyz', index=':')
 
             q = dict()
-
             d = Descriptor('soap_turbo l_max=8 alpha_max=8 atom_sigma_r=0.5 atom_sigma_t=0.5  '
                            'atom_sigma_r_scaling=0.0 atom_sigma_t_scaling=0.0 rcut_hard=5.7 '
                            'rcut_soft=5.2 basis=poly3gauss scaling_mode=polynomial amplitude_scaling=1.0 '
@@ -188,25 +187,47 @@ if do_soap:
 
             with tf.device('/device:CPU:0'):  # .format(0)):
                 added = []
+                offset = np.floor(len(atoms) / (np.floor(len(atoms) * train_split[csys])))
                 print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
                 sys.stdout.flush()
-                for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
-                                                          all_kernels[species]['index']))):
-                    if kv < 0.5:
-                        # if csys == 'fcc_AuCu':
-                        #     print(ik, kv, len(added))
+                if new_order:
+                    for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                              all_kernels[species]['index']))):
                         for ix in idx:
-                            if ix not in selected_idx:
-                                selected_idx.append(ix)
-                                added.append(atoms[ix])
-                    else:
-                        for ix in idx:
-                            if ix not in selected_idx:
-                                selected_idx.append(ix)
-                                added.append(atoms[ix])
-                        if len(added) >= np.floor(system_count[csys] * train_split[csys]):
-                            # print('bruch @ ', ik, kv, len(added))
+                            if np.mod(ik, offset) == 0:
+                                if ix not in selected_idx:
+                                    selected_idx.append(ix)
+                                    added.append(atoms[ix])
+                        if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2):
                             break
+
+                    for ik, (kv, idx) in enumerate(reversed(sorted(zip(all_kernels[species]['kernel'],
+                                                                       all_kernels[species]['index'])))):
+                        for ix in idx:
+                            if np.mod(ik, offset) == 0:
+                                if ix not in selected_idx:
+                                    selected_idx.append(ix)
+                                    added.append(atoms[ix])
+                        if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            break
+                else:
+                    for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                              all_kernels[species]['index']))):
+                        if kv < 0.5:
+                            # if csys == 'fcc_AuCu':
+                            #     print(ik, kv, len(added))
+                            for ix in idx:
+                                if ix not in selected_idx:
+                                    selected_idx.append(ix)
+                                    added.append(atoms[ix])
+                        else:
+                            for ix in idx:
+                                if ix not in selected_idx:
+                                    selected_idx.append(ix)
+                                    added.append(atoms[ix])
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                                # print('bruch @ ', ik, kv, len(added))
+                                break
 
                 for at in added:
                     if 'stress' in at.arrays:
@@ -232,41 +253,57 @@ else:
         for species in ['Au']:
             print('Load kernels for {}...'.format(csys))
 
-            tmp = []
-            for idx, st in enumerate(complete_xyz):
-                if crystal_system[idx] != csys:
-                    continue
-                tmp.append(st)
-
-            with open('/tmp/all_{}.xyz'.format(csys), 'w') as f:
-                for st in tmp:
-                    for line in st:
-                        f.write(line)
-            atoms = read('/tmp/all_{}.xyz'.format(csys), index=':')
+            file = io.StringIO()
+            for st in all_xyz[csys]:
+                file.writelines(st)
+            file.seek(0)
+            atoms = read(filename=file, format='extxyz', index=':')
 
             with open('soap_{}.json'.format(csys), 'r') as f:
                 all_kernels = json.load(fp=f)
 
             added = []
+            offset = np.floor(len(atoms) / (np.floor(len(atoms) * train_split[csys])))
             print('{} kernels...'.format(len(all_kernels[species]['kernel'])), end='')
             sys.stdout.flush()
-            for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
-                                                      all_kernels[species]['index']))):
-                if kv < 0.5:
-                    # if csys == 'fcc_AuCu':
-                    #     print(ik, kv, len(added))
+            if new_order:
+                for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                          all_kernels[species]['index']))):
                     for ix in idx:
-                        if ix not in selected_idx:
-                            selected_idx.append(ix)
-                            added.append(atoms[ix])
-                else:
-                    for ix in idx:
-                        if ix not in selected_idx:
-                            selected_idx.append(ix)
-                            added.append(atoms[ix])
-                    if len(added) >= np.floor(system_count[csys] * train_split[csys]):
-                        # print('bruch @ ', ik, kv, len(added))
+                        if np.mod(ik, offset) == 0:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                    if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2):
                         break
+
+                for ik, (kv, idx) in enumerate(reversed(sorted(zip(all_kernels[species]['kernel'],
+                                                                   all_kernels[species]['index'])))):
+                    for ix in idx:
+                        if np.mod(ik, offset) == 0:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                    if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                        break
+            else:
+                for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
+                                                          all_kernels[species]['index']))):
+                    if kv < 0.5:
+                        # if csys == 'fcc_AuCu':
+                        #     print(ik, kv, len(added))
+                        for ix in idx:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                    else:
+                        for ix in idx:
+                            if ix not in selected_idx:
+                                selected_idx.append(ix)
+                                added.append(atoms[ix])
+                        if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            # print('bruch @ ', ik, kv, len(added))
+                            break
 
             for at in added:
                 if 'stress' in at.arrays:
@@ -311,18 +348,10 @@ for species in suggestions:
 
             processed[csys].append(xyz)
 
-# for i, xyz in enumerate(complete_xyz):
-#     xyz[1] = re.sub('bulk', crystal_system[i], xyz[1])
-#     xyz[1] = re.sub('forces:R:3', 'forces:R:3:force_mask:L:1', xyz[1])
-#
-#     force_flag = np.zeros(len(xyz[2:]))
-#     for j in range(int(force_fraction * len(force_flag))):
-#         force_flag[j] = 1
-#     np.random.shuffle(force_flag)
-#     for j in range(2, len(xyz)):
-#         xyz[j] = xyz[j].strip() + '   {}\n'.format(int(force_flag[j - 2]))
-#
-#     processed[crystal_system[i]].append(xyz)
+
+print('\nTraining Data Contents:')
+for pr in processed:
+    print('{}: {}'.format(pr, len(processed[pr])))
 
 with open('train.xyz', 'w') as f:
     with open('atom/parsed.xyz', 'r') as f_in:
@@ -336,13 +365,15 @@ with open('train.xyz', 'w') as f:
                     f.write(line)
 
 
-if read_from_db:
+if write_testing_data:
     print('\nProcessing Testing Data...')
-    with open('/tmp/delme.xyz', 'w') as f:
-        for xyz in complete_xyz:
-            for line in xyz:
-                f.write(line)
-    atoms = read('/tmp/delme.xyz', index=':')
+
+    file = io.StringIO()
+    for xyz in complete_xyz:
+        file.writelines(xyz)
+    file.seek(0)
+    atoms = read(file, format='extxyz', index=':')
+
     processed = dict()
     for csys in systems:
         processed[csys] = []

@@ -90,7 +90,6 @@ def get_differences(result, reference):
     reference_data = []
 
     for ip, res in enumerate(result['data']):
-        energy = 0
         config_type = None
         coord = []
         virial = []
@@ -104,8 +103,6 @@ def get_differences(result, reference):
             if line_count == 2:
                 bits = line.split()
                 for ii, bit in enumerate(bits):
-                    if 'free_energy' in bit:
-                        energy = float(bit.split('=')[1])
                     if 'virial' in bit:
                         virial.append(float(bits[ii].split('=')[1][1:]))
                         for v in bits[ii+1:ii+8]:
@@ -115,7 +112,7 @@ def get_differences(result, reference):
                         config_type = bit.split('=')[1]
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
-                forces.append([float(x) for x in line.split()[16:19]])
+                forces.append([float(x) for x in line.split()[-3:]])
             if line_count == n_atoms + 2:
                 line_count = 0
                 tmp = dict()
@@ -224,18 +221,18 @@ def scatterplot(result_energy, reference_energy, system_type, quip_time, max_ene
     # plt.rcParams['axes.linewidth'] = 3
 
     plt_color = {'fcc': 'y', 'bcc': 'navy', 'hcp': 'g', 'sc': 'm', 'slab': 'r', 'phonons': 'b',
-                 'addition': 'brown', 'cluster': 'green', 'trimer': 'lightgreen', 'elastics': 'lightblue'}
+                 'addition': 'brown', 'cluster': 'yellow', 'trimer': 'lightgreen', 'elastics': 'lightblue'}
 
-    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab']):
-        # , 'phonons', 'addition', 'cluster', 'trimer', 'elastics']):
+    for ip, tp in enumerate(['fcc', 'bcc', 'hcp', 'sc', 'slab', 'cluster']):
+        # , 'phonons', 'addition', 'trimer', 'elastics']):
         plt_x = []
         plt_y = []
-        plt.text(-3.25, -0.5-(ip*0.1), r'{}'.format(tp), color=plt_color[tp], fontsize=6)
         for cnt, (res, ref) in enumerate(zip(result_energy, reference_energy)):
             if system_type[cnt] == tp:
                 plt_x.append(ref)
                 plt_y.append(res)
         plt.scatter(plt_x, plt_y, marker='.', color=plt_color[tp], label=None, s=0.5)
+        plt.text(-3.25, -0.5-(ip*0.1), r'{}: {}'.format(tp, len(plt_x)), color=plt_color[tp], fontsize=6)
 
     # fcc_dft = -24.39050152 / 4
     # fcc_gap = -24.404683 / 4

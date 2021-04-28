@@ -104,7 +104,7 @@ def get_differences(result, reference):
                         virial.append(float(bits[ib+8][:-1]))
             if 2 < line_count <= n_atoms + 2:
                 coord.append([float(x) for x in line.split()[1:4]])
-                forces.append([float(x) for x in line.split()[12:15]])
+                forces.append([float(x) for x in line.split()[-3:]])
             if line_count == n_atoms + 2:
                 line_count = 0
                 tmp = dict()
@@ -179,10 +179,10 @@ def get_differences(result, reference):
         energy_diff.append(np.abs(np.abs(reference_data[i]['free_energy'] / len(result_data[i]['coords'])) -
                                   np.abs(result_data[i]['free_energy'] / len(result_data[i]['coords']))))
 
-        df = 0
+        dforce = 0
         for fa, fb in zip(np.array(result_data[i]['forces']), np.array(reference_data[i]['forces'])):
-            df += np.linalg.norm(fa - fb) / 3
-        force_diff.append(df / len(result_data[i]['forces']))
+            dforce += np.linalg.norm(fa - fb) / 3
+        force_diff.append(dforce / len(result_data[i]['forces']))
 
     return reference_per_atom, prediction_per_atom, energy_diff, force_diff, system_config
 
@@ -191,13 +191,15 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif', serif='Palatino')
 
-    plt_color = {'fcc_Au': 'y', 'bcc_Au': 'navy', 'hcp_Au': 'g', 'sc_Au': 'm', 'slab_Au': 'r',
+    plt_color = {'fcc_Au': 'y', 'bcc_Au': 'navy', 'hcp_Au': 'g', 'sc_Au': 'm', 'slab_Au': 'r', 'cluster_Au': 'b',
                  'fcc_Cu': 'y', 'bcc_Cu': 'navy', 'hcp_Cu': 'g', 'sc_Cu': 'm', 'slab_Cu': 'r',
-                 'fcc_AuCu': 'y', 'bcc_AuCu': 'navy', 'hcp_AuCu': 'g', 'sc_AuCu': 'm', 'embedded_AuCu': 'r'}
+                 'fcc_AuCu': 'y', 'bcc_AuCu': 'navy', 'hcp_AuCu': 'g', 'sc_AuCu': 'm',
+                 'embedded_AuCu': 'r', 'cluster_AuCu': 'b'}
 
-    all_list = [['fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au'],
+    all_list = [['fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au', 'cluster_Au'],
                 ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu'],
-                ['fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu', 'embedded_AuCu']]
+                ['fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu',
+                 'embedded_AuCu', 'cluster_AuCu']]
 
     ax = []
     for ispec, sub_list in enumerate(all_list):
@@ -208,22 +210,22 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
         for ip, tp in enumerate(sub_list):
             plt_x = []
             plt_y = []
-            for cnt, (res, ref, df) in enumerate(zip(result_energy, reference_energy, force_diffs)):
+            for cnt, (res, ref, dforce) in enumerate(zip(result_energy, reference_energy, force_diffs)):
                 if system_type[cnt] == tp:
                     plt_x.append(ref)
                     plt_y.append(res)
                     e_errors.append(np.abs(res - ref))
-                    f_errors.append(df)
+                    f_errors.append(dforce)
 
-            ax[ispec].text(-3.9, -0.5 - (ip * 0.3), r'{}: {}'.format(re.sub('_', '\_', tp), len(plt_x)),
+            ax[ispec].text(-4.3, -0.5 - (ip * 0.3), r'{}: {}'.format(re.sub('_', '\_', tp), len(plt_x)),
                            color=plt_color[tp], fontsize=5)
             ax[ispec].scatter(plt_x, plt_y, marker='.', color=plt_color[tp], label=None, s=0.5)
 
         ax[ispec].plot([-4.25, 0.5], [-4.25, 0.5], ':', color='k', linewidth=0.25)
-        ax[ispec].text(-3.5, -0.6, r'Max: {} eV/atom'.format(round(np.amax(e_errors), 3)), fontsize=5)
-        ax[ispec].text(-3.5, -0.9, r'Mean: {} meV/atom'.format(round(np.sum(e_errors) / len(e_errors) * 1000, 1)),
+        ax[ispec].text(-3.7, -0.0, r'Max: {} eV/atom'.format(round(np.amax(e_errors), 3)), fontsize=5)
+        ax[ispec].text(-3.7, -0.3, r'Mean: {} meV/atom'.format(round(np.sum(e_errors) / len(e_errors) * 1000, 1)),
                        fontsize=5)
-        ax[ispec].text(-3.5, -1.2, r'Mean force: {} eV/\AA'.format(round(np.sum(f_errors)/len(f_errors), 3)),
+        ax[ispec].text(-3.7, -0.6, r'Mean force: {} eV/\AA'.format(round(np.sum(f_errors)/len(f_errors), 3)),
                        fontsize=5)
 
         ax[ispec].text(-1.2, -3.0, r'structures: {}'.format(len(e_errors)), fontsize=8)
@@ -245,10 +247,9 @@ def scatterplot(result_energy, reference_energy, system_type, force_diffs, quip_
     plt.close()
 
 
-reference = parse_xyz('test.xyz')
-
-result, runtime = parse_quip('quip.result')
-eref, epred, de, df, sys_conf = get_differences(result=result, reference=reference)
+parsed_reference = parse_xyz('test.xyz')
+parsed_result, runtime = parse_quip('quip.result')
+eref, epred, de, df, sys_conf = get_differences(result=parsed_result, reference=parsed_reference)
 
 # for ie, e in enumerate(de):
 #     if e > 0.1:

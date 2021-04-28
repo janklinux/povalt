@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import io
 import re
 import os
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import read, write
@@ -346,8 +347,7 @@ class Dimer:
                                 f.write('  MAGMOM = 0.74 -0.83\n')
 
                         os.link(os.path.join(self.base_dir, 'KPOINTS'), 'KPOINTS')
-                        pots = Potcar([self.species[i], self.species[j]])
-                        pots.write_file('POTCAR')
+                        Potcar([self.species[i], self.species[j]]).write_file('POTCAR')
 
                         if self.ncl:
                             os.system('{} -n {} vasp_ncl | tee run'.format(self.mpi_cmd, self.cores))
@@ -397,6 +397,7 @@ class Dimer:
 
                 os.chdir(self.base_dir)
 
+        complete = True
         data = dict()
         for i in range(len(self.species)):
             for j in range(i, len(self.species)):
@@ -419,20 +420,22 @@ class Dimer:
                                                     .format(np.round(d, 2)))
 
                         dists.append(float(d))
-
                         run = read(os.path.join(str(np.round(d, 2)), 'vasprun.xml'))
                         if not Vasprun(os.path.join(str(np.round(d, 2)), 'vasprun.xml')).converged:
-                            print(run_dir, np.round(d, 2))
-                            print('not conv....')
-                            quit()
+                            shutil.rmtree(os.path.join(run_dir, str(np.round(d, 2))))
+                            print('{} {} not conv....removed...'.format(run_dir, np.round(d, 2)))
+                            complete = False
 
                         energies.append(run.get_potential_energy(force_consistent=True))
                         ftmp.append(run.get_forces())
 
                     data[str(self.species[i]+self.species[j])+str(fixed_spin)] = {'dist': dists, 'energy': energies,
                                                                                   'forces': ftmp}
-
                     os.chdir('..')
+
+        if not complete:
+            print('Rerun non-converged runs...')
+            quit()
 
         lowest = dict()
         for i in range(len(self.species)):
