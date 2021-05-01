@@ -7,9 +7,9 @@ import numpy as np
 import tensorflow as tf
 from mpi4py import MPI
 from ase.io import read, write
-from pymatgen import Structure
 from quippy.convert import ase_to_quip
 from quippy.descriptors import Descriptor
+from pymatgen.core.structure import Structure
 
 
 def check_vacuum_direction(input_data):
@@ -38,17 +38,18 @@ num_gpus = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
 work_gpu = 0
 gpu_map = []
 for i in range(mpi_size):
-    if i % np.floor(mpi_size/num_gpus) == 0 and i != 0:
+    if i % np.floor(mpi_size / num_gpus) == 0 and i != 0:
         work_gpu += 1
     gpu_map.append(work_gpu)
 # tf.debugging.set_log_device_placement(True)
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, enable=True)
-print('CPU {} using {}'.format(mpi_rank, gpus[gpu_map[mpi_rank]]))
+print('CPU{} using {}'.format(mpi_rank, gpus[gpu_map[mpi_rank]]))
 
 
-read_from_db = True
+read_from_db = False
+read_copper_gold = False
 write_testing_data = True
 do_soap = True
 select_from_soap = True
@@ -63,17 +64,17 @@ f_scale = 0.1  # scaling when forces exceed f_max
 
 systems = ['fcc_Cu', 'bcc_Cu', 'hcp_Cu', 'sc_Cu', 'slab_Cu',
            'fcc_Au', 'bcc_Au', 'hcp_Au', 'sc_Au', 'slab_Au', 'cluster_Au',
-           'fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu', 'embedded_AuCu', 'cluster_AuCu']
+           'fcc_AuCu', 'bcc_AuCu', 'hcp_AuCu', 'sc_AuCu', 'embedded_AuCu', 'liquid_AuCu', 'cluster_AuCu']
 
-train_split = {'fcc_Cu': 0.15, 'bcc_Cu': 0.15, 'hcp_Cu': 0.15, 'sc_Cu': 0.15, 'slab_Cu': 0.45,
-               'fcc_Au': 0.15, 'bcc_Au': 0.15, 'hcp_Au': 0.15, 'sc_Au': 0.15, 'slab_Au': 0.45, 'cluster_Au': 0.75,
-               'fcc_AuCu': 1.0, 'bcc_AuCu': 1.0, 'hcp_AuCu': 1.0, 'sc_AuCu': 1.0,
-               'embedded_AuCu': 1.0, 'cluster_AuCu': 1.0}
+# train_split = {'fcc_Cu': 0.15, 'bcc_Cu': 0.15, 'hcp_Cu': 0.15, 'sc_Cu': 0.15, 'slab_Cu': 0.45,
+#                'fcc_Au': 0.15, 'bcc_Au': 0.15, 'hcp_Au': 0.15, 'sc_Au': 0.15, 'slab_Au': 0.45, 'cluster_Au': 0.75,
+#                'fcc_AuCu': 1.0, 'bcc_AuCu': 1.0, 'hcp_AuCu': 1.0, 'sc_AuCu': 1.0,
+#                'embedded_AuCu': 1.0, 'liquid_AuCu': 1.0, 'cluster_AuCu': 1.0}
 
-# train_split = {'fcc_Cu': 0.0, 'bcc_Cu': 0.0, 'hcp_Cu': 0.0, 'sc_Cu': 0.0, 'slab_Cu': 0.0,
-#                'fcc_Au': 0.0, 'bcc_Au': 0.0, 'hcp_Au': 0.0, 'sc_Au': 0.0, 'slab_Au': 0.0, 'cluster_Au': 0.0,
-#                'fcc_AuCu': 0.0, 'bcc_AuCu': 0.0, 'hcp_AuCu': 0.0, 'sc_AuCu': 0.0,
-#                'embedded_AuCu': 0.1, 'cluster_AuCu': 0.1}
+train_split = {'fcc_Cu': 0.0, 'bcc_Cu': 0.0, 'hcp_Cu': 0.0, 'sc_Cu': 0.0, 'slab_Cu': 0.0,
+               'fcc_Au': 0.0, 'bcc_Au': 0.0, 'hcp_Au': 0.0, 'sc_Au': 0.0, 'slab_Au': 0.0, 'cluster_Au': 0.0,
+               'fcc_AuCu': 0.0, 'bcc_AuCu': 0.0, 'hcp_AuCu': 0.0, 'sc_AuCu': 0.0,
+               'embedded_AuCu': 0.0, 'liquid_AuCu': 0.3, 'cluster_AuCu': 0.0}
 
 
 complete_xyz = None
@@ -93,14 +94,14 @@ if mpi_rank == 0:
         print('busy on: ', end='')
         sys.stdout.flush()
         ik = 0
-        # f_out = open('data_dates', 'w')
+        f_out = open('data_names', 'w')
         for doc in data_coll.find({}):
             if ik % 1000 == 0:
                 print(' {:d}'.format(ik), end='')
                 sys.stdout.flush()
             ik += 1
 
-            # f_out.write(doc['name']+'\n')
+            f_out.write(doc['name']+'\n')
 
             # if 'CuAu CASM generated and relaxed structure for multiplication and rnd distortion' not in doc['name']:
             #     continue
@@ -118,63 +119,66 @@ if mpi_rank == 0:
                     crystal_system.append('cluster_AuCu')
                 elif 'embedded' in doc['name'].lower():
                     crystal_system.append('embedded_AuCu')
+                elif 'liquid' in doc['name'].lower():
+                    crystal_system.append('liquid_AuCu')
                 else:
                     crystal_system.append(doc['name'].split('||')[1].split(' ')[5])
         print('')
 
-        # f_out.close()
+        f_out.close()
 
-        data_coll = data_db['cuprum']
-        print('Starting DB read for Cu of {} entries...'.format(data_coll.estimated_document_count()))
-        print('busy on: ', end='')
-        sys.stdout.flush()
-        ik = 0
-        for doc in data_coll.find({}):
-            if ik % 1000 == 0:
-                print(' {:d}'.format(ik), end='')
-                sys.stdout.flush()
-            ik += 1
+        if read_copper_gold:
+            data_coll = data_db['cuprum']
+            print('Starting DB read for Cu of {} entries...'.format(data_coll.estimated_document_count()))
+            print('busy on: ', end='')
+            sys.stdout.flush()
+            ik = 0
+            for doc in data_coll.find({}):
+                if ik % 1000 == 0:
+                    print(' {:d}'.format(ik), end='')
+                    sys.stdout.flush()
+                ik += 1
 
-            valid = True
+                valid = True
 
-            if 'slab' in doc['name'].lower():
-                valid = check_vacuum_direction(doc['data']['final_structure'])
-
-            if valid:
-                complete_xyz.append(doc['data']['xyz'])
                 if 'slab' in doc['name'].lower():
-                    crystal_system.append('slab_Cu')
-                elif 'cluster' in doc['name'].lower():
-                    crystal_system.append('cluster_Cu')
-                else:
-                    crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Cu')
-        print('')
+                    valid = check_vacuum_direction(doc['data']['final_structure'])
 
-        data_coll = data_db['aurum']
-        print('Starting DB read for Au of {} entries...'.format(data_coll.estimated_document_count()))
-        print('busy on: ', end='')
-        sys.stdout.flush()
-        ik = 0
-        for doc in data_coll.find({}):
-            if ik % 1000 == 0:
-                print(' {:d}'.format(ik), end='')
-                sys.stdout.flush()
-            ik += 1
+                if valid:
+                    complete_xyz.append(doc['data']['xyz'])
+                    if 'slab' in doc['name'].lower():
+                        crystal_system.append('slab_Cu')
+                    elif 'cluster' in doc['name'].lower():
+                        crystal_system.append('cluster_Cu')
+                    else:
+                        crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Cu')
+            print('')
 
-            valid = True
+            data_coll = data_db['aurum']
+            print('Starting DB read for Au of {} entries...'.format(data_coll.estimated_document_count()))
+            print('busy on: ', end='')
+            sys.stdout.flush()
+            ik = 0
+            for doc in data_coll.find({}):
+                if ik % 1000 == 0:
+                    print(' {:d}'.format(ik), end='')
+                    sys.stdout.flush()
+                ik += 1
 
-            if 'slab' in doc['name'].lower():
-                valid = check_vacuum_direction(doc['data']['final_structure'])
+                valid = True
 
-            if valid:
-                complete_xyz.append(doc['data']['xyz'])
                 if 'slab' in doc['name'].lower():
-                    crystal_system.append('slab_Au')
-                elif 'cluster' in doc['name'].lower():
-                    crystal_system.append('cluster_Au')
-                else:
-                    crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Au')
-        print('')
+                    valid = check_vacuum_direction(doc['data']['final_structure'])
+
+                if valid:
+                    complete_xyz.append(doc['data']['xyz'])
+                    if 'slab' in doc['name'].lower():
+                        crystal_system.append('slab_Au')
+                    elif 'cluster' in doc['name'].lower():
+                        crystal_system.append('cluster_Au')
+                    else:
+                        crystal_system.append(doc['name'].split('||')[1].split(' ')[5]+'_Au')
+            print('')
 
         with open('structures.json', 'w') as f:
             json.dump(complete_xyz, f)
@@ -229,8 +233,6 @@ for csys in local_systems:
 if mpi_rank != 0:
     complete_xyz = []
 
-# print(mpi_rank, local_systems)
-
 suggestions = dict()
 if select_from_soap:
     if do_soap:
@@ -242,7 +244,12 @@ if select_from_soap:
             for ci, species in enumerate(['Cu', 'Au']):
                 if species not in csys:
                     continue
-                divider = len(csys.split('_')[1])/2
+                divider = 1
+                if 'AuCu' in csys:
+                    if species == 'Cu':
+                        divider = 2
+                    else:
+                        divider = 1
 
                 tmp = []
                 for idx, st in enumerate(local_xyz):
@@ -266,12 +273,12 @@ if select_from_soap:
                         suggestions['Au'].update({csys: []})
                     continue
 
-                if species == 'Au' and 'Cu' in csys:
-                    if len(suggestions['Cu'][csys]) >= np.floor(system_count[csys]*train_split[csys]):
-                        suggestions[species] = {csys: []}
-                    else:
-                        suggestions[species].update({csys: []})
-                    continue
+                # if species == 'Au' and 'Cu' in csys:
+                #     if len(suggestions['Cu'][csys]) >= np.floor(system_count[csys]*train_split[csys]):
+                #         suggestions[species] = {csys: []}
+                #     else:
+                #         suggestions[species].update({csys: []})
+                #     continue
 
                 added = []
                 out_string = 'CPU{} SOAP processed {} {}: Species {}...'.format(mpi_rank, len(atoms), csys, species)
@@ -287,7 +294,7 @@ if select_from_soap:
                 qtmp = []
                 for at in atoms:
                     qats = ase_to_quip(at)
-                    qats.set_cutoff(cutoff=5.2)
+                    qats.set_cutoff(cutoff=5.5)
                     qats.calc_connect()
                     desc = d.calc_descriptor(qats)
                     qtmp.append(tf.constant(np.array(desc), dtype=tf.float16, shape=desc.shape))
@@ -318,7 +325,7 @@ if select_from_soap:
                                     if ix not in selected_idx:
                                         selected_idx.append(ix)
                                         added.append(atoms[ix])
-                            if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys] / divider):
                                 break
                     elif order == 'top_bottom':
                         for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
@@ -327,7 +334,7 @@ if select_from_soap:
                                 if ix not in selected_idx:
                                     selected_idx.append(ix)
                                     added.append(atoms[ix])
-                            if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2):
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys] / 2 / divider):
                                 break
 
                         for ik, (kv, idx) in enumerate(reversed(sorted(zip(all_kernels[species]['kernel'],
@@ -336,7 +343,7 @@ if select_from_soap:
                                 if ix not in selected_idx:
                                     selected_idx.append(ix)
                                     added.append(atoms[ix])
-                            if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                            if len(added) >= np.floor(system_count[csys] * train_split[csys] / divider):
                                 break
                     elif order == 'linear':
                         for ik, (kv, idx) in enumerate(sorted(zip(all_kernels[species]['kernel'],
@@ -351,7 +358,7 @@ if select_from_soap:
                                     if ix not in selected_idx:
                                         selected_idx.append(ix)
                                         added.append(atoms[ix])
-                                if len(added) >= np.floor(system_count[csys] * train_split[csys]):
+                                if len(added) >= np.floor(system_count[csys] * train_split[csys] / divider):
                                     break
                     else:
                         raise NotImplementedError('Invalid order specified...')

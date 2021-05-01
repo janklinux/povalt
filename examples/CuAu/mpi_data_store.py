@@ -6,8 +6,7 @@ import pymongo
 import numpy as np
 from mpi4py import MPI
 from fireworks import LaunchPad
-from ase.io import read as aseread
-from ase.io import write as asewrite
+from ase.io import read, write
 from pymatgen.io.vasp import Vasprun
 
 
@@ -55,15 +54,12 @@ for wfid in local_list:
         raise FileNotFoundError('Are you on the right machine?\n'
                                 'Workflow directory [{}] does not exist here...'.format(ldir))
 
-    vrun = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('vasprun')])[-1])
-    ocar = os.path.join(ldir, sorted([file for file in os.listdir(ldir) if file.startswith('OUTCAR')])[-1])
+    vrun = os.path.join(ldir, 'vasprun.xml.gz')
+    ocar = os.path.join(ldir, 'OUTCAR.gz')
 
     run = Vasprun(vrun)
     if not run.converged_electronic:
         print('Run {} is NOT converged, will not be stored...'.format(wfid))
-        continue
-    if run.final_energy >= 0:
-        print('Run {} has POSITIVE ENERGY, will not be stored...'.format(wfid))
         continue
 
     with gzip.open(ocar, 'r') as f:
@@ -71,12 +67,9 @@ for wfid in local_list:
             if b'Total CPU time used (sec):' in line:
                 runtime = float(line.split()[5])
 
-    if not os.path.isfile(os.path.join(ldir, 'vasprun.xml.gz')):
-        os.link(os.path.join(ldir, vrun), os.path.join(ldir, 'vasprun.xml.gz'))  # ase workaround
-
-    atoms = aseread(os.path.join(ldir, 'vasprun.xml.gz'), parallel=False)
+    atoms = read(vrun, parallel=False)
     file = io.StringIO()
-    asewrite(filename=file, images=atoms, format='extxyz', parallel=False)
+    write(filename=file, images=atoms, format='extxyz', parallel=False)
     file.seek(0)
     xyz = file.readlines()
     file.close()
@@ -106,6 +99,5 @@ for wfid in local_list:
 
     data_coll.insert_one({'name': data_name, 'data': dft_data})
     lpad.delete_wf(wfid, delete_launch_dirs=True)
-    sys.stdout.flush()
 
 MPI.Finalize()

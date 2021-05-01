@@ -18,7 +18,6 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
         raise ValueError('vasp_cmd needs to be set by user...')
     if tag is None:
         tag = datetime.datetime.now().strftime('%Y/%m/%d-%T')
-
     vis = vasp_input_set
     v = vis.as_dict()
     v.update({"user_kpoints_settings": user_kpoints_settings})
@@ -26,15 +25,14 @@ def get_static_wf(structure, struc_name='', name='Static_run', vasp_input_set=No
     fws = [StaticFW(structure=structure, vasp_input_set=vis_static, vasp_cmd=vasp_cmd,
                     db_file=db_file, name="{} -- static".format(tag))]
     wfname = "{}: {}".format(struc_name, name)
-
     return Workflow(fws, name=wfname, metadata=metadata)
 
 
 lpad = LaunchPad(host='195.148.22.179', port=27017, name='phonon_fw', username='jank', password='mongo', ssl=False)
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 0, 'ISPIN': 1,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 200, 'LAECHG': 'False',
-             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 4, 'ISMEAR': 0, 'ISPIN': 1,
+             'ALGO': 'Normal', 'NELM': 100, 'LAECHG': '.FALSE.', 'LCHARG': '.FALSE.',
+             'LVTOT': '.FALSE.', 'LVHAR': '.FALSE.'}
 
 
 phonon_inputs = glob.glob('./**/POSCAR-*', recursive=True)
@@ -46,9 +44,11 @@ for ph_in in phonon_inputs:
     incar_set = MPStaticSet(undistorted)
     kpt_set = Kpoints.automatic_gamma_density(structure=undistorted, kppa=1200).as_dict()
     # vasp_cmd='srun --nodes=1 --ntasks=128 --ntasks-per-node=128 vasp_std',
+    # vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe '
+    #          '-n 4 vasp_std',
     static_wf = get_static_wf(structure=undistorted, struc_name=structure_name, vasp_input_set=incar_set,
-                              vasp_cmd='mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe '
-                                       '-n 4 vasp_std',
+                              vasp_cmd='srun --nodes=1 --ntasks=8 --ntasks-per-node=8 '
+                                       '--mem-per-cpu=1800 --exclusive vasp_std',
                               user_kpoints_settings=kpt_set, metadata=meta)
     run_wf = add_modify_incar(static_wf, modify_incar_params={'incar_update': incar_mod})
     lpad.add_wf(run_wf)

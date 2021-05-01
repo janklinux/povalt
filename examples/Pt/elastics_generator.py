@@ -62,9 +62,9 @@ elif crystal == 'sc':
 else:
     raise ValueError('No elastics implemented for the chosen cell...')
 
-incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 2, 'ISMEAR': 0, 'ISYM': 2, 'ISPIN': 1,
-             'ALGO': 'Normal', 'AMIN': 0.01, 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
-             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.'}
+incar_mod = {'EDIFF': 1E-5, 'ENCUT': 520, 'NCORE': 2, 'ISMEAR': 0, 'ISPIN': 1,
+             'ALGO': 'Normal', 'NELM': 60, 'LAECHG': '.FALSE.', 'LREAL': '.FALSE.',
+             'LCHARG': '.FALSE.', 'LVTOT': '.FALSE.', 'LVHAR': '.FALSE.'}
 
 
 use_epsilon = True
@@ -80,22 +80,21 @@ for ds in displacements:
     else:
         prim.lattice = Lattice(prim.lattice.matrix + np.dot(scale_mat, ds))
 
-    # new_crds = []
-    # new_species = []
-    # for s in prim.sites:
-    #     new_species.append(s.specie)
-    #     new_crds.append(np.array([(np.random.random() - 0.5) * 0.25 + s.coords[0],
-    #                               (np.random.random() - 0.5) * 0.25 + s.coords[1],
-    #                               (np.random.random() - 0.5) * 0.25 + s.coords[2]]))
+    new_crds = []
+    new_species = []
+    for s in prim.sites:
+        new_species.append(s.specie)
+        new_crds.append(np.array([(np.random.random()-0.5)*0.02+s.coords[0],
+                                  (np.random.random()-0.5)*0.02+s.coords[1],
+                                  (np.random.random()-0.5)*0.02+s.coords[2]]))
 
-    # new_cell = Structure(lattice=prim.lattice, species=new_species, coords=new_crds,
-    #                      charge=None, validate_proximity=True, to_unit_cell=False,
-    #                      coords_are_cartesian=True, site_properties=None)
+    new_cell = Structure(lattice=prim.lattice, species=new_species, coords=new_crds,
+                         charge=None, validate_proximity=True, to_unit_cell=False,
+                         coords_are_cartesian=True, site_properties=None)
 
     incar_set = MPStaticSet(prim)
     structure_name = '{} {} for elastics'.format(len(prim.sites), str(prim.symbol_set[0]))
-    meta = {'name': structure_name,
-            'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
+    meta = {'name': structure_name, 'date': datetime.datetime.now().strftime('%Y/%m/%d-%T')}
     kpt_set = Kpoints.automatic_density(structure=prim, kppa=1000).as_dict()
 
     # vasp_cmd = 'mpirun --bind-to package:report --map-by ppr:1:core:nooversubscribe -n 2 vasp_std',

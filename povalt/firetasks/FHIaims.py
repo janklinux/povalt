@@ -22,7 +22,7 @@ import gzip
 import glob
 import subprocess
 import numpy as np
-from pymatgen import Structure
+from pymatgen.core.structure import Structure
 from custodian import Custodian
 from custodian.custodian import Job
 from custodian.fhi_aims.handlers import AimsRelaxHandler, FrozenJobErrorHandler
